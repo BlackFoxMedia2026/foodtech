@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
+import { WidgetLinkCard } from "@/components/settings/widget-link-card";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,8 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <WidgetLinkCard slug={ctx.venue.slug} />
 
       <Card>
         <CardHeader>
