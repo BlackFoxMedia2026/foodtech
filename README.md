@@ -1,5 +1,14 @@
 # Tavolo · gestionale ospitalità
 
+## 🚀 Prova online in 2 minuti
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/BlackFoxMedia2026/foodtech&project-name=tavolo&repository-name=tavolo&env=NEXTAUTH_SECRET&envDescription=Stringa%20casuale%20per%20firmare%20le%20sessioni%20(qualsiasi%20testo%20lungo%20va%20bene)&stores=%5B%7B%22type%22%3A%22postgres%22%7D%5D)
+
+Clicca il pulsante sopra, Vercel crea automaticamente il database, avvia
+l'app e carica i dati demo. Login: `owner@tavolo.demo` / `tavolo2026`.
+
+---
+
 Tavolo è un MVP di webapp SaaS per ristoranti, locali, beach club e gruppi
 hospitality. Riunisce in un'unica interfaccia la gestione di prenotazioni, sala,
 CRM, esperienze, marketing e analytics.

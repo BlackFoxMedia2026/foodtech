@@ -27,12 +27,10 @@ function setTime(date: Date, h: number, m = 0) {
 }
 
 async function main() {
-  console.log("→ Pulizia tabelle demo (solo righe seed)…");
-  // Rimuove solo l'organizzazione demo, niente altro
   const existingOrg = await db.organization.findUnique({ where: { slug: "casa-aurora" } });
   if (existingOrg) {
-    await db.organization.delete({ where: { id: existingOrg.id } });
-    console.log("  vecchio seed rimosso");
+    console.log("→ Seed già presente, salto.");
+    return;
   }
 
   console.log("→ Creazione organizzazione demo…");
