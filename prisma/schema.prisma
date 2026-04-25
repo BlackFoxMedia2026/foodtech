@@ -101,6 +101,7 @@ model Venue {
   campaigns   Campaign[]
   payments    Payment[]
   blocks      TableBlock[]
+  decor       FloorDecor[]
 
   @@unique([orgId, slug])
 }
@@ -146,6 +147,7 @@ model Room {
   ordering  Int       @default(0)
   venue     Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   tables    Table[]
+  decor     FloorDecor[]
 }
 
 model Table {
@@ -157,6 +159,8 @@ model Table {
   shape     TableShape @default(ROUND)
   posX      Int       @default(0)
   posY      Int       @default(0)
+  width     Int?
+  height    Int?
   rotation  Int       @default(0)
   combinable Boolean   @default(true)
   active    Boolean   @default(true)
@@ -175,6 +179,48 @@ enum TableShape {
   RECT
   BOOTH
   LOUNGE
+}
+
+model FloorDecor {
+  id        String     @id @default(cuid())
+  venueId   String
+  roomId    String?
+  kind      DecorKind
+  label     String?
+  posX      Int        @default(0)
+  posY      Int        @default(0)
+  width     Int        @default(80)
+  height    Int        @default(80)
+  rotation  Int        @default(0)
+  color     String?
+  createdAt DateTime   @default(now())
+
+  venue     Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  room      Room?      @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([venueId])
+}
+
+enum DecorKind {
+  PLANT
+  SOFA
+  ARMCHAIR
+  BAR
+  COUNTER
+  KITCHEN
+  DJ_BOOTH
+  STAGE
+  COLUMN
+  DIVIDER
+  DOOR
+  WINDOW
+  ENTRANCE
+  RESTROOM
+  POOL
+  STAIRS
+  RUG
+  LAMP
+  LABEL
 }
 
 model TableBlock {

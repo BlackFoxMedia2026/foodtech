@@ -3,25 +3,46 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getActiveVenue } from "@/lib/tenant";
 
+const KIND = z.enum([
+  "PLANT",
+  "SOFA",
+  "ARMCHAIR",
+  "BAR",
+  "COUNTER",
+  "KITCHEN",
+  "DJ_BOOTH",
+  "STAGE",
+  "COLUMN",
+  "DIVIDER",
+  "DOOR",
+  "WINDOW",
+  "ENTRANCE",
+  "RESTROOM",
+  "POOL",
+  "STAIRS",
+  "RUG",
+  "LAMP",
+  "LABEL",
+]);
+
 const Patch = z.object({
-  label: z.string().optional(),
-  seats: z.coerce.number().int().min(1).max(40).optional(),
-  shape: z.enum(["ROUND", "SQUARE", "RECT", "BOOTH", "LOUNGE"]).optional(),
+  kind: KIND.optional(),
+  label: z.string().max(40).optional().nullable(),
   posX: z.coerce.number().int().optional(),
   posY: z.coerce.number().int().optional(),
-  width: z.coerce.number().int().min(40).max(600).nullable().optional(),
-  height: z.coerce.number().int().min(40).max(600).nullable().optional(),
+  width: z.coerce.number().int().min(20).max(800).optional(),
+  height: z.coerce.number().int().min(20).max(800).optional(),
   rotation: z.coerce.number().int().optional(),
-  active: z.boolean().optional(),
+  color: z.string().max(20).optional().nullable(),
 });
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const ctx = await getActiveVenue();
-  const existing = await db.table.findFirst({ where: { id: params.id, venueId: ctx.venueId } });
+  const existing = await db.floorDecor.findFirst({ where: { id: params.id, venueId: ctx.venueId } });
   if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
   try {
     const data = Patch.parse(await req.json());
-    const updated = await db.table.update({ where: { id: params.id }, data });
+    const updated = await db.floorDecor.update({ where: { id: params.id }, data });
     return NextResponse.json(updated);
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "invalid" }, { status: 400 });
@@ -30,8 +51,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const ctx = await getActiveVenue();
-  const existing = await db.table.findFirst({ where: { id: params.id, venueId: ctx.venueId } });
+  const existing = await db.floorDecor.findFirst({ where: { id: params.id, venueId: ctx.venueId } });
   if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  await db.table.delete({ where: { id: params.id } });
+  await db.floorDecor.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

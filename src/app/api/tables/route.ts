@@ -10,6 +10,8 @@ const Body = z.object({
   roomId: z.string().optional().nullable(),
   posX: z.coerce.number().int().default(40),
   posY: z.coerce.number().int().default(40),
+  width: z.coerce.number().int().min(40).max(600).optional(),
+  height: z.coerce.number().int().min(40).max(600).optional(),
 });
 
 export async function GET() {
