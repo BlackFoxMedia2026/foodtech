@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
+import { sendEmail } from "@/lib/email";
+import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templates";
 
 export const PublicBookingInput = z.object({
   partySize: z.coerce.number().int().min(1).max(20),
@@ -180,7 +182,47 @@ export async function createPublicBooking(slug: string, raw: unknown) {
     },
   });
 
+  void notifyBookingCreated({ guest, venue, booking });
+
   return { reference: booking.reference, venue, booking };
+}
+
+async function notifyBookingCreated(opts: {
+  guest: { firstName: string; lastName: string | null; email: string | null };
+  venue: { name: string; email: string | null; city: string | null; address: string | null; phone: string | null };
+  booking: { reference: string; partySize: number; startsAt: Date; occasion: string | null; notes: string | null };
+}) {
+  const { guest, venue, booking } = opts;
+
+  const tasks: Promise<unknown>[] = [];
+
+  if (guest.email) {
+    const tpl = renderGuestConfirmation({ guest, venue, booking });
+    tasks.push(
+      sendEmail({
+        to: { email: guest.email, name: [guest.firstName, guest.lastName].filter(Boolean).join(" ") || undefined },
+        subject: tpl.subject,
+        html: tpl.html,
+        text: tpl.text,
+        replyTo: venue.email ?? undefined,
+      }),
+    );
+  }
+
+  if (venue.email) {
+    const tpl = renderVenueNotification({ guest, venue, booking });
+    tasks.push(
+      sendEmail({
+        to: { email: venue.email, name: venue.name },
+        subject: tpl.subject,
+        html: tpl.html,
+        text: tpl.text,
+        replyTo: guest.email ?? undefined,
+      }),
+    );
+  }
+
+  await Promise.allSettled(tasks);
 }
 
 export async function getBookingByReference(slug: string, reference: string) {

@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { WidgetLinkCard } from "@/components/settings/widget-link-card";
+import { NotificationsStatusCard } from "@/components/settings/notifications-status-card";
+import { isEmailEnabled } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +81,12 @@ export default async function SettingsPage() {
       </div>
 
       <WidgetLinkCard slug={ctx.venue.slug} />
+
+      <NotificationsStatusCard
+        enabled={isEmailEnabled()}
+        fromAddress={process.env.RESEND_FROM ?? "Tavolo <noreply@tavolo.local>"}
+        venueEmail={ctx.venue.email ?? null}
+      />
 
       <Card>
         <CardHeader>
