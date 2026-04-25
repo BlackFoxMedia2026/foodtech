@@ -7,6 +7,8 @@ import { initials } from "@/lib/utils";
 import { WidgetLinkCard } from "@/components/settings/widget-link-card";
 import { NotificationsStatusCard } from "@/components/settings/notifications-status-card";
 import { PaymentsStatusCard } from "@/components/settings/payments-status-card";
+import { ShiftsEditor } from "@/components/settings/shifts-editor";
+import { listShifts } from "@/server/shifts";
 import { isEmailEnabled } from "@/lib/email";
 import { isStripeEnabled } from "@/lib/stripe";
 
@@ -28,10 +30,7 @@ export default async function SettingsPage() {
       where: { venueId: ctx.venueId },
       include: { user: true },
     }),
-    db.shift.findMany({
-      where: { venueId: ctx.venueId, weekday: 0 },
-      orderBy: { startMinute: "asc" },
-    }),
+    listShifts(ctx.venueId),
   ]);
 
   return (
@@ -100,20 +99,14 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Turni di servizio (domenica esempio)</CardTitle>
-          <CardDescription>Gestisci capienza e durata slot per ogni turno</CardDescription>
+          <CardTitle>Turni di servizio</CardTitle>
+          <CardDescription>
+            Aggiungi, modifica o disattiva i turni per ogni giorno della settimana. La pubblicazione
+            del widget e gli slot disponibili dipendono direttamente da qui.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          {shifts.map((s) => (
-            <div key={s.id} className="rounded-md border p-3 text-sm">
-              <p className="font-medium">{s.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {String(Math.floor(s.startMinute / 60)).padStart(2, "0")}:00 –{" "}
-                {String(Math.floor(s.endMinute / 60)).padStart(2, "0")}:00
-              </p>
-              <p className="mt-2 text-xs">Capienza: {s.capacity} · Slot: {s.slotMinutes}&apos;</p>
-            </div>
-          ))}
+        <CardContent>
+          <ShiftsEditor initial={shifts} />
         </CardContent>
       </Card>
     </div>
