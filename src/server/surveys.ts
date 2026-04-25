@@ -109,8 +109,10 @@ export function renderSurveyEmail(opts: {
 }
 
 export async function dispatchPostVisitSurveys() {
-  const cutoffStart = new Date(Date.now() - 6 * 60 * 60 * 1000); // 6h ago
-  const cutoffEnd = new Date(Date.now() - 1 * 60 * 60 * 1000); // 1h ago
+  // Daily cron: scan the last 24h of completed bookings.
+  // Idempotent thanks to @unique on Survey.bookingId.
+  const cutoffStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const cutoffEnd = new Date(Date.now() - 30 * 60 * 1000);
   const closed = await db.booking.findMany({
     where: {
       status: { in: ["COMPLETED"] },
