@@ -104,6 +104,7 @@ model Venue {
   decor       FloorDecor[]
   templates   MessageTemplate[]
   surveys     Survey[]
+  waitlist    WaitlistEntry[]
 
   @@unique([orgId, slug])
 }
@@ -495,6 +496,37 @@ enum CampaignStatus {
 }
 
 // ─── Pagamenti ───────────────────────────────────────────────────────────────
+
+model WaitlistEntry {
+  id            String           @id @default(cuid())
+  venueId       String
+  guestId       String?
+  guestName     String
+  phone         String?
+  email         String?
+  partySize     Int
+  expectedWaitMin Int            @default(20)
+  status        WaitlistStatus   @default(WAITING)
+  notifiedAt    DateTime?
+  seatedAt      DateTime?
+  cancelledAt   DateTime?
+  position      Int              @default(0)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  venue         Venue            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, status, createdAt])
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  SEATED
+  CANCELLED
+  NO_SHOW
+}
 
 model Survey {
   id         String           @id @default(cuid())

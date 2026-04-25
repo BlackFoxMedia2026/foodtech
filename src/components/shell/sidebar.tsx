@@ -14,6 +14,7 @@ import {
   Settings,
   Tv,
   Building2,
+  Hourglass,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ const NAV = [
   { href: "/portfolio", label: "Portfolio (multi-locale)", icon: Building2 },
   { href: "/overview", label: "Panoramica locale", icon: LayoutDashboard },
   { href: "/now", label: "Vista sala (live)", icon: Tv },
+  { href: "/waitlist", label: "Lista d'attesa", icon: Hourglass },
   { href: "/bookings", label: "Prenotazioni", icon: CalendarRange },
   { href: "/floor", label: "Sala", icon: LayoutPanelLeft },
   { href: "/guests", label: "Ospiti", icon: Users },
