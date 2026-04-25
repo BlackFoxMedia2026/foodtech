@@ -105,6 +105,8 @@ model Venue {
   templates   MessageTemplate[]
   surveys     Survey[]
   waitlist    WaitlistEntry[]
+  menuCategories MenuCategory[]
+  menuItems   MenuItem[]
 
   @@unique([orgId, slug])
 }
@@ -496,6 +498,42 @@ enum CampaignStatus {
 }
 
 // ─── Pagamenti ───────────────────────────────────────────────────────────────
+
+model MenuCategory {
+  id        String     @id @default(cuid())
+  venueId   String
+  name      String
+  ordering  Int        @default(0)
+  menuKey   String     @default("main") // "main" | "lunch" | "dinner" | "tasting" | "events" | custom
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+
+  venue     Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  items     MenuItem[]
+
+  @@index([venueId, menuKey, ordering])
+}
+
+model MenuItem {
+  id          String       @id @default(cuid())
+  categoryId  String
+  venueId     String
+  name        String
+  description String?
+  priceCents  Int          @default(0)
+  currency    String       @default("EUR")
+  available   Boolean      @default(true)
+  ordering    Int          @default(0)
+  allergens   String[]     @default([])
+  dietary     String[]     @default([])
+  imageUrl    String?
+  createdAt   DateTime     @default(now())
+
+  category    MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  venue       Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, ordering])
+}
 
 model WaitlistEntry {
   id            String           @id @default(cuid())
