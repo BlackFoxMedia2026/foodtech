@@ -4,6 +4,7 @@ import { listBookingsForDay } from "@/server/bookings";
 import { BookingsTable } from "@/components/bookings/bookings-table";
 import { NewBookingButton } from "@/components/bookings/new-booking-button";
 import { DayPicker } from "@/components/bookings/day-picker";
+import { ExportButton } from "@/components/ui/export-button";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function BookingsPage({
         </div>
         <div className="flex items-center gap-2">
           <DayPicker value={dayString} />
+          <ExportButton kind="bookings" />
           <NewBookingButton tables={tables} />
         </div>
       </header>

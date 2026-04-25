@@ -1,9 +1,10 @@
 import { db } from "@/lib/db";
-import { getActiveVenue } from "@/lib/tenant";
+import { can, getActiveVenue } from "@/lib/tenant";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/overview/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { ExportButton } from "@/components/ui/export-button";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +42,12 @@ export default async function PaymentsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Finanze</p>
-        <h1 className="text-display text-3xl">Pagamenti</h1>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Finanze</p>
+          <h1 className="text-display text-3xl">Pagamenti</h1>
+        </div>
+        {can(ctx.role, "view_revenue") && <ExportButton kind="payments" />}
       </header>
 
       <section className="grid gap-4 md:grid-cols-3">

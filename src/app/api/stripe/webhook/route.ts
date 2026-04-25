@@ -47,6 +47,12 @@ export async function POST(req: Request) {
 }
 
 async function onCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const kind = session.metadata?.kind;
+  if (kind === "TICKET") {
+    await onTicketPaid(session);
+    return;
+  }
+
   const bookingId = session.metadata?.bookingId;
   if (!bookingId) return;
 
@@ -114,6 +120,19 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session) {
 }
 
 async function onCheckoutFailed(session: Stripe.Checkout.Session) {
+  if (session.metadata?.kind === "TICKET") {
+    await db.payment.updateMany({
+      where: { stripePaymentId: session.id },
+      data: { status: "FAILED" },
+    });
+    if (session.metadata?.ticketId) {
+      await db.ticket.update({
+        where: { id: session.metadata.ticketId },
+        data: { status: "CANCELLED" },
+      }).catch(() => undefined);
+    }
+    return;
+  }
   const bookingId = session.metadata?.bookingId;
   if (!bookingId) return;
   await db.payment.updateMany({
@@ -123,5 +142,53 @@ async function onCheckoutFailed(session: Stripe.Checkout.Session) {
   await db.booking.update({
     where: { id: bookingId },
     data: { depositStatus: "FAILED" },
+  });
+}
+
+async function onTicketPaid(session: Stripe.Checkout.Session) {
+  const ticketId = session.metadata?.ticketId;
+  if (!ticketId) return;
+
+  await db.payment.updateMany({
+    where: { stripePaymentId: session.id },
+    data: { status: "SUCCEEDED" },
+  });
+
+  const ticket = await db.ticket.update({
+    where: { id: ticketId },
+    data: { status: "PAID" },
+    include: {
+      experience: {
+        include: {
+          venue: { select: { name: true, currency: true, slug: true, email: true } },
+        },
+      },
+    },
+  });
+
+  const tpl = renderGuestConfirmation({
+    guest: { firstName: ticket.buyerName.split(" ")[0] || ticket.buyerName, lastName: null },
+    venue: {
+      name: ticket.experience.venue.name,
+      city: null,
+      address: null,
+      phone: null,
+      email: ticket.experience.venue.email,
+    },
+    booking: {
+      reference: ticket.id,
+      partySize: ticket.quantity,
+      startsAt: ticket.experience.startsAt,
+      occasion: null,
+      notes: ticket.experience.title,
+    },
+  });
+
+  await sendEmail({
+    to: { email: ticket.buyerEmail, name: ticket.buyerName },
+    subject: `🎟️ ${ticket.experience.title}`,
+    html: tpl.html,
+    text: tpl.text,
+    replyTo: ticket.experience.venue.email ?? undefined,
   });
 }

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoyaltyPill } from "@/components/guests/loyalty-pill";
 import { StatusBadge } from "@/components/bookings/status-badge";
-import { getActiveVenue } from "@/lib/tenant";
+import { can, getActiveVenue } from "@/lib/tenant";
 import { getGuest } from "@/server/guests";
 import { formatCurrency, formatDate, formatDateTime, initials } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export default async function GuestDetail({ params }: { params: { id: string } }
   const ctx = await getActiveVenue();
   const g = await getGuest(ctx.venueId, params.id);
   if (!g) notFound();
+  const canSeePrivate = can(ctx.role, "view_private");
 
   const name = `${g.firstName} ${g.lastName ?? ""}`.trim();
 
@@ -67,7 +68,7 @@ export default async function GuestDetail({ params }: { params: { id: string } }
             </CardContent>
           </Card>
 
-          {g.privateNotes && (
+          {g.privateNotes && canSeePrivate && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -75,6 +76,18 @@ export default async function GuestDetail({ params }: { params: { id: string } }
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">{g.privateNotes}</CardContent>
+            </Card>
+          )}
+          {g.privateNotes && !canSeePrivate && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-muted-foreground">
+                  <ShieldAlert className="h-4 w-4" /> Note riservate
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground">
+                Visibili solo al ruolo Manager.
+              </CardContent>
             </Card>
           )}
         </div>

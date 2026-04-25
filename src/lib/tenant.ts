@@ -40,10 +40,16 @@ export async function getActiveVenue() {
   };
 }
 
-export type Ability = "manage_org" | "manage_venue" | "manage_bookings" | "view_revenue" | "edit_marketing";
+export type Ability =
+  | "manage_org"
+  | "manage_venue"
+  | "manage_bookings"
+  | "view_revenue"
+  | "edit_marketing"
+  | "view_private";
 
 const matrix: Record<StaffRole, Ability[]> = {
-  MANAGER: ["manage_venue", "manage_bookings", "view_revenue", "edit_marketing"],
+  MANAGER: ["manage_venue", "manage_bookings", "view_revenue", "edit_marketing", "view_private"],
   RECEPTION: ["manage_bookings"],
   WAITER: ["manage_bookings"],
   MARKETING: ["edit_marketing", "view_revenue"],
@@ -52,6 +58,30 @@ const matrix: Record<StaffRole, Ability[]> = {
 
 export function can(role: StaffRole, ability: Ability) {
   return matrix[role]?.includes(ability) ?? false;
+}
+
+export type GuestSanitized = {
+  privateNotes?: string | null;
+} & Record<string, unknown>;
+
+export function sanitizeGuest<T extends Record<string, unknown>>(
+  guest: T,
+  role: StaffRole,
+): T {
+  if (can(role, "view_private")) return guest;
+  if (!("privateNotes" in guest)) return guest;
+  const { privateNotes: _privateNotes, ...rest } = guest as T & { privateNotes?: unknown };
+  return rest as T;
+}
+
+export function sanitizeBooking<T extends Record<string, unknown>>(
+  booking: T,
+  role: StaffRole,
+): T {
+  if (can(role, "view_private")) return booking;
+  if (!("internalNotes" in booking)) return booking;
+  const { internalNotes: _internalNotes, ...rest } = booking as T & { internalNotes?: unknown };
+  return rest as T;
 }
 
 export function setActiveVenueCookie(venueId: string) {

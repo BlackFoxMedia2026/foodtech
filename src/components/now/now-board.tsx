@@ -16,6 +16,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { cn, formatTime } from "@/lib/utils";
+import { WalkInButton } from "@/components/now/walk-in-button";
 
 type LoyaltyTier = "NEW" | "REGULAR" | "VIP" | "AMBASSADOR";
 type BookingStatus = "PENDING" | "CONFIRMED" | "ARRIVED" | "SEATED" | "COMPLETED" | "NO_SHOW" | "CANCELLED";
@@ -132,6 +133,7 @@ export function NowBoard({
           <Stat label="Ora" value={now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} />
           <Stat label="In sala" value={`${seatsBookedNow}/${totalSeats}`} accent />
           <Stat label="Occupazione" value={`${occupancy}%`} accent={occupancy >= 70} />
+          <WalkInButton tables={tables} />
           <button
             onClick={() => startTransition(() => router.refresh())}
             disabled={pending}

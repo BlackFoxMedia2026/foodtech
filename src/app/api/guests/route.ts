@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getActiveVenue } from "@/lib/tenant";
+import { getActiveVenue, sanitizeGuest } from "@/lib/tenant";
 import { createGuest, listGuests } from "@/server/guests";
 
 export async function GET(req: Request) {
@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = url.searchParams.get("q") ?? undefined;
   const data = await listGuests(ctx.venueId, q);
-  return NextResponse.json(data);
+  return NextResponse.json(data.map((g) => sanitizeGuest(g as unknown as Record<string, unknown>, ctx.role)));
 }
 
 export async function POST(req: Request) {
