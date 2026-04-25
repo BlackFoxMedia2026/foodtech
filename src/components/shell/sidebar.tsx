@@ -12,11 +12,13 @@ import {
   CreditCard,
   LineChart,
   Settings,
+  Tv,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/overview", label: "Panoramica", icon: LayoutDashboard },
+  { href: "/now", label: "Vista sala (live)", icon: Tv },
   { href: "/bookings", label: "Prenotazioni", icon: CalendarRange },
   { href: "/floor", label: "Sala", icon: LayoutPanelLeft },
   { href: "/guests", label: "Ospiti", icon: Users },
