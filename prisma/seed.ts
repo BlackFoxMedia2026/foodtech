@@ -27,9 +27,16 @@ function setTime(date: Date, h: number, m = 0) {
 }
 
 async function main() {
-  const existingOrg = await db.organization.findUnique({ where: { slug: "casa-aurora" } });
+  const existingOrg = await db.organization.findUnique({
+    where: { slug: "casa-aurora" },
+    include: { venues: true },
+  });
   if (existingOrg) {
-    console.log("→ Seed già presente, salto.");
+    console.log("→ Org demo già presente, completo dati per i nuovi moduli…");
+    for (const venue of existingOrg.venues) {
+      await ensureDemoExtras(venue);
+    }
+    console.log("✓ Seed extras completato.");
     return;
   }
 
@@ -254,10 +261,236 @@ async function main() {
         bookedCount: 19,
       },
     });
+
+    await ensureDemoExtras(venue);
   }
 
   console.log("\n✓ Seed completato.");
   console.log("  Login demo:  owner@tavolo.demo  /  tavolo2026");
+}
+
+async function ensureDemoExtras(venue: { id: string; name: string; kind: string }) {
+  // Templates: skip if already populated
+  const tplCount = await db.messageTemplate.count({ where: { venueId: venue.id } });
+  if (tplCount === 0) {
+    await db.messageTemplate.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          name: "Benvenuto nuovo ospite",
+          channel: "EMAIL",
+          category: "WELCOME",
+          subject: "Benvenuto in {{firstName}}",
+          body: "Ciao {{firstName}},\n\ngrazie di aver scelto " + venue.name + ".\n\nA presto!",
+        },
+        {
+          venueId: venue.id,
+          name: "Recupero clienti inattivi",
+          channel: "EMAIL",
+          category: "WIN_BACK",
+          subject: "Ci manchi, {{firstName}}",
+          body: "Ciao {{firstName}},\n\nè un po' che non ci vediamo. Abbiamo qualcosa di speciale per te.",
+        },
+        {
+          venueId: venue.id,
+          name: "Auguri compleanno",
+          channel: "EMAIL",
+          category: "BIRTHDAY",
+          subject: "Buon compleanno {{firstName}}!",
+          body: "Tantissimi auguri, {{firstName}}! Ti aspettiamo per festeggiare con un brindisi offerto dalla casa.",
+        },
+        {
+          venueId: venue.id,
+          name: "SMS tavolo pronto",
+          channel: "SMS",
+          category: "REMINDER",
+          subject: null,
+          body: "Ciao {{firstName}}, il tuo tavolo presso " + venue.name + " è pronto. Ti aspettiamo all'ingresso!",
+        },
+      ],
+    });
+  }
+
+  // Menu: skip if already populated
+  const menuCount = await db.menuCategory.count({ where: { venueId: venue.id } });
+  if (menuCount === 0) {
+    const menuKey = venue.kind === "BEACH_CLUB" ? "drinks" : "main";
+    if (venue.kind === "BEACH_CLUB") {
+      const cocktails = await db.menuCategory.create({
+        data: { venueId: venue.id, name: "Signature Cocktail", menuKey, ordering: 0 },
+      });
+      const small = await db.menuCategory.create({
+        data: { venueId: venue.id, name: "Small Plates", menuKey, ordering: 1 },
+      });
+      await db.menuItem.createMany({
+        data: [
+          {
+            venueId: venue.id,
+            categoryId: cocktails.id,
+            name: "Riva Spritz",
+            description: "Aperol, prosecco di Valdobbiadene, soda, scorza d'arancia.",
+            priceCents: 1200,
+            allergens: ["SULPHITES"],
+            dietary: ["VEGAN", "GLUTEN_FREE"],
+            ordering: 0,
+          },
+          {
+            venueId: venue.id,
+            categoryId: cocktails.id,
+            name: "Negroni del Promontorio",
+            description: "Gin botanico ligure, Campari, vermut alla camomilla.",
+            priceCents: 1400,
+            allergens: ["SULPHITES"],
+            dietary: ["VEGAN"],
+            ordering: 1,
+          },
+          {
+            venueId: venue.id,
+            categoryId: small.id,
+            name: "Tartare di tonno e mango",
+            description: "Cubetti di tonno rosso, mango, lime, sesamo nero.",
+            priceCents: 1600,
+            allergens: ["FISH", "SESAME"],
+            dietary: ["GLUTEN_FREE"],
+            ordering: 0,
+          },
+          {
+            venueId: venue.id,
+            categoryId: small.id,
+            name: "Hummus della casa",
+            description: "Ceci, tahina, paprika affumicata, focaccia croccante.",
+            priceCents: 900,
+            allergens: ["GLUTEN", "SESAME"],
+            dietary: ["VEGAN"],
+            ordering: 1,
+          },
+        ],
+      });
+    } else {
+      const antipasti = await db.menuCategory.create({
+        data: { venueId: venue.id, name: "Antipasti", menuKey, ordering: 0 },
+      });
+      const primi = await db.menuCategory.create({
+        data: { venueId: venue.id, name: "Primi piatti", menuKey, ordering: 1 },
+      });
+      const secondi = await db.menuCategory.create({
+        data: { venueId: venue.id, name: "Secondi", menuKey, ordering: 2 },
+      });
+      const dolci = await db.menuCategory.create({
+        data: { venueId: venue.id, name: "Dolci", menuKey, ordering: 3 },
+      });
+      await db.menuItem.createMany({
+        data: [
+          {
+            venueId: venue.id,
+            categoryId: antipasti.id,
+            name: "Burrata di Andria con pomodorino confit",
+            description: "Burrata fresca, pomodorino confit, basilico, olio EVO.",
+            priceCents: 1400,
+            allergens: ["DAIRY"],
+            dietary: ["VEGETARIAN", "GLUTEN_FREE"],
+            ordering: 0,
+          },
+          {
+            venueId: venue.id,
+            categoryId: antipasti.id,
+            name: "Vitello tonnato",
+            description: "Sottile fesa di vitello, salsa tonnata, capperi di Pantelleria.",
+            priceCents: 1600,
+            allergens: ["FISH", "EGGS", "MUSTARD"],
+            ordering: 1,
+          },
+          {
+            venueId: venue.id,
+            categoryId: primi.id,
+            name: "Tagliolini al tartufo nero",
+            description: "Tagliolini freschi all'uovo, fonduta di parmigiano, tartufo nero.",
+            priceCents: 2200,
+            allergens: ["GLUTEN", "EGGS", "DAIRY"],
+            ordering: 0,
+          },
+          {
+            venueId: venue.id,
+            categoryId: primi.id,
+            name: "Risotto agli scampi e zafferano",
+            description: "Carnaroli mantecato, scampi marinati, polvere di lime.",
+            priceCents: 2400,
+            allergens: ["SHELLFISH", "DAIRY"],
+            dietary: ["GLUTEN_FREE"],
+            ordering: 1,
+          },
+          {
+            venueId: venue.id,
+            categoryId: secondi.id,
+            name: "Costata di fassona dry aged",
+            description: "Costata di fassona piemontese 30gg, sale Maldon, patate al rosmarino.",
+            priceCents: 3800,
+            dietary: ["GLUTEN_FREE"],
+            ordering: 0,
+          },
+          {
+            venueId: venue.id,
+            categoryId: secondi.id,
+            name: "Branzino in crosta di sale",
+            description: "Branzino dell'Adriatico, finocchi al limone, salsa al prezzemolo.",
+            priceCents: 3200,
+            allergens: ["FISH"],
+            dietary: ["GLUTEN_FREE"],
+            ordering: 1,
+          },
+          {
+            venueId: venue.id,
+            categoryId: dolci.id,
+            name: "Tiramisù della tradizione",
+            description: "Mascarpone, savoiardi imbevuti di caffè espresso, cacao amaro.",
+            priceCents: 900,
+            allergens: ["GLUTEN", "EGGS", "DAIRY"],
+            dietary: ["VEGETARIAN"],
+            ordering: 0,
+          },
+          {
+            venueId: venue.id,
+            categoryId: dolci.id,
+            name: "Sorbetto al limone della costa",
+            description: "Sorbetto artigianale al limone di Sorrento, scorza candita.",
+            priceCents: 700,
+            dietary: ["VEGAN", "GLUTEN_FREE", "LACTOSE_FREE"],
+            ordering: 1,
+          },
+        ],
+      });
+    }
+
+  }
+
+  // Waitlist: only seed if empty
+  const wlCount = await db.waitlistEntry.count({
+    where: { venueId: venue.id, status: { in: ["WAITING", "NOTIFIED"] } },
+  });
+  if (wlCount === 0) {
+    await db.waitlistEntry.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          guestName: "Famiglia Greco",
+          partySize: 4,
+          phone: "+39 333 12 34 567",
+          expectedWaitMin: 15,
+          status: "WAITING",
+          notes: "Preferiscono tavolo all'aperto se libero",
+        },
+        {
+          venueId: venue.id,
+          guestName: "Coppia Rossi",
+          partySize: 2,
+          phone: "+39 333 76 54 321",
+          email: "rossi@example.com",
+          expectedWaitMin: 25,
+          status: "WAITING",
+        },
+      ],
+    });
+  }
 }
 
 main()
