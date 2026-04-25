@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 type Slot = { time: string; available: boolean };
 
@@ -28,7 +28,21 @@ const errorMessages: Record<string, string> = {
   invalid_json: "Invio non riuscito, riprova.",
 };
 
-export function WidgetForm({ slug, venueName }: { slug: string; venueName: string }) {
+export function WidgetForm({
+  slug,
+  venueName,
+  currency,
+  depositThreshold,
+  depositPerPersonCents,
+  depositActive,
+}: {
+  slug: string;
+  venueName: string;
+  currency: string;
+  depositThreshold: number;
+  depositPerPersonCents: number;
+  depositActive: boolean;
+}) {
   const router = useRouter();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [step, setStep] = useState<1 | 2>(1);
@@ -91,7 +105,11 @@ export function WidgetForm({ slug, venueName }: { slug: string; venueName: strin
       if (body?.error === "slot_unavailable") setStep(1);
       return;
     }
-    const { reference } = await res.json();
+    const { reference, checkoutUrl } = await res.json();
+    if (checkoutUrl) {
+      window.location.assign(checkoutUrl);
+      return;
+    }
     router.push(`/b/${slug}/done?ref=${reference}`);
   }
 
@@ -182,6 +200,20 @@ export function WidgetForm({ slug, venueName }: { slug: string; venueName: strin
               </button>
             </div>
 
+            {depositActive && partySize >= depositThreshold && (
+              <div className="flex items-start gap-3 rounded-md border border-gilt/40 bg-gilt/5 px-3 py-3 text-sm">
+                <span className="mt-0.5 text-gilt-dark">💳</span>
+                <div>
+                  <p className="font-medium">Caparra richiesta</p>
+                  <p className="text-xs text-muted-foreground">
+                    Per gruppi da {depositThreshold}+ persone è richiesta una caparra di{" "}
+                    {formatCurrency(depositPerPersonCents * partySize, currency)} ({formatCurrency(depositPerPersonCents, currency)} a persona).
+                    Verrai indirizzato al pagamento sicuro al click su Conferma.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="firstName">Nome</Label>
@@ -239,7 +271,11 @@ export function WidgetForm({ slug, venueName }: { slug: string; venueName: strin
                 Indietro
               </Button>
               <Button type="submit" variant="gold" disabled={submitting}>
-                {submitting ? "Invio…" : "Conferma prenotazione"}
+                {submitting
+                  ? "Invio…"
+                  : depositActive && partySize >= depositThreshold
+                    ? `Vai al pagamento · ${formatCurrency(depositPerPersonCents * partySize, currency)}`
+                    : "Conferma prenotazione"}
               </Button>
             </div>
           </form>

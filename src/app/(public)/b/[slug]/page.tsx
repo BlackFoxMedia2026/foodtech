@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { MapPin, Phone } from "lucide-react";
 import { getPublicVenue } from "@/server/widget";
 import { WidgetForm } from "@/components/widget/widget-form";
+import { isStripeEnabled } from "@/lib/stripe";
+import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,22 @@ export default async function PublicBookingPage({ params }: { params: { slug: st
         </div>
       </section>
 
-      <WidgetForm slug={venue.slug} venueName={venue.name} />
+      <WidgetForm
+        slug={venue.slug}
+        venueName={venue.name}
+        currency={venue.currency}
+        depositThreshold={venue.depositThreshold}
+        depositPerPersonCents={venue.depositPerPersonCents}
+        depositActive={isStripeEnabled()}
+      />
+
+      {isStripeEnabled() && (
+        <p className="-mt-4 text-xs text-muted-foreground">
+          Per gruppi da {venue.depositThreshold}+ persone è richiesta una caparra di{" "}
+          {formatCurrency(venue.depositPerPersonCents, venue.currency)} a persona, addebitata in modo
+          sicuro al momento della conferma.
+        </p>
+      )}
 
       <footer className="mt-auto pt-8 text-xs text-muted-foreground">
         Powered by <span className="font-medium text-foreground">Tavolo</span> · prenotazione sicura

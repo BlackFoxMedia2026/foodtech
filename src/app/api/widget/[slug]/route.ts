@@ -16,8 +16,8 @@ export async function POST(
   }
 
   try {
-    const { reference } = await createPublicBooking(params.slug, payload);
-    return NextResponse.json({ reference });
+    const { reference, checkoutUrl } = await createPublicBooking(params.slug, payload);
+    return NextResponse.json({ reference, checkoutUrl });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "invalid_input", details: err.issues }, { status: 400 });

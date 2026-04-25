@@ -86,6 +86,8 @@ model Venue {
   email       String?
   coverImage  String?
   active      Boolean            @default(true)
+  depositThreshold     Int       @default(8)
+  depositPerPersonCents Int      @default(2000)
   createdAt   DateTime           @default(now())
 
   org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)

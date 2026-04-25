@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templates";
+import { planDeposit, stripe } from "@/lib/stripe";
 
 export const PublicBookingInput = z.object({
   partySize: z.coerce.number().int().min(1).max(20),
@@ -37,6 +38,8 @@ export async function getPublicVenue(slug: string) {
       coverImage: true,
       timezone: true,
       currency: true,
+      depositThreshold: true,
+      depositPerPersonCents: true,
     },
   });
 }
@@ -168,6 +171,12 @@ export async function createPublicBooking(slug: string, raw: unknown) {
       },
     }));
 
+  const deposit = planDeposit({
+    partySize: data.partySize,
+    threshold: venue.depositThreshold,
+    perPersonCents: venue.depositPerPersonCents,
+  });
+
   const booking = await db.booking.create({
     data: {
       venueId: venue.id,
@@ -179,12 +188,82 @@ export async function createPublicBooking(slug: string, raw: unknown) {
       source: "WIDGET",
       occasion: data.occasion ?? null,
       notes: data.notes ?? null,
+      depositCents: deposit.required ? deposit.amountCents : 0,
+      depositStatus: deposit.required ? "NONE" : "NONE",
     },
   });
 
-  void notifyBookingCreated({ guest, venue, booking });
+  let checkoutUrl: string | null = null;
+  if (deposit.required) {
+    checkoutUrl = await createDepositCheckout({
+      venue,
+      guest: { email: guest.email, name: [guest.firstName, guest.lastName].filter(Boolean).join(" ") },
+      booking,
+      amountCents: deposit.amountCents,
+    });
+  }
 
-  return { reference: booking.reference, venue, booking };
+  if (!deposit.required) {
+    void notifyBookingCreated({ guest, venue, booking });
+  }
+
+  return { reference: booking.reference, venue, booking, checkoutUrl };
+}
+
+async function createDepositCheckout(opts: {
+  venue: { id: string; name: string; slug: string; currency: string };
+  guest: { email: string | null; name: string };
+  booking: { id: string; reference: string; partySize: number; startsAt: Date };
+  amountCents: number;
+}) {
+  const s = stripe();
+  if (!s) return null;
+  const baseUrl = process.env.NEXTAUTH_URL || `https://${process.env.VERCEL_URL || "localhost:3000"}`;
+  try {
+    const session = await s.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer_email: opts.guest.email ?? undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: opts.venue.currency.toLowerCase(),
+            unit_amount: opts.amountCents,
+            product_data: {
+              name: `Caparra prenotazione · ${opts.venue.name}`,
+              description: `${opts.booking.partySize} persone · ${opts.booking.startsAt.toISOString()}`,
+            },
+          },
+        },
+      ],
+      metadata: {
+        bookingId: opts.booking.id,
+        venueId: opts.venue.id,
+        venueSlug: opts.venue.slug,
+        reference: opts.booking.reference,
+      },
+      success_url: `${baseUrl}/b/${opts.venue.slug}/done?ref=${opts.booking.reference}&paid=1`,
+      cancel_url: `${baseUrl}/b/${opts.venue.slug}/done?ref=${opts.booking.reference}&paid=0`,
+    });
+
+    await db.payment.create({
+      data: {
+        venueId: opts.venue.id,
+        bookingId: opts.booking.id,
+        amountCents: opts.amountCents,
+        currency: opts.venue.currency,
+        kind: "DEPOSIT",
+        status: "PENDING",
+        stripePaymentId: session.id,
+      },
+    });
+
+    return session.url ?? null;
+  } catch (err) {
+    console.error("[stripe:checkout] failed", err);
+    return null;
+  }
 }
 
 async function notifyBookingCreated(opts: {
