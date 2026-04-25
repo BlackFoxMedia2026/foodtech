@@ -45,7 +45,7 @@ export async function listBookingsForDay(venueId: string, day: Date) {
   return listBookings(venueId, { from: startOfDay(day), to: endOfDay(day) });
 }
 
-export async function createBooking(venueId: string, raw: unknown) {
+export async function createBooking(venueId: string, raw: unknown, opts?: { actorId?: string }) {
   const data = BookingInput.parse(raw);
 
   let guestId = data.guestId ?? null;
@@ -62,7 +62,7 @@ export async function createBooking(venueId: string, raw: unknown) {
     guestId = created.id;
   }
 
-  return db.booking.create({
+  const created = await db.booking.create({
     data: {
       venueId,
       guestId,
@@ -79,14 +79,25 @@ export async function createBooking(venueId: string, raw: unknown) {
     },
     include: { guest: true, table: true },
   });
+
+  await db.bookingEvent.create({
+    data: {
+      bookingId: created.id,
+      kind: "CREATED",
+      message: `Prenotazione creata via ${data.source}`,
+      actorId: opts?.actorId ?? null,
+    },
+  });
+
+  return created;
 }
 
-export async function updateBooking(venueId: string, id: string, raw: unknown) {
+export async function updateBooking(venueId: string, id: string, raw: unknown, opts?: { actorId?: string }) {
   const data = BookingInput.partial().parse(raw);
   const existing = await db.booking.findFirst({ where: { id, venueId } });
   if (!existing) throw new Error("not_found");
 
-  return db.booking.update({
+  const updated = await db.booking.update({
     where: { id },
     data: {
       partySize: data.partySize ?? undefined,
@@ -107,6 +118,30 @@ export async function updateBooking(venueId: string, id: string, raw: unknown) {
     },
     include: { guest: true, table: true },
   });
+
+  const events: { kind: "STATUS_CHANGED" | "TABLE_CHANGED" | "TIME_CHANGED" | "PARTY_CHANGED" | "NOTES_UPDATED"; message: string }[] = [];
+  if (data.status !== undefined && data.status !== existing.status) {
+    events.push({ kind: "STATUS_CHANGED", message: `${existing.status} → ${data.status}` });
+  }
+  if (data.tableId !== undefined && (data.tableId ?? null) !== existing.tableId) {
+    events.push({ kind: "TABLE_CHANGED", message: data.tableId ? `Tavolo assegnato` : `Tavolo rimosso` });
+  }
+  if (data.startsAt !== undefined && data.startsAt.getTime() !== existing.startsAt.getTime()) {
+    events.push({ kind: "TIME_CHANGED", message: `${existing.startsAt.toISOString()} → ${data.startsAt.toISOString()}` });
+  }
+  if (data.partySize !== undefined && data.partySize !== existing.partySize) {
+    events.push({ kind: "PARTY_CHANGED", message: `${existing.partySize} → ${data.partySize}` });
+  }
+  if (data.notes !== undefined && (data.notes ?? null) !== existing.notes) {
+    events.push({ kind: "NOTES_UPDATED", message: "Note aggiornate" });
+  }
+  if (events.length) {
+    await db.bookingEvent.createMany({
+      data: events.map((e) => ({ ...e, bookingId: id, actorId: opts?.actorId ?? null })),
+    });
+  }
+
+  return updated;
 }
 
 export async function deleteBooking(venueId: string, id: string) {

@@ -6,6 +6,7 @@ import { Megaphone } from "lucide-react";
 import { CampaignDialog } from "@/components/campaigns/campaign-dialog";
 import { isEmailEnabled } from "@/lib/email";
 import { formatDateTime } from "@/lib/utils";
+import { listTemplates } from "@/server/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,19 @@ const STATUS_TONE = {
 
 export default async function CampaignsPage() {
   const ctx = await getActiveVenue();
-  const items = await db.campaign.findMany({
-    where: { venueId: ctx.venueId },
-    orderBy: { createdAt: "desc" },
-  });
+  const [items, templates] = await Promise.all([
+    db.campaign.findMany({ where: { venueId: ctx.venueId }, orderBy: { createdAt: "desc" } }),
+    listTemplates(ctx.venueId),
+  ]);
   const canEdit = can(ctx.role, "edit_marketing");
   const emailEnabled = isEmailEnabled();
+  const tplOptions = templates.map((t) => ({
+    id: t.id,
+    name: t.name,
+    channel: t.channel,
+    subject: t.subject,
+    body: t.body,
+  }));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -41,7 +49,7 @@ export default async function CampaignsPage() {
             {items.length} campagne · {items.filter((c) => c.status === "SENT").length} inviate
           </p>
         </div>
-        {canEdit && <CampaignDialog emailEnabled={emailEnabled} />}
+        {canEdit && <CampaignDialog emailEnabled={emailEnabled} templates={tplOptions} />}
       </header>
 
       {!emailEnabled && (
@@ -69,6 +77,7 @@ export default async function CampaignsPage() {
                   {canEdit && (
                     <CampaignDialog
                       emailEnabled={emailEnabled}
+                      templates={tplOptions}
                       initial={{
                         id: c.id,
                         name: c.name,

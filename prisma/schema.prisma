@@ -102,6 +102,7 @@ model Venue {
   payments    Payment[]
   blocks      TableBlock[]
   decor       FloorDecor[]
+  templates   MessageTemplate[]
 
   @@unique([orgId, slug])
 }
@@ -317,9 +318,38 @@ model Booking {
   guest         Guest?         @relation(fields: [guestId], references: [id], onDelete: SetNull)
   table         Table?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
   payments      Payment[]
+  events        BookingEvent[]
 
   @@index([venueId, startsAt])
   @@index([venueId, status])
+}
+
+model BookingEvent {
+  id        String           @id @default(cuid())
+  bookingId String
+  kind      BookingEventKind
+  message   String?
+  meta      Json?
+  actorId   String?
+  createdAt DateTime         @default(now())
+
+  booking   Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+}
+
+enum BookingEventKind {
+  CREATED
+  STATUS_CHANGED
+  TABLE_CHANGED
+  TIME_CHANGED
+  PARTY_CHANGED
+  NOTES_UPDATED
+  DEPOSIT_PAID
+  DEPOSIT_FAILED
+  REMINDER_SENT
+  CONFIRMATION_SENT
+  CANCELLED
 }
 
 enum BookingStatus {
@@ -425,6 +455,35 @@ enum CampaignChannel {
   EMAIL
   SMS
   WHATSAPP
+}
+
+model MessageTemplate {
+  id         String          @id @default(cuid())
+  venueId    String
+  name       String
+  channel    CampaignChannel @default(EMAIL)
+  subject    String?
+  body       String
+  category   TemplateCategory @default(GENERIC)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, name])
+  @@index([venueId, category])
+}
+
+enum TemplateCategory {
+  GENERIC
+  WELCOME
+  REMINDER
+  THANK_YOU
+  PROMO
+  WIN_BACK
+  BIRTHDAY
+  ANNIVERSARY
+  EVENT
 }
 
 enum CampaignStatus {

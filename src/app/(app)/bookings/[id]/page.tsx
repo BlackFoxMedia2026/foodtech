@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, SourceBadge } from "@/components/bookings/status-badge";
 import { BookingActions } from "@/components/bookings/booking-actions";
+import { BookingTimeline } from "@/components/bookings/booking-timeline";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -152,6 +153,8 @@ export default async function BookingDetail({ params }: { params: { id: string }
           </CardContent>
         </Card>
       )}
+
+      <BookingTimeline bookingId={item.id} />
 
       {item.payments.length > 0 && (
         <Card>

@@ -33,12 +33,22 @@ type Initial = {
 
 const TIERS: LoyaltyTier[] = ["NEW", "REGULAR", "VIP", "AMBASSADOR"];
 
+type TemplateOption = {
+  id: string;
+  name: string;
+  channel: Channel;
+  subject: string | null;
+  body: string;
+};
+
 export function CampaignDialog({
   initial,
   emailEnabled,
+  templates = [],
 }: {
   initial?: Initial;
   emailEnabled: boolean;
+  templates?: TemplateOption[];
 }) {
   const router = useRouter();
   const editing = Boolean(initial?.id);
@@ -194,6 +204,30 @@ export function CampaignDialog({
               <option value="WHATSAPP">WhatsApp (presto)</option>
             </select>
           </div>
+          {templates.length > 0 && !sent && (
+            <div className="space-y-1.5 sm:col-span-3">
+              <Label htmlFor="cmp-tpl">Template (opzionale)</Label>
+              <select
+                id="cmp-tpl"
+                onChange={(e) => {
+                  const tpl = templates.find((t) => t.id === e.target.value);
+                  if (!tpl) return;
+                  setSubject(tpl.subject ?? "");
+                  setBody(tpl.body);
+                  setChannel(tpl.channel);
+                }}
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                defaultValue=""
+              >
+                <option value="">— inserisci da template —</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {t.channel}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-1.5 sm:col-span-3">
             <Label htmlFor="cmp-subject">Oggetto</Label>
             <Input

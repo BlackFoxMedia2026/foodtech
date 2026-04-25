@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getActiveVenue } from "@/lib/tenant";
+import { can, getActiveVenue } from "@/lib/tenant";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -8,7 +8,9 @@ import { WidgetLinkCard } from "@/components/settings/widget-link-card";
 import { NotificationsStatusCard } from "@/components/settings/notifications-status-card";
 import { PaymentsStatusCard } from "@/components/settings/payments-status-card";
 import { ShiftsEditor } from "@/components/settings/shifts-editor";
+import { TemplatesCard } from "@/components/settings/templates-card";
 import { listShifts } from "@/server/shifts";
+import { listTemplates } from "@/server/templates";
 import { isEmailEnabled } from "@/lib/email";
 import { isStripeEnabled } from "@/lib/stripe";
 
@@ -24,14 +26,16 @@ const ROLE_LABELS = {
 
 export default async function SettingsPage() {
   const ctx = await getActiveVenue();
-  const [venues, members, shifts] = await Promise.all([
+  const [venues, members, shifts, templates] = await Promise.all([
     db.venue.findMany({ where: { orgId: ctx.orgId }, orderBy: { name: "asc" } }),
     db.venueMembership.findMany({
       where: { venueId: ctx.venueId },
       include: { user: true },
     }),
     listShifts(ctx.venueId),
+    listTemplates(ctx.venueId),
   ]);
+  const canEditMarketing = can(ctx.role, "edit_marketing");
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -96,6 +100,8 @@ export default async function SettingsPage() {
         perPersonCents={ctx.venue.depositPerPersonCents}
         currency={ctx.venue.currency}
       />
+
+      <TemplatesCard initial={templates} canEdit={canEditMarketing} />
 
       <Card>
         <CardHeader>

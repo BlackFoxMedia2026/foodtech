@@ -28,7 +28,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!can(ctx.role, "view_private") && body && typeof body === "object" && "internalNotes" in body) {
       delete (body as Record<string, unknown>).internalNotes;
     }
-    const updated = await updateBooking(ctx.venueId, params.id, body);
+    const updated = await updateBooking(ctx.venueId, params.id, body, { actorId: ctx.userId });
     return NextResponse.json(clean(updated as unknown as Record<string, unknown>, ctx.role));
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "invalid" }, { status: 400 });
