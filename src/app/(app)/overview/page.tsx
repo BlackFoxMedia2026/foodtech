@@ -2,8 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StatCard } from "@/components/overview/stat-card";
 import { WeekTrend } from "@/components/overview/week-trend";
 import { TodayTimeline } from "@/components/overview/today-timeline";
+import { AIBrief } from "@/components/overview/ai-brief";
 import { getActiveVenue } from "@/lib/tenant";
 import { getOverview } from "@/server/insights";
+import { generateDailyBrief } from "@/lib/ai";
 import { formatCurrency } from "@/lib/utils";
 import { AlertTriangle, Sparkles, Info } from "lucide-react";
 
@@ -11,7 +13,10 @@ export const dynamic = "force-dynamic";
 
 export default async function OverviewPage() {
   const ctx = await getActiveVenue();
-  const data = await getOverview(ctx.venueId);
+  const [data, brief] = await Promise.all([
+    getOverview(ctx.venueId),
+    generateDailyBrief(ctx.venueId),
+  ]);
 
   const today = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
 
@@ -24,6 +29,8 @@ export default async function OverviewPage() {
           <p className="text-sm text-muted-foreground capitalize">{today}</p>
         </div>
       </header>
+
+      <AIBrief summary={brief.summary} suggestions={brief.suggestions} generatedBy={brief.generatedBy} />
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard

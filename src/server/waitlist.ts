@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { sendMessage } from "@/lib/messaging";
 
 export const WaitlistInput = z.object({
   guestName: z.string().min(1).max(80),
@@ -88,18 +89,22 @@ export async function notifyTableReady(venueId: string, id: string) {
     include: { venue: { select: { name: true, email: true } } },
   });
   if (!entry) throw new Error("not_found");
+  const text = `${entry.guestName.split(" ")[0]}, il tuo tavolo presso ${entry.venue.name} è pronto. Ti aspettiamo!`;
   if (entry.email) {
     const html = `<!doctype html><html lang="it"><body style="margin:0;background:#f7f4ec;font-family:-apple-system,sans-serif;color:#15161a"><table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px"><tr><td align="center"><table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e8e1cf;border-radius:14px"><tr><td style="padding:28px"><p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">Tavolo pronto</p><h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:24px">È il tuo turno, ${escapeHtml(entry.guestName.split(" ")[0])}!</h1><p style="margin:0 0 16px;font-size:15px;line-height:1.55">Il tuo tavolo presso <strong>${escapeHtml(entry.venue.name)}</strong> è pronto. Ti aspettiamo all'ingresso.</p></td></tr></table></td></tr></table></body></html>`;
     await sendEmail({
       to: { email: entry.email, name: entry.guestName },
       subject: `${entry.venue.name} · il tuo tavolo è pronto`,
       html,
-      text: `${entry.guestName.split(" ")[0]}, il tuo tavolo presso ${entry.venue.name} è pronto. Ti aspettiamo!`,
+      text,
       replyTo: entry.venue.email ?? undefined,
     });
-  } else {
+  }
+  if (entry.phone) {
+    await sendMessage({ to: entry.phone, body: text, channel: "SMS" });
+  } else if (!entry.email) {
     console.log(
-      `[waitlist:noop] would notify ${entry.guestName} (no email/sms set) at ${entry.venue.name}`,
+      `[waitlist:noop] would notify ${entry.guestName} (no email/phone) at ${entry.venue.name}`,
     );
   }
   return updateWaitlistEntry(venueId, id, { status: "NOTIFIED" });

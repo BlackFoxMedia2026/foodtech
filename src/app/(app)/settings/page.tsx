@@ -9,10 +9,13 @@ import { NotificationsStatusCard } from "@/components/settings/notifications-sta
 import { PaymentsStatusCard } from "@/components/settings/payments-status-card";
 import { ShiftsEditor } from "@/components/settings/shifts-editor";
 import { TemplatesCard } from "@/components/settings/templates-card";
+import { IntegrationsCard } from "@/components/settings/integrations-card";
 import { listShifts } from "@/server/shifts";
 import { listTemplates } from "@/server/templates";
 import { isEmailEnabled } from "@/lib/email";
 import { isStripeEnabled } from "@/lib/stripe";
+import { isMessagingEnabled, whichMessagingProvider } from "@/lib/messaging";
+import { isAIEnabled, whichAIProvider } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +103,19 @@ export default async function SettingsPage() {
         perPersonCents={ctx.venue.depositPerPersonCents}
         currency={ctx.venue.currency}
       />
+
+      <IntegrationsCard
+        twilio={{
+          enabled: isMessagingEnabled(),
+          smsFrom: process.env.TWILIO_FROM_SMS ?? null,
+          waFrom: process.env.TWILIO_FROM_WHATSAPP ?? null,
+        }}
+        ai={{
+          enabled: isAIEnabled(),
+          provider: whichAIProvider(),
+        }}
+      />
+      <span className="hidden">{whichMessagingProvider()}</span>
 
       <TemplatesCard initial={templates} canEdit={canEditMarketing} />
 
