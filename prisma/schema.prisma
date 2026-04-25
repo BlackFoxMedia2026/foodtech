@@ -103,6 +103,7 @@ model Venue {
   blocks      TableBlock[]
   decor       FloorDecor[]
   templates   MessageTemplate[]
+  surveys     Survey[]
 
   @@unique([orgId, slug])
 }
@@ -494,6 +495,41 @@ enum CampaignStatus {
 }
 
 // ─── Pagamenti ───────────────────────────────────────────────────────────────
+
+model Survey {
+  id         String           @id @default(cuid())
+  token      String           @unique @default(cuid())
+  venueId    String
+  bookingId  String?          @unique
+  guestId    String?
+  sentAt     DateTime         @default(now())
+  respondedAt DateTime?
+
+  venue      Venue            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  response   SurveyResponse?
+
+  @@index([venueId, sentAt])
+}
+
+model SurveyResponse {
+  id         String       @id @default(cuid())
+  surveyId   String       @unique
+  npsScore   Int          // 0..10
+  sentiment  Sentiment
+  comment    String?
+  recommend  Boolean?
+  createdAt  DateTime     @default(now())
+
+  survey     Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+enum Sentiment {
+  PROMOTER
+  PASSIVE
+  DETRACTOR
+}
 
 model Payment {
   id              String        @id @default(cuid())

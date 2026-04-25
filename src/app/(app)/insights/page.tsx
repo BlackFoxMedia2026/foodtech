@@ -1,15 +1,21 @@
+import Link from "next/link";
+import { ArrowUpRight, MessageCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/overview/stat-card";
 import { SlotChart, SourcesChart } from "@/components/insights/charts";
 import { getActiveVenue } from "@/lib/tenant";
 import { getAnalytics } from "@/server/analytics";
+import { feedbackStats } from "@/server/surveys";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function InsightsPage() {
   const ctx = await getActiveVenue();
-  const a = await getAnalytics(ctx.venueId);
+  const [a, fb] = await Promise.all([
+    getAnalytics(ctx.venueId),
+    feedbackStats(ctx.venueId),
+  ]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -43,6 +49,28 @@ export default async function InsightsPage() {
         </Card>
       </section>
 
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" /> Sondaggi post-visita
+            </CardTitle>
+            <CardDescription>{fb.total} risposte raccolte</CardDescription>
+          </div>
+          <Link
+            href="/insights/feedback"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Apri dashboard <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </CardHeader>
+        <CardContent className="grid grid-cols-3 gap-3 text-sm">
+          <Stat label="NPS" value={String(fb.nps)} highlight />
+          <Stat label="Promotori" value={String(fb.promoter)} />
+          <Stat label="Detrattori" value={String(fb.detractor)} />
+        </CardContent>
+      </Card>
+
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -65,6 +93,15 @@ export default async function InsightsPage() {
           </CardContent>
         </Card>
       </section>
+    </div>
+  );
+}
+
+function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="rounded-md border p-3">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-display text-2xl ${highlight ? "text-gilt-dark" : ""}`}>{value}</p>
     </div>
   );
 }
