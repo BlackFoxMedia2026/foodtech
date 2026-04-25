@@ -13,11 +13,13 @@ import {
   LineChart,
   Settings,
   Tv,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/overview", label: "Panoramica", icon: LayoutDashboard },
+  { href: "/portfolio", label: "Portfolio (multi-locale)", icon: Building2 },
+  { href: "/overview", label: "Panoramica locale", icon: LayoutDashboard },
   { href: "/now", label: "Vista sala (live)", icon: Tv },
   { href: "/bookings", label: "Prenotazioni", icon: CalendarRange },
   { href: "/floor", label: "Sala", icon: LayoutPanelLeft },
