@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { renderReminder } from "@/emails/templates";
+import { scanScheduledTriggers } from "@/server/automations";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,11 +27,15 @@ export async function GET(req: Request) {
   const tomorrow = await dispatchH24(now);
   const previsit = await dispatchH2(now);
   const birthdays = await dispatchBirthdays(now);
+  await scanScheduledTriggers().catch((e) => {
+    console.error("[cron:reminders] scanScheduledTriggers failed", e);
+  });
 
   return NextResponse.json({
     h24: tomorrow,
     h2: previsit,
     birthdays,
+    automations: "scanned",
   });
 }
 

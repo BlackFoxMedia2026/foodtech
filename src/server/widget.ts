@@ -4,6 +4,7 @@ import { startOfDay, endOfDay } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templates";
 import { planDeposit, stripe } from "@/lib/stripe";
+import { fireTrigger } from "@/server/automations";
 
 export const PublicBookingInput = z.object({
   partySize: z.coerce.number().int().min(1).max(20),
@@ -271,6 +272,13 @@ export async function createPublicBooking(slug: string, raw: unknown) {
   if (!deposit.required) {
     void notifyBookingCreated({ guest, venue, booking });
   }
+
+  await fireTrigger("BOOKING_CREATED", {
+    venueId: venue.id,
+    guestId: guest.id,
+    bookingId: booking.id,
+    payload: { source: "WIDGET", partySize: data.partySize },
+  }).catch(() => undefined);
 
   return { reference: booking.reference, venue, booking, checkoutUrl };
 }

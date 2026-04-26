@@ -3,6 +3,8 @@ import { MapPin, Phone } from "lucide-react";
 import { db } from "@/lib/db";
 import { listMenu, listMenuKeys, ALLERGEN_LABEL, DIETARY_LABEL } from "@/server/menu";
 import { formatCurrency } from "@/lib/utils";
+import { detectMenuMode } from "@/server/menu-leadmagnet";
+import { MenuUnlock } from "@/components/menu/menu-unlock";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,7 @@ export default async function PublicMenuPage({
   const allKeys = await listMenuKeys(venue.id);
   const activeKey = searchParams.menu ?? allKeys[0] ?? "main";
   const categories = await listMenu(venue.id, activeKey);
+  const menuMode = detectMenuMode();
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-6 py-10">
@@ -56,6 +59,13 @@ export default async function PublicMenuPage({
           )}
         </div>
       </section>
+
+      <MenuUnlock
+        venueSlug={venue.slug}
+        venueName={venue.name}
+        mode={menuMode}
+        menuKey={activeKey}
+      />
 
       {allKeys.length > 1 && (
         <nav className="flex flex-wrap gap-2 border-b pb-3 text-sm">

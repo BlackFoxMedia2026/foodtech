@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { fireTrigger } from "@/server/automations";
 
 export const ResponseInput = z.object({
   npsScore: z.coerce.number().int().min(0).max(10),
@@ -60,6 +61,15 @@ export async function recordResponse(token: string, raw: unknown) {
     }),
     db.survey.update({ where: { id: survey.id }, data: { respondedAt: new Date() } }),
   ]);
+
+  if (sentiment === "DETRACTOR") {
+    await fireTrigger("NPS_DETRACTOR", {
+      venueId: survey.venueId,
+      guestId: survey.guestId ?? undefined,
+      bookingId: survey.bookingId ?? undefined,
+      payload: { score: data.npsScore, comment: data.comment ?? null },
+    }).catch(() => undefined);
+  }
 
   // Real-time alert to the venue when the feedback is negative
   if (sentiment === "DETRACTOR" && survey.venue.email) {

@@ -132,11 +132,6 @@ export function CampaignDialog({
       return;
     }
 
-    if (channel !== "EMAIL") {
-      setError("Solo le campagne EMAIL possono essere inviate.");
-      return;
-    }
-
     setSending(true);
     const sendRes = await fetch(`/api/campaigns/${saved.id}/send`, { method: "POST" });
     setSending(false);
@@ -200,8 +195,8 @@ export function CampaignDialog({
               className="h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
               <option value="EMAIL">Email</option>
-              <option value="SMS">SMS (presto)</option>
-              <option value="WHATSAPP">WhatsApp (presto)</option>
+              <option value="SMS">SMS</option>
+              <option value="WHATSAPP">WhatsApp</option>
             </select>
           </div>
           {templates.length > 0 && !sent && (
@@ -330,7 +325,7 @@ export function CampaignDialog({
                 type="button"
                 variant="gold"
                 onClick={() => save("send")}
-                disabled={submitting || sending || !name.trim() || !body.trim() || channel !== "EMAIL"}
+                disabled={submitting || sending || !name.trim() || !body.trim()}
               >
                 <Send className="h-4 w-4" />
                 {sending ? "Invio…" : `Invia${previewTotal != null ? ` a ${previewTotal}` : ""}`}

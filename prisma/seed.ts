@@ -26,6 +26,13 @@ function setTime(date: Date, h: number, m = 0) {
   return d;
 }
 
+function formatISO(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 async function main() {
   const existingOrg = await db.organization.findUnique({
     where: { slug: "casa-aurora" },
@@ -625,6 +632,316 @@ async function ensureDemoExtras(venue: { id: string; name: string; kind: string 
         },
       ],
     });
+  }
+
+  // Marketing automation demo workflows (idempotent: skip if any present)
+  const wfPresent = await db.automationWorkflow.count({ where: { venueId: venue.id } });
+  if (wfPresent === 0) {
+    await db.automationWorkflow.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          name: "Grazie post-visita su WhatsApp",
+          description: "Saluto al cliente subito dopo la chiusura del tavolo.",
+          trigger: "BOOKING_COMPLETED",
+          active: true,
+          conditions: { requireConsent: true },
+          actions: [
+            {
+              kind: "SEND_WHATSAPP",
+              params: {
+                body:
+                  "Grazie {{firstName}}! Ci ha fatto piacere ospitarti da " +
+                  venue.name +
+                  ". Se ti va, lasciaci un feedback.",
+              },
+            },
+          ],
+        },
+        {
+          venueId: venue.id,
+          name: "Recupero NPS detrattore",
+          description:
+            "Avvisa lo staff e tagga il guest quando arriva un punteggio basso, così il manager può chiamare.",
+          trigger: "NPS_DETRACTOR",
+          active: true,
+          conditions: { requireConsent: false },
+          actions: [
+            { kind: "ADD_GUEST_TAG", params: { tag: "nps-detractor" } },
+            {
+              kind: "CREATE_STAFF_TASK",
+              params: {
+                title: "Richiamare ospite",
+                details: "Feedback negativo: contattare entro 24h per recuperare la relazione.",
+              },
+            },
+          ],
+        },
+        {
+          venueId: venue.id,
+          name: "Win-back inattivi 90 giorni",
+          description: "Coupon e messaggio agli ospiti che non tornano da 3 mesi.",
+          trigger: "GUEST_INACTIVE",
+          active: false,
+          conditions: { inactiveDays: 90, minVisits: 1, requireConsent: true },
+          actions: [
+            {
+              kind: "CREATE_COUPON",
+              params: {
+                couponName: "Ti rivogliamo",
+                couponKind: "PERCENT",
+                couponValue: 15,
+                couponDays: 45,
+                couponCategory: "WINBACK",
+              },
+            },
+            {
+              kind: "SEND_EMAIL",
+              params: {
+                subject: "Ci manchi, {{firstName}}",
+                body:
+                  "Ciao {{firstName}}, è da un po' che non ti vediamo. " +
+                  "Abbiamo creato un coupon dedicato per te: ti aspettiamo da " +
+                  venue.name +
+                  ".",
+              },
+            },
+          ],
+        },
+        {
+          venueId: venue.id,
+          name: "Benvenuto Wi-Fi",
+          description:
+            "Email di ringraziamento + tag per chi si registra al captive portal.",
+          trigger: "WIFI_LEAD_CREATED",
+          active: false,
+          conditions: { requireConsent: true },
+          actions: [
+            { kind: "ADD_GUEST_TAG", params: { tag: "wifi-onboarded" } },
+            {
+              kind: "SEND_EMAIL",
+              params: {
+                subject: "Benvenuto da " + venue.name,
+                body:
+                  "Grazie per esserti collegato {{firstName}}. " +
+                  "La prossima volta passa a salutarci, ti aspettiamo!",
+              },
+            },
+          ],
+        },
+      ],
+    });
+  }
+
+  // Demo conversational booking session
+  const csCount = await db.chatSession.count({ where: { venueId: venue.id } });
+  if (csCount === 0) {
+    const session = await db.chatSession.create({
+      data: {
+        venueId: venue.id,
+        source: "WEB",
+        status: "CONVERTED",
+        draftPartySize: 4,
+        draftDate: formatISO(new Date()),
+        draftTime: "20:30",
+        draftFirstName: "Giulia",
+        draftLastName: "Bianchi",
+        draftEmail: "giulia@example.com",
+      },
+    });
+    await db.chatMessage.createMany({
+      data: [
+        { sessionId: session.id, role: "BOT", text: `Ciao! Sono l'assistente di ${venue.name}.`, intent: "GREETING" },
+        { sessionId: session.id, role: "USER", text: "Vorrei prenotare per 4 stasera alle 20:30" },
+        { sessionId: session.id, role: "BOT", text: "Perfetto, a che nome?", intent: "ASK_NAME" },
+        { sessionId: session.id, role: "USER", text: "Giulia Bianchi, giulia@example.com" },
+        { sessionId: session.id, role: "BOT", text: "Confermato! A presto.", intent: "BOOKED" },
+      ],
+    });
+  }
+
+  // Demo voice draft + missed call
+  const callCount = await db.callLog.count({ where: { venueId: venue.id } });
+  if (callCount === 0) {
+    const draft = await db.voiceBookingDraft.create({
+      data: {
+        venueId: venue.id,
+        callerName: "Marco Rossi",
+        phone: "+390000000001",
+        partySize: 2,
+        preferredDate: formatISO(new Date(Date.now() + 86400_000)),
+        preferredTime: "21:00",
+        notes: "Trascrizione: vorrei prenotare per due persone domani sera alle nove.",
+      },
+    });
+    await db.callLog.create({
+      data: {
+        venueId: venue.id,
+        fromNumber: "+390000000001",
+        toNumber: venue.kind === "BEACH_CLUB" ? "+390000000099" : null,
+        status: "COMPLETED",
+        durationSec: 47,
+        intent: "BOOKING",
+        transcript:
+          "Buongiorno, sono Marco Rossi e vorrei prenotare per due persone domani sera alle ventuno.",
+        draftId: draft.id,
+        startedAt: new Date(Date.now() - 3600_000),
+        endedAt: new Date(Date.now() - 3550_000),
+      },
+    });
+    await db.missedCall.create({
+      data: { venueId: venue.id, fromNumber: "+390000000002" },
+    });
+  }
+
+  // Demo finance entries (food cost, staff shifts, dish food costs)
+  const ceCount = await db.costEntry.count({ where: { venueId: venue.id } });
+  if (ceCount === 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayBefore = (n: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - n);
+      return d;
+    };
+    await db.costEntry.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          category: "FOOD",
+          label: "Fornitura pesce",
+          amountCents: 84_000,
+          occurredOn: dayBefore(2),
+        },
+        {
+          venueId: venue.id,
+          category: "BEVERAGE",
+          label: "Cantina vini",
+          amountCents: 132_000,
+          occurredOn: dayBefore(7),
+        },
+        {
+          venueId: venue.id,
+          category: "RENT",
+          label: "Affitto mensile",
+          amountCents: 280_000,
+          recurring: true,
+          occurredOn: dayBefore(14),
+        },
+        {
+          venueId: venue.id,
+          category: "MARKETING",
+          label: "Campagna social locale",
+          amountCents: 18_000,
+          occurredOn: dayBefore(5),
+        },
+      ],
+    });
+  }
+  const sshiftCount = await db.staffShift.count({ where: { venueId: venue.id } });
+  if (sshiftCount === 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayBefore = (n: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - n);
+      return d;
+    };
+    await db.staffShift.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          staffName: "Lucia",
+          role: "Sala",
+          date: dayBefore(1),
+          hours: 7,
+          hourlyCents: 1300,
+        },
+        {
+          venueId: venue.id,
+          staffName: "Davide",
+          role: "Cucina",
+          date: dayBefore(1),
+          hours: 8,
+          hourlyCents: 1500,
+        },
+        {
+          venueId: venue.id,
+          staffName: "Marta",
+          role: "Bar",
+          date: dayBefore(2),
+          hours: 6,
+          hourlyCents: 1200,
+        },
+      ],
+    });
+  }
+  const sampleItems = await db.menuItem.findMany({
+    where: { venueId: venue.id },
+    select: { id: true, priceCents: true },
+    take: 6,
+  });
+  for (const it of sampleItems) {
+    await db.menuItemCost
+      .upsert({
+        where: { menuItemId: it.id },
+        update: {},
+        create: {
+          venueId: venue.id,
+          menuItemId: it.id,
+          costCents: Math.max(0, Math.round(it.priceCents * 0.32)),
+        },
+      })
+      .catch(() => undefined);
+  }
+
+  // Demo menu scans
+  const msCount = await db.menuScan.count({ where: { venueId: venue.id } });
+  if (msCount === 0) {
+    await db.menuScan.createMany({
+      data: [
+        { venueId: venue.id, menuKey: "main", source: "QR" },
+        { venueId: venue.id, menuKey: "main", source: "QR", email: "ospite-curioso@example.com", consentMarketing: true },
+        { venueId: venue.id, menuKey: "main", source: "TABLE" },
+      ],
+    });
+  }
+
+  // Demo MessageLog rows (so the operator sees a populated dispatch log).
+  const mlCount = await db.messageLog.count({ where: { venueId: venue.id } });
+  if (mlCount === 0) {
+    const sampleGuest = await db.guest.findFirst({
+      where: { venueId: venue.id, email: { not: null } },
+      select: { id: true, email: true, phone: true, firstName: true },
+    });
+    if (sampleGuest) {
+      const now = Date.now();
+      await db.messageLog.createMany({
+        data: [
+          {
+            venueId: venue.id,
+            guestId: sampleGuest.id,
+            channel: "EMAIL",
+            toAddress: sampleGuest.email!,
+            subject: "Promemoria H-24",
+            bodyPreview: `Ciao ${sampleGuest.firstName}, ti aspettiamo domani.`,
+            status: "SENT",
+            sentAt: new Date(now - 6 * 3600_000),
+          },
+          {
+            venueId: venue.id,
+            guestId: sampleGuest.id,
+            channel: "WHATSAPP",
+            toAddress: sampleGuest.phone ?? "+39000000000",
+            bodyPreview: "Grazie per la visita di ieri 🌿",
+            status: sampleGuest.phone ? "SENT" : "SKIPPED",
+            error: sampleGuest.phone ? null : "no_provider",
+            sentAt: sampleGuest.phone ? new Date(now - 2 * 3600_000) : null,
+            failedAt: sampleGuest.phone ? null : new Date(now - 2 * 3600_000),
+          },
+        ],
+      });
+    }
   }
 }
 

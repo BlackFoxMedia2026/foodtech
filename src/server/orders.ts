@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { sendMessage } from "@/lib/messaging";
+import { fireTrigger } from "@/server/automations";
 
 export const OrderItemInput = z.object({
   menuItemId: z.string().optional(),
@@ -189,6 +190,15 @@ export async function updateOrderStatus(venueId: string, id: string, raw: unknow
         ? `Ciao ${existing.customerName.split(" ")[0]}, l'ordine da ${existing.venue.name} è in consegna.`
         : `Ciao ${existing.customerName.split(" ")[0]}, il tuo ordine ${existing.venue.name} è pronto per il ritiro!`;
     void sendMessage({ to: existing.phone, body: text, channel: "SMS" });
+  }
+
+  if (data.status === "COMPLETED" && existing.status !== "COMPLETED") {
+    await fireTrigger("ORDER_COMPLETED", {
+      venueId,
+      guestId: existing.guestId ?? undefined,
+      orderId: id,
+      payload: { kind: existing.kind },
+    }).catch(() => undefined);
   }
 
   return updated;

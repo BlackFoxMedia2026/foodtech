@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
+import { dispatchMessage } from "@/server/messages";
 
 export const SegmentInput = z.object({
   marketingOptInOnly: z.boolean().default(true),
@@ -87,17 +88,20 @@ export async function sendCampaign(venueId: string, id: string, fromAddress: str
   const c = await db.campaign.findFirst({ where: { id, venueId }, include: { venue: true } });
   if (!c) throw new Error("not_found");
   if (c.status === "SENT") throw new Error("already_sent");
-  if (c.channel !== "EMAIL") throw new Error("channel_unsupported");
+  void fromAddress;
 
   const segment = (c.segment ?? null) as SegmentInputType | null;
-  const guestWhere: Prisma.GuestWhereInput = { venueId, email: { not: null } };
+  const guestWhere: Prisma.GuestWhereInput = { venueId };
   if (segment?.marketingOptInOnly !== false) guestWhere.marketingOptIn = true;
   if (segment?.loyaltyTiers?.length) guestWhere.loyaltyTier = { in: segment.loyaltyTiers };
   if (segment?.tags?.length) guestWhere.tags = { hasSome: segment.tags };
+  // Channel-aware contact filter
+  if (c.channel === "EMAIL") guestWhere.email = { not: null };
+  else guestWhere.phone = { not: null };
 
   const recipients = await db.guest.findMany({
     where: guestWhere,
-    select: { firstName: true, lastName: true, email: true },
+    select: { id: true, firstName: true, lastName: true, email: true, phone: true },
     take: 1000,
   });
 
@@ -108,22 +112,44 @@ export async function sendCampaign(venueId: string, id: string, fromAddress: str
 
   let sent = 0;
   for (const g of recipients) {
-    if (!g.email) continue;
-    const html = renderCampaignHtml({
-      venueName: c.venue.name,
-      bodyMarkdown: c.body ?? "",
-      firstName: g.firstName,
-      fromAddress,
-      trailingHtml: trackingPixel,
-    });
-    const subject = c.subject || baseSubject || `Novità da ${c.venue.name}`;
-    const res = await sendEmail({
-      to: { email: g.email, name: [g.firstName, g.lastName].filter(Boolean).join(" ") || undefined },
-      subject,
-      html,
-      replyTo: c.venue.email ?? undefined,
-    });
-    if (res.ok) sent++;
+    if (c.channel === "EMAIL") {
+      if (!g.email) continue;
+      const html = renderCampaignHtml({
+        venueName: c.venue.name,
+        bodyMarkdown: c.body ?? "",
+        firstName: g.firstName,
+        fromAddress,
+        trailingHtml: trackingPixel,
+      });
+      const subject = c.subject || baseSubject || `Novità da ${c.venue.name}`;
+      const text = (c.body ?? "").replace(/\{\{firstName\}\}/g, g.firstName);
+      const logId = await dispatchMessage({
+        venueId,
+        channel: "EMAIL",
+        to: g.email,
+        subject,
+        html,
+        text,
+        guestId: g.id,
+        campaignId: c.id,
+        replyTo: c.venue.email ?? undefined,
+      });
+      const log = await db.messageLog.findUnique({ where: { id: logId }, select: { status: true } });
+      if (log?.status === "SENT") sent++;
+    } else {
+      if (!g.phone) continue;
+      const text = (c.body ?? "").replace(/\{\{firstName\}\}/g, g.firstName);
+      const logId = await dispatchMessage({
+        venueId,
+        channel: c.channel === "SMS" ? "SMS" : "WHATSAPP",
+        to: g.phone,
+        text,
+        guestId: g.id,
+        campaignId: c.id,
+      });
+      const log = await db.messageLog.findUnique({ where: { id: logId }, select: { status: true } });
+      if (log?.status === "SENT") sent++;
+    }
   }
 
   await db.campaign.update({
