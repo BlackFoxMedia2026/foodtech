@@ -20,7 +20,20 @@ export async function getSurveyByToken(token: string) {
   return db.survey.findUnique({
     where: { token },
     include: {
-      venue: { select: { name: true, slug: true, city: true, email: true } },
+      venue: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          city: true,
+          email: true,
+          reviewLinks: {
+            where: { active: true },
+            orderBy: { ordering: "asc" },
+            select: { id: true, platform: true, label: true, url: true },
+          },
+        },
+      },
       response: true,
     },
   });

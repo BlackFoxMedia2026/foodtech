@@ -10,12 +10,33 @@ import { cn } from "@/lib/utils";
 
 const SCORES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-export function SurveyForm({ token }: { token: string }) {
+type ReviewLink = { id: string; platform: string; label: string | null; url: string };
+
+const PLATFORM_LABEL: Record<string, string> = {
+  GOOGLE: "Google",
+  TRIPADVISOR: "TripAdvisor",
+  TRUSTPILOT: "Trustpilot",
+  THEFORK: "TheFork",
+  FACEBOOK: "Facebook",
+  INSTAGRAM: "Instagram",
+  YELP: "Yelp",
+  OTHER: "Recensione",
+};
+
+export function SurveyForm({
+  token,
+  reviewLinks,
+}: {
+  token: string;
+  reviewLinks: ReviewLink[];
+}) {
   const router = useRouter();
   const [score, setScore] = useState<number | null>(null);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"form" | "thanks">("form");
+  const [submittedScore, setSubmittedScore] = useState<number | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,11 +65,51 @@ export function SurveyForm({ token }: { token: string }) {
       );
       return;
     }
-    router.refresh();
+    setSubmittedScore(score);
+    setStep("thanks");
+    // Refresh in background to avoid double-submit if the user revisits
+    setTimeout(() => router.refresh(), 1500);
   }
 
   const tone = (n: number) =>
     n >= 9 ? "promoter" : n >= 7 ? "passive" : "detractor";
+
+  if (step === "thanks") {
+    const isPromoter = (submittedScore ?? 0) >= 9;
+    return (
+      <Card className="border-emerald-200 bg-emerald-50/40">
+        <CardContent className="space-y-4 p-6 text-center">
+          <h2 className="text-display text-2xl">Grazie!</h2>
+          <p className="text-sm text-muted-foreground">
+            La tua opinione conta davvero per noi.
+          </p>
+          {isPromoter && reviewLinks.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium">
+                Se ti è piaciuto, ci aiuti con una recensione pubblica?
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {reviewLinks.map((rl) => (
+                  <a
+                    key={rl.id}
+                    href={`/api/r/${rl.id}?survey=${token}&nps=${submittedScore ?? ""}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-md border border-gilt/40 bg-background px-4 py-2 text-sm hover:bg-gilt/10"
+                  >
+                    {rl.label ?? PLATFORM_LABEL[rl.platform] ?? rl.platform}
+                  </a>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Apriamo la pagina della piattaforma in una nuova scheda.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-foreground/10">
@@ -84,14 +145,27 @@ export function SurveyForm({ token }: { token: string }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="s-comment">Vuoi aggiungere un commento?</Label>
+            <Label htmlFor="s-comment">
+              {score !== null && score < 7
+                ? "Cosa ti è mancato? Resta tra te e noi."
+                : "Vuoi aggiungere un commento?"}
+            </Label>
             <Textarea
               id="s-comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={5}
-              placeholder="Cosa ti è piaciuto? Cosa miglioreresti?"
+              placeholder={
+                score !== null && score < 7
+                  ? "Le tue parole arrivano direttamente al manager del locale."
+                  : "Cosa ti è piaciuto? Cosa miglioreresti?"
+              }
             />
+            {score !== null && score < 7 && (
+              <p className="text-[11px] text-muted-foreground">
+                Questo feedback non viene pubblicato online.
+              </p>
+            )}
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

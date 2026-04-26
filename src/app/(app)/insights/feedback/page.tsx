@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, Smile, Meh, Frown } from "lucide-react";
-import { getActiveVenue } from "@/lib/tenant";
+import { can, getActiveVenue } from "@/lib/tenant";
 import { feedbackStats, listFeedback } from "@/server/surveys";
+import { reviewLinkClickStats, reputationStats } from "@/server/review-links";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/overview/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ReviewLinksCard } from "@/components/reviews/review-links-card";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -24,10 +26,13 @@ const ICON = {
 
 export default async function FeedbackPage() {
   const ctx = await getActiveVenue();
-  const [stats, items] = await Promise.all([
+  const [stats, items, links, reputation] = await Promise.all([
     feedbackStats(ctx.venueId),
     listFeedback(ctx.venueId, 100),
+    reviewLinkClickStats(ctx.venueId),
+    reputationStats(ctx.venueId),
   ]);
+  const canEditLinks = can(ctx.role, "manage_venue");
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -41,9 +46,9 @@ export default async function FeedbackPage() {
 
       <header>
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Feedback</p>
-        <h1 className="text-display text-3xl">Recensioni & sondaggi</h1>
+        <h1 className="text-display text-3xl">Reputazione</h1>
         <p className="text-sm text-muted-foreground">
-          {stats.total} risposte raccolte · NPS {stats.nps}
+          {stats.total} risposte · NPS {stats.nps} · {reputation.totalClicks} click verso recensioni esterne
         </p>
       </header>
 
@@ -51,8 +56,10 @@ export default async function FeedbackPage() {
         <StatCard label="NPS" value={String(stats.nps)} emphasize />
         <StatCard label="Punteggio medio" value={String(stats.avg)} />
         <StatCard label="Promotori" value={String(stats.promoter)} />
-        <StatCard label="Detrattori" value={String(stats.detractor)} />
+        <StatCard label="Click recensione" value={String(reputation.totalClicks)} hint={`${reputation.clicks30d} ultimi 30gg`} />
       </section>
+
+      <ReviewLinksCard initial={links.map((l) => ({ ...l, label: l.label, clicks: l.clicks }))} canEdit={canEditLinks} />
 
       <Card>
         <CardHeader>

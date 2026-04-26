@@ -41,7 +41,7 @@ export default async function SurveyPage({ params }: { params: { token: string }
               Bastano 30 secondi. Le tue parole ci aiutano a migliorare.
             </p>
           </div>
-          <SurveyForm token={params.token} />
+          <SurveyForm token={params.token} reviewLinks={survey.venue.reviewLinks} />
         </section>
       )}
 

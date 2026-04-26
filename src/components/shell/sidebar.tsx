@@ -17,6 +17,8 @@ import {
   Hourglass,
   BookOpen,
   ShoppingBag,
+  Wifi,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +34,8 @@ const NAV = [
   { href: "/guests", label: "Ospiti", icon: Users },
   { href: "/experiences", label: "Esperienze", icon: Sparkles },
   { href: "/campaigns", label: "Campagne", icon: Megaphone },
+  { href: "/coupons", label: "Coupon", icon: Ticket },
+  { href: "/wifi", label: "Wi-Fi marketing", icon: Wifi },
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
   { href: "/insights", label: "Analytics", icon: LineChart },
   { href: "/settings", label: "Impostazioni", icon: Settings },

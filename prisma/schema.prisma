@@ -108,6 +108,13 @@ model Venue {
   menuCategories MenuCategory[]
   menuItems   MenuItem[]
   orders      Order[]
+  wifiLeads   WifiLead[]
+  wifiSessions WifiSession[]
+  consentLogs ConsentLog[]
+  coupons     Coupon[]
+  couponRedemptions CouponRedemption[]
+  reviewLinks ReviewLink[]
+  reviewLinkClicks ReviewLinkClick[]
 
   @@unique([orgId, slug])
 }
@@ -283,6 +290,10 @@ model Guest {
   bookings     Booking[]
   payments     Payment[]
   orders       Order[]
+  wifiLeads    WifiLead[]
+  consentLogs  ConsentLog[]
+  coupons      Coupon[]
+  couponRedemptions CouponRedemption[]
 
   @@index([venueId, email])
   @@index([venueId, phone])
@@ -700,4 +711,197 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
   REFUNDED
+}
+
+// ─── Wi-Fi marketing ─────────────────────────────────────────────────────────
+
+model WifiLead {
+  id           String        @id @default(cuid())
+  venueId      String
+  guestId      String?
+  name         String
+  email        String?
+  phone        String?
+  source       String?       // ssid, ap-mac, table, campaign id
+  ipAddress    String?
+  userAgent    String?
+  consentMarketing Boolean   @default(false)
+  consentPrivacy   Boolean   @default(true)
+  createdAt    DateTime      @default(now())
+
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest        Guest?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  sessions     WifiSession[]
+
+  @@index([venueId, createdAt])
+  @@index([venueId, email])
+  @@index([venueId, phone])
+}
+
+model WifiSession {
+  id          String    @id @default(cuid())
+  leadId      String
+  venueId     String
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  durationSec Int?
+  ipAddress   String?
+  userAgent   String?
+  deviceType  String?   // mobile / desktop / tablet (best-effort)
+
+  lead        WifiLead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  venue       Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, startedAt])
+}
+
+model ConsentLog {
+  id         String          @id @default(cuid())
+  venueId    String
+  guestId    String?
+  leadId     String?
+  channel    ConsentChannel
+  granted    Boolean
+  source     String?         // wifi / widget / admin / chat / coupon
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime        @default(now())
+
+  venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest      Guest?          @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([venueId, channel, createdAt])
+  @@index([guestId])
+}
+
+enum ConsentChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  MARKETING_GENERAL
+  PRIVACY
+  PROFILING
+}
+
+// ─── Coupon e promozioni ─────────────────────────────────────────────────────
+
+model Coupon {
+  id              String              @id @default(cuid())
+  venueId         String
+  code            String              @unique
+  name            String
+  description     String?
+  kind            CouponKind          @default(PERCENT)
+  value           Int                 @default(0)   // % (0..100) or cents based on kind
+  freeItem        String?             // for FREE_ITEM kind: item name snapshot
+  category        CouponCategory      @default(GENERIC)
+  status          CouponStatus        @default(ACTIVE)
+  validFrom       DateTime?
+  validUntil      DateTime?
+  maxRedemptions  Int?                // total cap
+  maxPerGuest     Int                 @default(1)
+  guestId         String?             // when assigned to a specific guest
+  segment         Json?               // optional segment selector
+  redemptionCount Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  venue           Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest           Guest?              @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  redemptions     CouponRedemption[]
+
+  @@index([venueId, status])
+  @@index([venueId, category])
+}
+
+enum CouponKind {
+  PERCENT
+  FIXED
+  FREE_ITEM
+  MENU_OFFER
+}
+
+enum CouponStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+  ARCHIVED
+}
+
+enum CouponCategory {
+  GENERIC
+  BIRTHDAY
+  WINBACK
+  EVENT
+  NEW_CUSTOMER
+  WIFI
+  REFERRAL
+  STAFF
+}
+
+model CouponRedemption {
+  id          String   @id @default(cuid())
+  couponId    String
+  venueId     String
+  guestId     String?
+  bookingId   String?
+  orderId     String?
+  ticketId    String?
+  amountCents Int?     // discount applied at redemption
+  notes       String?
+  redeemedAt  DateTime @default(now())
+  redeemedBy  String?  // user id of staff member, when manual
+
+  coupon      Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest       Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([venueId, redeemedAt])
+  @@index([couponId])
+}
+
+// ─── Review funnel ────────────────────────────────────────────────────────────
+
+model ReviewLink {
+  id         String              @id @default(cuid())
+  venueId    String
+  platform   ReviewPlatform
+  label      String?             // optional override
+  url        String
+  ordering   Int                 @default(0)
+  active     Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+
+  venue      Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  clicks     ReviewLinkClick[]
+
+  @@index([venueId, active, ordering])
+}
+
+enum ReviewPlatform {
+  GOOGLE
+  TRIPADVISOR
+  TRUSTPILOT
+  THEFORK
+  FACEBOOK
+  INSTAGRAM
+  YELP
+  OTHER
+}
+
+model ReviewLinkClick {
+  id         String      @id @default(cuid())
+  linkId     String
+  venueId    String
+  surveyId   String?
+  npsScore   Int?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  link       ReviewLink  @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  venue      Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([linkId, createdAt])
+  @@index([venueId, createdAt])
 }

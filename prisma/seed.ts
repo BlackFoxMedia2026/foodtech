@@ -491,6 +491,141 @@ async function ensureDemoExtras(venue: { id: string; name: string; kind: string 
       ],
     });
   }
+
+  // Coupon demo (idempotente per code unique)
+  const couponSamples: Array<{
+    code: string;
+    name: string;
+    kind: "PERCENT" | "FIXED" | "FREE_ITEM";
+    value: number;
+    category: "BIRTHDAY" | "WINBACK" | "WIFI" | "NEW_CUSTOMER";
+    description?: string;
+    freeItem?: string;
+  }> = [
+    {
+      code: `WELCOME-${venue.id.slice(-4).toUpperCase()}`,
+      name: "Benvenuto: 10% sulla prima cena",
+      kind: "PERCENT",
+      value: 10,
+      category: "NEW_CUSTOMER",
+      description: "Sconto del 10% riservato ai nuovi ospiti dopo la prima visita.",
+    },
+    {
+      code: `BDAY-${venue.id.slice(-4).toUpperCase()}`,
+      name: "Compleanno: calice in omaggio",
+      kind: "FREE_ITEM",
+      value: 0,
+      freeItem: "Calice di Franciacorta",
+      category: "BIRTHDAY",
+      description: "Auguri! Brindisi della casa per festeggiare.",
+    },
+    {
+      code: `BACK-${venue.id.slice(-4).toUpperCase()}`,
+      name: "Ti rivogliamo qui: 15€ di sconto",
+      kind: "FIXED",
+      value: 1500,
+      category: "WINBACK",
+      description: "Per chi non ci visita da più di 90 giorni.",
+    },
+    {
+      code: `WIFI-${venue.id.slice(-4).toUpperCase()}`,
+      name: "Wi-Fi reward: dolce in omaggio",
+      kind: "FREE_ITEM",
+      value: 0,
+      freeItem: "Dolce della casa",
+      category: "WIFI",
+      description: "Per chi si è connesso al Wi-Fi del locale e ha lasciato i contatti.",
+    },
+  ];
+  for (const c of couponSamples) {
+    await db.coupon.upsert({
+      where: { code: c.code },
+      update: {},
+      create: {
+        venueId: venue.id,
+        code: c.code,
+        name: c.name,
+        description: c.description ?? null,
+        kind: c.kind,
+        value: c.value,
+        freeItem: c.freeItem ?? null,
+        category: c.category,
+        status: "ACTIVE",
+        maxPerGuest: 1,
+      },
+    });
+  }
+
+  // Wi-Fi demo lead (only if empty)
+  const wfCount = await db.wifiLead.count({ where: { venueId: venue.id } });
+  if (wfCount === 0) {
+    const guest = await db.guest.findFirst({ where: { venueId: venue.id } });
+    if (guest) {
+      const lead = await db.wifiLead.create({
+        data: {
+          venueId: venue.id,
+          guestId: guest.id,
+          name: `${guest.firstName} ${guest.lastName ?? ""}`.trim(),
+          email: guest.email,
+          phone: guest.phone,
+          source: "ssid:tavolo-guest",
+          consentMarketing: true,
+          consentPrivacy: true,
+        },
+      });
+      await db.wifiSession.create({
+        data: {
+          leadId: lead.id,
+          venueId: venue.id,
+          deviceType: "mobile",
+          startedAt: new Date(Date.now() - 2 * 86400_000),
+          endedAt: new Date(Date.now() - 2 * 86400_000 + 90 * 60 * 1000),
+          durationSec: 90 * 60,
+        },
+      });
+      await db.consentLog.createMany({
+        data: [
+          {
+            venueId: venue.id,
+            guestId: guest.id,
+            leadId: lead.id,
+            channel: "PRIVACY",
+            granted: true,
+            source: "wifi",
+          },
+          {
+            venueId: venue.id,
+            guestId: guest.id,
+            leadId: lead.id,
+            channel: "MARKETING_GENERAL",
+            granted: true,
+            source: "wifi",
+          },
+        ],
+      });
+    }
+  }
+
+  // Review links demo (idempotent: skip if any present)
+  const rlCount = await db.reviewLink.count({ where: { venueId: venue.id } });
+  if (rlCount === 0) {
+    await db.reviewLink.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          platform: "GOOGLE",
+          url: `https://search.google.com/local/writereview?placeid=demo-${venue.id.slice(-6)}`,
+          ordering: 0,
+        },
+        {
+          venueId: venue.id,
+          platform: "TRIPADVISOR",
+          url: `https://www.tripadvisor.it/Restaurant_Review-${venue.id.slice(-6)}`,
+          ordering: 1,
+        },
+      ],
+    });
+  }
 }
 
 main()
