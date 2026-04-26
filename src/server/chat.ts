@@ -328,7 +328,7 @@ async function advanceConversation(
   }
 }
 
-function parseDate(input: string): string | null {
+export function parseDate(input: string): string | null {
   const today = new Date();
   const yyyy = today.getFullYear();
   const month = today.getMonth();
@@ -386,7 +386,7 @@ function parseDate(input: string): string | null {
   return null;
 }
 
-function parseTime(input: string): string | null {
+export function parseTime(input: string): string | null {
   const m = input.match(/\b(\d{1,2})[:.h](\d{2})?\b/);
   if (m) {
     const h = Math.max(0, Math.min(23, Number(m[1])));
@@ -402,7 +402,7 @@ function parseTime(input: string): string | null {
   return null;
 }
 
-function parseName(input: string): { first: string; last?: string } | null {
+export function parseName(input: string): { first: string; last?: string } | null {
   const cleaned = input
     .replace(/\bmi\s+chiamo\b/gi, "")
     .replace(/\bsono\b/gi, "")
