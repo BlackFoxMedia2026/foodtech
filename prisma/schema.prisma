@@ -648,22 +648,28 @@ model OrderItem {
 }
 
 model WaitlistEntry {
-  id              String         @id @default(cuid())
-  venueId         String
-  guestId         String?
-  guestName       String
-  phone           String?
-  email           String?
-  partySize       Int
-  expectedWaitMin Int            @default(20)
-  status          WaitlistStatus @default(WAITING)
-  notifiedAt      DateTime?
-  seatedAt        DateTime?
-  cancelledAt     DateTime?
-  position        Int            @default(0)
-  notes           String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                 String         @id @default(cuid())
+  venueId            String
+  guestId            String?
+  guestName          String
+  phone              String?
+  email              String?
+  partySize          Int
+  expectedWaitMin    Int            @default(20)
+  status             WaitlistStatus @default(WAITING)
+  notifiedAt         DateTime?
+  seatedAt           DateTime?
+  cancelledAt        DateTime?
+  position           Int            @default(0)
+  notes              String?
+  offerToken         String?        @unique
+  offerExpiresAt     DateTime?
+  offerSentVia       String?        @db.VarChar(20)
+  confirmedAt        DateTime?
+  convertedBookingId String?
+  declinedAt         DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
@@ -672,8 +678,12 @@ model WaitlistEntry {
 
 enum WaitlistStatus {
   WAITING
+  OFFERED
   NOTIFIED
+  CONFIRMED
   SEATED
+  EXPIRED
+  DECLINED
   CANCELLED
   NO_SHOW
 }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
 import { fireTrigger } from "@/server/automations";
 import { awardBookingPoints } from "@/server/loyalty";
+import { offerNextWaitlistEntry } from "@/server/waitlist-promotion";
 
 const BLACKLIST_NO_SHOW_THRESHOLD = 2;
 
@@ -183,6 +184,19 @@ export async function updateBooking(venueId: string, id: string, raw: unknown, o
     existing.guestId
   ) {
     await flagNoShow(existing.guestId);
+  }
+
+  // A table just opened up — offer it to the next waitlist candidate.
+  if (
+    (data.status === "CANCELLED" ||
+      data.status === "NO_SHOW" ||
+      data.status === "COMPLETED") &&
+    existing.status !== data.status
+  ) {
+    await offerNextWaitlistEntry({
+      venueId,
+      partySize: existing.partySize,
+    }).catch(() => undefined);
   }
 
   return updated;

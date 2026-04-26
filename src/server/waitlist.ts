@@ -18,7 +18,7 @@ export async function listActiveWaitlist(venueId: string) {
   const items = await db.waitlistEntry.findMany({
     where: {
       venueId,
-      status: { in: ["WAITING", "NOTIFIED"] },
+      status: { in: ["WAITING", "NOTIFIED", "OFFERED", "CONFIRMED"] },
     },
     orderBy: [{ status: "asc" }, { createdAt: "asc" }],
   });
@@ -31,7 +31,7 @@ export async function listClosedWaitlist(venueId: string) {
   return db.waitlistEntry.findMany({
     where: {
       venueId,
-      status: { in: ["SEATED", "CANCELLED", "NO_SHOW"] },
+      status: { in: ["SEATED", "CANCELLED", "NO_SHOW", "EXPIRED", "DECLINED"] },
       updatedAt: { gte: today },
     },
     orderBy: { updatedAt: "desc" },
@@ -55,7 +55,17 @@ export async function addToWaitlist(venueId: string, raw: unknown) {
 }
 
 const StatusInput = z.object({
-  status: z.enum(["WAITING", "NOTIFIED", "SEATED", "CANCELLED", "NO_SHOW"]),
+  status: z.enum([
+    "WAITING",
+    "OFFERED",
+    "NOTIFIED",
+    "CONFIRMED",
+    "SEATED",
+    "EXPIRED",
+    "DECLINED",
+    "CANCELLED",
+    "NO_SHOW",
+  ]),
 });
 
 export async function updateWaitlistEntry(venueId: string, id: string, raw: unknown) {
