@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/overview/stat-card";
+import { ExportButton } from "@/components/ui/export-button";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -51,13 +52,16 @@ export default async function ChatAdminPage() {
             Pagina pubblica e widget embeddabile per raccogliere prenotazioni in chat 24/7.
           </p>
         </div>
-        <Link
-          href={`/chat/${ctx.venue.slug}`}
-          target="_blank"
-          className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-secondary"
-        >
-          Apri chat pubblica <ExternalLink className="h-3.5 w-3.5" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportButton kind="chat-sessions" label="Sessioni CSV" />
+          <Link
+            href={`/chat/${ctx.venue.slug}`}
+            target="_blank"
+            className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-secondary"
+          >
+            Apri chat pubblica <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </header>
 
       <section className="grid gap-3 md:grid-cols-4">

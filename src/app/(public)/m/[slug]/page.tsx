@@ -5,6 +5,7 @@ import { listMenu, listMenuKeys, ALLERGEN_LABEL, DIETARY_LABEL } from "@/server/
 import { formatCurrency } from "@/lib/utils";
 import { detectMenuMode } from "@/server/menu-leadmagnet";
 import { MenuUnlock } from "@/components/menu/menu-unlock";
+import { pickLocale } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,9 @@ export default async function PublicMenuPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { menu?: string };
+  searchParams: { menu?: string; lang?: string };
 }) {
+  const locale = pickLocale(searchParams.lang);
   const venue = await db.venue.findFirst({
     where: { slug: params.slug, active: true },
     select: {
@@ -65,6 +67,7 @@ export default async function PublicMenuPage({
         venueName={venue.name}
         mode={menuMode}
         menuKey={activeKey}
+        locale={locale}
       />
 
       {allKeys.length > 1 && (

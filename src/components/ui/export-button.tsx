@@ -5,7 +5,16 @@ export function ExportButton({
   kind,
   label,
 }: {
-  kind: "guests" | "bookings" | "payments";
+  kind:
+    | "guests"
+    | "bookings"
+    | "payments"
+    | "costs"
+    | "shifts"
+    | "messages"
+    | "automations"
+    | "menu-scans"
+    | "chat-sessions";
   label?: string;
 }) {
   return (

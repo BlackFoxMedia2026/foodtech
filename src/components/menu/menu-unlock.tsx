@@ -5,6 +5,7 @@ import { Mail, Phone, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { t, type Locale } from "@/lib/i18n";
 
 const STORAGE_KEY = "tavolo.menu-unlock";
 
@@ -13,9 +14,12 @@ type Props = {
   venueName: string;
   mode: "PUBLIC" | "CONTACT" | "OPT_IN";
   menuKey: string;
+  locale?: Locale;
 };
 
-export function MenuUnlock({ venueSlug, venueName, mode, menuKey }: Props) {
+export function MenuUnlock({ venueSlug, venueName, mode, menuKey, locale = "it" }: Props) {
+  const tr = (key: string, vars?: Record<string, string | number>) =>
+    t(locale, key as never, vars);
   const [unlocked, setUnlocked] = useState(mode === "PUBLIC");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,12 +57,12 @@ export function MenuUnlock({ venueSlug, venueName, mode, menuKey }: Props) {
     const phone = String(fd.get("phone") ?? "").trim();
     const consent = fd.get("consent") === "on";
     if (!email && !phone) {
-      setError("Inserisci email o telefono.");
+      setError(tr("menuUnlock.errorContactRequired"));
       setBusy(false);
       return;
     }
     if (mode === "OPT_IN" && !consent) {
-      setError("Conferma il consenso per ricevere il menu.");
+      setError(tr("menuUnlock.errorConsent"));
       setBusy(false);
       return;
     }
@@ -75,7 +79,7 @@ export function MenuUnlock({ venueSlug, venueName, mode, menuKey }: Props) {
     });
     setBusy(false);
     if (!res.ok) {
-      setError("Qualcosa è andato storto. Riprova.");
+      setError(tr("menuUnlock.errorGeneric"));
       return;
     }
     try {
@@ -90,17 +94,17 @@ export function MenuUnlock({ venueSlug, venueName, mode, menuKey }: Props) {
     <div className="rounded-2xl border bg-secondary/40 p-5">
       <div className="mb-3 flex items-center gap-2 text-sm">
         <Sparkles className="h-4 w-4 text-gilt-dark" />
-        <span className="font-medium">Sblocca il menu di {venueName}</span>
+        <span className="font-medium">{tr("menuUnlock.title", { venue: venueName })}</span>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
         {mode === "OPT_IN"
-          ? "Lascia il tuo contatto e riceverai una sorpresa: novità di stagione, eventi e un piccolo benvenuto al primo passaggio."
-          : "Lascia un contatto: ti inviamo gli aggiornamenti del menu e nessuno spam."}
+          ? tr("menuUnlock.copy.optIn")
+          : tr("menuUnlock.copy.contact")}
       </p>
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="ml-email" className="text-xs">
-            Email
+            {tr("menuUnlock.email")}
           </Label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -109,7 +113,7 @@ export function MenuUnlock({ venueSlug, venueName, mode, menuKey }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="ml-phone" className="text-xs">
-            Telefono (opzionale)
+            {tr("menuUnlock.phone")}
           </Label>
           <div className="relative">
             <Phone className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -123,14 +127,11 @@ export function MenuUnlock({ venueSlug, venueName, mode, menuKey }: Props) {
             defaultChecked={mode !== "OPT_IN"}
             className="mt-0.5"
           />
-          <span>
-            Acconsento a ricevere comunicazioni promozionali da {venueName}. Posso annullare in
-            qualsiasi momento.
-          </span>
+          <span>{tr("menuUnlock.consent", { venue: venueName })}</span>
         </label>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <Button type="submit" variant="gold" className="w-full" disabled={busy}>
-          {busy ? "Sto sbloccando…" : "Vedi il menu"}
+          {busy ? tr("menuUnlock.busy") : tr("menuUnlock.cta")}
         </Button>
       </form>
     </div>

@@ -9,6 +9,7 @@ import { isMessagingEnabled } from "@/lib/messaging";
 import { formatDateTime } from "@/lib/utils";
 import { listTemplates } from "@/server/templates";
 import { messageLogStats, recentMessageLogs } from "@/server/messages";
+import { ExportButton } from "@/components/ui/export-button";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,10 @@ export default async function CampaignsPage() {
             {items.length} campagne · {items.filter((c) => c.status === "SENT").length} inviate
           </p>
         </div>
-        {canEdit && <CampaignDialog emailEnabled={emailEnabled} templates={tplOptions} />}
+        <div className="flex items-center gap-2">
+          {canEdit && <ExportButton kind="messages" label="Registro CSV" />}
+          {canEdit && <CampaignDialog emailEnabled={emailEnabled} templates={tplOptions} />}
+        </div>
       </header>
 
       {(!emailEnabled || !messagingEnabled) && (
