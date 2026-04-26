@@ -97,6 +97,7 @@ model Venue {
   wifiAutoCouponDays    Int       @default(30)
   wifiSetupAt           DateTime?
   calendarToken         String?   @unique
+  googlePlaceId         String?
   createdAt             DateTime  @default(now())
 
   org               Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -136,6 +137,7 @@ model Venue {
   connectors        Connector[]
   giftCards         GiftCard[]
   posConnectors     POSConnector[]
+  reviews           Review[]
 
   @@unique([orgId, slug])
 }
@@ -1513,4 +1515,36 @@ enum POSEventStatus {
   PROCESSED
   REJECTED
   FAILED
+}
+
+// ─── Recensioni aggregate (Google + altre piattaforme) ──────────────────────
+
+model Review {
+  id           String       @id @default(cuid())
+  venueId      String
+  source       ReviewSource
+  externalRef  String?
+  externalUrl  String?
+  rating       Int
+  authorName   String?      @db.VarChar(120)
+  authorAvatar String?
+  text         String?      @db.VarChar(2000)
+  language     String       @default("it")
+  publishedAt  DateTime?
+  fetchedAt    DateTime     @default(now())
+  createdAt    DateTime     @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, source, externalRef])
+  @@index([venueId, publishedAt])
+}
+
+enum ReviewSource {
+  GOOGLE
+  TRIPADVISOR
+  FACEBOOK
+  YELP
+  TRUSTPILOT
+  MANUAL
 }
