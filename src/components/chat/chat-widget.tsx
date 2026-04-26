@@ -41,7 +41,7 @@ export function ChatWidget({
       const res = await fetch(`/api/chat/${venueSlug}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ source: "WEB" }),
+        body: JSON.stringify({ source: "WEB", language: locale }),
       });
       if (!res.ok || aborted) return;
       const data = (await res.json()) as { sessionId: string; bot: Bot };
@@ -52,7 +52,7 @@ export function ChatWidget({
     return () => {
       aborted = true;
     };
-  }, [venueSlug]);
+  }, [venueSlug, locale]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });

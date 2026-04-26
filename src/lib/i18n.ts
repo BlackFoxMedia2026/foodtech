@@ -118,6 +118,38 @@ const dictionaries = {
     "menuUnlock.errorGeneric": "Qualcosa è andato storto. Riprova.",
     "menuUnlock.cta": "Vedi il menu",
     "menuUnlock.busy": "Sto sbloccando…",
+    "bot.greeting":
+      "Ciao! Sono l'assistente prenotazioni di {venue}. Posso aiutarti a riservare un tavolo. Per quante persone?",
+    "bot.qr.book": "Voglio prenotare",
+    "bot.qr.hours": "Vorrei sapere gli orari",
+    "bot.qr.staff": "Parlate con uno staff",
+    "bot.handoff":
+      "Va bene! Ho avvisato lo staff. Lasciami il tuo numero o l'email e ti ricontattano.",
+    "bot.askParty": "Perfetto! Per quante persone vorresti prenotare?",
+    "bot.askDate":
+      "Per {party} persone — per quale giorno? (es. \"stasera\", \"domani\", \"venerdì\", o una data)",
+    "bot.qr.tonight": "Stasera",
+    "bot.qr.tomorrow": "Domani",
+    "bot.qr.friday": "Venerdì",
+    "bot.qr.saturday": "Sabato",
+    "bot.noSlots":
+      "Per il {date} per {party} non vedo disponibilità. Prova un altro giorno o scrivimi \"operatore\" per parlarne con lo staff.",
+    "bot.askTime":
+      "Per il {date} ho questi orari liberi: {slots}. A che ora preferisci?",
+    "bot.slotTaken": "Quell'orario è già pieno. Disponibili: {slots}. Quale scegli?",
+    "bot.dayFull": "Quel giorno è completo. Vuoi provare un'altra data?",
+    "bot.askName": "Ottimo. A che nome posso prenotare? (nome e cognome)",
+    "bot.askContact":
+      "Perfetto {first}! Mi lasci un'email o un numero di telefono per la conferma?",
+    "bot.confirm":
+      "Confermo: {party} persone il {date} alle {time} a nome {name}. Procedo?",
+    "bot.qr.confirm": "Sì, conferma",
+    "bot.qr.cancel": "Annulla",
+    "bot.booked":
+      "Fatto! Prenotazione confermata, riferimento {reference}. A presto da {venue}!",
+    "bot.error.slotJustTaken":
+      "Mi spiace, l'orario si è appena occupato. Vuoi che ti proponga le alternative più vicine?",
+    "bot.error.generic": "Qualcosa è andato storto: {code}. Vuoi che chiami lo staff?",
   },
   en: {
     "widget.brand": "Tavolo · online booking",
@@ -233,6 +265,38 @@ const dictionaries = {
     "menuUnlock.errorGeneric": "Something went wrong. Please retry.",
     "menuUnlock.cta": "View the menu",
     "menuUnlock.busy": "Unlocking…",
+    "bot.greeting":
+      "Hi! I'm {venue}'s booking assistant. Happy to help you reserve a table. How many guests?",
+    "bot.qr.book": "I want to book",
+    "bot.qr.hours": "I'd like to know your hours",
+    "bot.qr.staff": "Talk to a staff member",
+    "bot.handoff":
+      "Sure! I've notified the team. Leave your number or email and they'll get back to you.",
+    "bot.askParty": "Great! For how many guests?",
+    "bot.askDate":
+      "For {party} guests — which day? (e.g. \"tonight\", \"tomorrow\", \"Friday\", or a date)",
+    "bot.qr.tonight": "Tonight",
+    "bot.qr.tomorrow": "Tomorrow",
+    "bot.qr.friday": "Friday",
+    "bot.qr.saturday": "Saturday",
+    "bot.noSlots":
+      "I can't find availability for {date} with {party} guests. Try a different day or write \"staff\" to talk to a person.",
+    "bot.askTime":
+      "On {date} we have these times open: {slots}. Which works for you?",
+    "bot.slotTaken": "That time just filled up. Open: {slots}. Which one shall we lock in?",
+    "bot.dayFull": "That day is full. Want to try another date?",
+    "bot.askName": "Lovely. Under what name should I book? (first and last)",
+    "bot.askContact":
+      "Perfect {first}! Could you leave an email or phone number for the confirmation?",
+    "bot.confirm":
+      "Just to confirm: {party} guests on {date} at {time} for {name}. Shall I proceed?",
+    "bot.qr.confirm": "Yes, confirm",
+    "bot.qr.cancel": "Cancel",
+    "bot.booked":
+      "Done! Booking confirmed, reference {reference}. See you at {venue}!",
+    "bot.error.slotJustTaken":
+      "I'm sorry, that time was just taken. Want me to suggest the closest alternatives?",
+    "bot.error.generic": "Something went wrong: {code}. Want me to call the staff?",
   },
 } satisfies Record<Locale, Record<string, string>>;
 

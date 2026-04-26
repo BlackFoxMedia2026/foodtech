@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { recordInboundCall } from "@/server/voice";
 import { rateLimit } from "@/lib/rate-limit";
+import { captureError } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,6 +26,9 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
       return NextResponse.json({ error: "invalid_input", issues: err.issues }, { status: 400 });
     }
     const code = err instanceof Error ? err.message : "unknown";
+    if (code !== "venue_not_found") {
+      captureError(err, { module: "voice-webhook", extra: { slug: params.slug } });
+    }
     return NextResponse.json(
       { error: code },
       { status: code === "venue_not_found" ? 404 : 400 },

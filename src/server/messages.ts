@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { sendMessage } from "@/lib/messaging";
+import { captureError } from "@/lib/observability";
 
 type Channel = "EMAIL" | "SMS" | "WHATSAPP";
 
@@ -78,6 +79,12 @@ export async function dispatchMessage(input: DispatchInput) {
       }
     }
   } catch (err) {
+    captureError(err, {
+      module: "messages",
+      venueId: input.venueId,
+      resourceId: log.id,
+      extra: { channel: input.channel, to: input.to.slice(0, 12) },
+    });
     await db.messageLog.update({
       where: { id: log.id },
       data: {
