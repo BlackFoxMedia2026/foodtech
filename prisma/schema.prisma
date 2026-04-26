@@ -96,6 +96,7 @@ model Venue {
   wifiAutoCouponPercent Int       @default(10)
   wifiAutoCouponDays    Int       @default(30)
   wifiSetupAt           DateTime?
+  calendarToken         String?   @unique
   createdAt             DateTime  @default(now())
 
   org               Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -365,6 +366,7 @@ model Booking {
   payments   Payment[]
   events     BookingEvent[]
   voiceDraft VoiceBookingDraft?
+  preorder   BookingPreorder?
 
   @@index([venueId, startsAt])
   @@index([venueId, status])
@@ -1408,4 +1410,40 @@ model GiftCardRedemption {
   giftCard GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
 
   @@index([giftCardId, createdAt])
+}
+
+// ─── Pre-order: scelta menu al momento della prenotazione ───────────────────
+
+model BookingPreorder {
+  id         String         @id @default(cuid())
+  bookingId  String         @unique
+  status     PreorderStatus @default(DRAFT)
+  totalCents Int            @default(0)
+  notes      String?        @db.VarChar(500)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  booking Booking               @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  items   BookingPreorderItem[]
+}
+
+enum PreorderStatus {
+  DRAFT
+  CONFIRMED
+  PREPARED
+  CANCELLED
+}
+
+model BookingPreorderItem {
+  id         String  @id @default(cuid())
+  preorderId String
+  menuItemId String?
+  name       String
+  priceCents Int
+  quantity   Int     @default(1)
+  notes      String? @db.VarChar(200)
+
+  preorder BookingPreorder @relation(fields: [preorderId], references: [id], onDelete: Cascade)
+
+  @@index([preorderId])
 }

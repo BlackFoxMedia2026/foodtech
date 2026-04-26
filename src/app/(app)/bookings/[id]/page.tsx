@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Users, Clock, Phone, Mail, NotebookText, CreditCard } from "lucide-react";
+import { ArrowLeft, Users, Clock, Phone, Mail, NotebookText, CreditCard, ChefHat } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, getActiveVenue } from "@/lib/tenant";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, SourceBadge } from "@/components/bookings/status-badge";
 import { BookingActions } from "@/components/bookings/booking-actions";
 import { BookingTimeline } from "@/components/bookings/booking-timeline";
+import { PreorderEditor } from "@/components/preorders/preorder-editor";
+import { getPreorderForBooking, venueMenuForPreorder } from "@/server/preorders";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +44,11 @@ export default async function BookingDetail({ params }: { params: { id: string }
     select: { id: true, label: true, seats: true },
     orderBy: { label: "asc" },
   });
+
+  const [preorder, menu] = await Promise.all([
+    getPreorderForBooking(item.id),
+    venueMenuForPreorder(ctx.venueId),
+  ]);
 
   const guestName = item.guest ? `${item.guest.firstName} ${item.guest.lastName ?? ""}`.trim() : "Walk-in";
 
@@ -159,6 +166,52 @@ export default async function BookingDetail({ params }: { params: { id: string }
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChefHat className="h-4 w-4" /> Pre-order
+          </CardTitle>
+          <CardDescription>
+            Piatti già ordinati dall&apos;ospite. Lo staff può aggiungere/correggere e marcare
+            come pronto.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PreorderEditor
+            scope="admin"
+            bookingId={item.id}
+            initial={
+              preorder
+                ? {
+                    status: preorder.status,
+                    notes: preorder.notes,
+                    items: preorder.items.map((i) => ({
+                      id: i.id,
+                      menuItemId: i.menuItemId,
+                      name: i.name,
+                      priceCents: i.priceCents,
+                      quantity: i.quantity,
+                      notes: i.notes,
+                    })),
+                  }
+                : null
+            }
+            menu={menu.map((c) => ({
+              id: c.id,
+              name: c.name,
+              items: c.items.map((it) => ({
+                id: it.id,
+                name: it.name,
+                description: it.description,
+                priceCents: it.priceCents,
+                currency: it.currency,
+              })),
+            }))}
+            currency={ctx.venue.currency}
+          />
+        </CardContent>
+      </Card>
 
       <BookingTimeline bookingId={item.id} />
 

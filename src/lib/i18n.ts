@@ -102,6 +102,7 @@ const dictionaries = {
     "manage.cancelled": "Prenotazione annullata. Riceverai una conferma via email.",
     "manage.updated": "Aggiornato. Lo staff riceve una notifica.",
     "manage.lockNote": "Le modifiche sono possibili fino a 2 ore prima dell'orario.",
+    "manage.addToCalendar": "Aggiungi al calendario",
     "manage.statusClosed":
       "Questa prenotazione è in stato {status}: non puoi più modificarla. Per assistenza contatta il locale.",
     "manage.error.not_found": "Prenotazione non trovata.",
@@ -311,6 +312,7 @@ const dictionaries = {
     "manage.cancelled": "Booking cancelled. You'll receive a confirmation email.",
     "manage.updated": "Updated. The venue has been notified.",
     "manage.lockNote": "You can edit up until 2 hours before the booking.",
+    "manage.addToCalendar": "Add to calendar",
     "manage.statusClosed":
       "This booking is in {status} status: it can no longer be edited. Contact the venue for help.",
     "manage.error.not_found": "Booking not found.",
