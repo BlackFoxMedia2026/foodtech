@@ -341,7 +341,12 @@ async function createDepositCheckout(opts: {
 }
 
 async function notifyBookingCreated(opts: {
-  guest: { firstName: string; lastName: string | null; email: string | null };
+  guest: {
+    firstName: string;
+    lastName: string | null;
+    email: string | null;
+    language?: string | null;
+  };
   venue: { name: string; email: string | null; city: string | null; address: string | null; phone: string | null };
   booking: { reference: string; partySize: number; startsAt: Date; occasion: string | null; notes: string | null };
 }) {

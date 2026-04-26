@@ -1,16 +1,8 @@
 import { formatDateTime } from "@/lib/utils";
+import { type Locale, pickLocale, t } from "@/lib/i18n";
 
-const occasionLabel: Record<string, string> = {
-  BIRTHDAY: "Compleanno",
-  ANNIVERSARY: "Anniversario",
-  BUSINESS: "Lavoro",
-  DATE: "Romantica",
-  CELEBRATION: "Celebrazione",
-  OTHER: "Altro",
-};
-
-const layoutBase = (inner: string, footer: string) => `<!doctype html>
-<html lang="it">
+const layoutBase = (locale: Locale, inner: string, footer: string) => `<!doctype html>
+<html lang="${locale}">
 <body style="margin:0;background:#f7f4ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#15161a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ec;padding:32px 16px">
     <tr><td align="center">
@@ -31,6 +23,7 @@ export type GuestLike = {
   firstName: string;
   lastName?: string | null;
   email?: string | null;
+  language?: string | null;
 };
 
 export type VenueLike = {
@@ -58,40 +51,60 @@ const detailRow = (label: string, value: string) => `
   <td style="padding:6px 0;text-align:right;font-size:14px">${value}</td>
 </tr>`;
 
+function localeOf(guest: GuestLike): Locale {
+  return pickLocale(guest.language ?? null);
+}
+
+function occasionLabel(locale: Locale, code: string) {
+  const key = `email.occasion.${code}` as never;
+  const value = t(locale, key);
+  // If the key didn't resolve (returned the literal key), fall back to the
+  // raw enum so the email isn't broken.
+  return value === key ? code : value;
+}
+
 export function renderGuestConfirmation(opts: {
   guest: GuestLike;
   venue: VenueLike;
   booking: BookingLike;
 }) {
   const { guest, venue, booking } = opts;
+  const locale = localeOf(guest);
+  const when = formatDateTime(booking.startsAt);
   const inner = `
-    <p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">Richiesta ricevuta</p>
-    <h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:26px;line-height:1.25">Ci siamo quasi, ${escapeHtml(guest.firstName)}.</h1>
-    <p style="margin:0 0 18px;font-size:15px;line-height:1.55">Abbiamo ricevuto la tua richiesta per <strong>${escapeHtml(venue.name)}</strong>. Il team la conferma a breve. Conserva il codice qui sotto.</p>
+    <p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">${escapeHtml(t(locale, "email.confirmation.kicker"))}</p>
+    <h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:26px;line-height:1.25">${escapeHtml(t(locale, "email.confirmation.headline", { first: guest.firstName }))}</h1>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.55">${t(locale, "email.confirmation.body", { venue: escapeHtml(venue.name) })}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee5cd;border-radius:10px;padding:14px 16px;margin-bottom:18px">
-      ${detailRow("Codice", `<span style="font-family:'Menlo',monospace">${fmtRef(booking.reference)}</span>`)}
-      ${detailRow("Data e ora", escapeHtml(formatDateTime(booking.startsAt)))}
-      ${detailRow("Persone", String(booking.partySize))}
-      ${booking.occasion ? detailRow("Occasione", escapeHtml(occasionLabel[booking.occasion] ?? booking.occasion)) : ""}
-      ${booking.notes ? detailRow("Note", escapeHtml(booking.notes)) : ""}
+      ${detailRow(t(locale, "email.field.code"), `<span style="font-family:'Menlo',monospace">${fmtRef(booking.reference)}</span>`)}
+      ${detailRow(t(locale, "email.field.when"), escapeHtml(when))}
+      ${detailRow(t(locale, "email.field.party"), String(booking.partySize))}
+      ${booking.occasion ? detailRow(t(locale, "email.field.occasion"), escapeHtml(occasionLabel(locale, booking.occasion))) : ""}
+      ${booking.notes ? detailRow(t(locale, "email.field.notes"), escapeHtml(booking.notes)) : ""}
     </table>
     ${
       venue.address || venue.city || venue.phone
-        ? `<p style="margin:0 0 8px;font-size:13px;color:#7a7466">Dove e quando</p>
+        ? `<p style="margin:0 0 8px;font-size:13px;color:#7a7466">${escapeHtml(t(locale, "email.placeLabel"))}</p>
            <p style="margin:0;font-size:14px;line-height:1.5">${[venue.address, venue.city].filter((v): v is string => Boolean(v)).map(escapeHtml).join(" · ")}${venue.phone ? `<br>${escapeHtml(venue.phone)}` : ""}</p>`
         : ""
     }
     ${
       booking.manageUrl
-        ? `<p style="margin:18px 0 0"><a href="${booking.manageUrl}" style="display:inline-block;background:#15161a;color:#f7f4ec;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Gestisci la prenotazione</a></p>
-           <p style="margin:6px 0 0;font-size:12px;color:#7a7466">Modifica orario, persone o annulla in autonomia fino a 2 ore prima.</p>`
+        ? `<p style="margin:18px 0 0"><a href="${booking.manageUrl}" style="display:inline-block;background:#15161a;color:#f7f4ec;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(t(locale, "email.manageButton"))}</a></p>
+           <p style="margin:6px 0 0;font-size:12px;color:#7a7466">${escapeHtml(t(locale, "email.manageNote"))}</p>`
         : ""
     }`;
-  const footer = `Hai ricevuto questa email perché hai prenotato un tavolo presso ${escapeHtml(venue.name)}. Per modifiche o cancellazioni rispondi pure a questo messaggio.`;
+  const footer = t(locale, "email.confirmation.footer", { venue: escapeHtml(venue.name) });
   return {
-    subject: `Richiesta ricevuta · ${venue.name} · ${formatDateTime(booking.startsAt)}`,
-    html: layoutBase(inner, footer),
-    text: `Ciao ${guest.firstName}, abbiamo ricevuto la tua richiesta per ${venue.name} il ${formatDateTime(booking.startsAt)} per ${booking.partySize} persone. Codice: ${fmtRef(booking.reference)}.`,
+    subject: t(locale, "email.confirmation.subject", { venue: venue.name, when }),
+    html: layoutBase(locale, inner, footer),
+    text: t(locale, "email.confirmation.text", {
+      first: guest.firstName,
+      venue: venue.name,
+      when,
+      party: booking.partySize,
+      code: fmtRef(booking.reference),
+    }),
   };
 }
 
@@ -101,25 +114,37 @@ export function renderVenueNotification(opts: {
   booking: BookingLike;
 }) {
   const { guest, venue, booking } = opts;
+  const locale = localeOf(guest);
   const fullName = [guest.firstName, guest.lastName].filter(Boolean).join(" ");
+  const when = formatDateTime(booking.startsAt);
   const inner = `
-    <p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">Nuova prenotazione widget</p>
-    <h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:24px;line-height:1.25">${escapeHtml(fullName)} · ${booking.partySize} persone</h1>
+    <p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">${escapeHtml(t(locale, "email.venueAlert.kicker"))}</p>
+    <h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:24px;line-height:1.25">${escapeHtml(fullName)} · ${booking.partySize} ${escapeHtml(t(locale, "email.field.party").toLowerCase())}</h1>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee5cd;border-radius:10px;padding:14px 16px;margin-bottom:14px">
-      ${detailRow("Locale", escapeHtml(venue.name))}
-      ${detailRow("Quando", escapeHtml(formatDateTime(booking.startsAt)))}
-      ${detailRow("Codice", `<span style="font-family:'Menlo',monospace">${fmtRef(booking.reference)}</span>`)}
-      ${booking.occasion ? detailRow("Occasione", escapeHtml(occasionLabel[booking.occasion] ?? booking.occasion)) : ""}
-      ${guest.email ? detailRow("Email", escapeHtml(guest.email)) : ""}
-      ${booking.notes ? detailRow("Note", escapeHtml(booking.notes)) : ""}
+      ${detailRow(t(locale, "email.field.venue"), escapeHtml(venue.name))}
+      ${detailRow(t(locale, "email.field.when"), escapeHtml(when))}
+      ${detailRow(t(locale, "email.field.code"), `<span style="font-family:'Menlo',monospace">${fmtRef(booking.reference)}</span>`)}
+      ${booking.occasion ? detailRow(t(locale, "email.field.occasion"), escapeHtml(occasionLabel(locale, booking.occasion))) : ""}
+      ${guest.email ? detailRow(t(locale, "email.field.email"), escapeHtml(guest.email)) : ""}
+      ${booking.notes ? detailRow(t(locale, "email.field.notes"), escapeHtml(booking.notes)) : ""}
     </table>
-    <p style="margin:0;font-size:13px;color:#7a7466">Apri Tavolo per confermare o riassegnare il tavolo.</p>
+    <p style="margin:0;font-size:13px;color:#7a7466">${escapeHtml(t(locale, "email.venueAlert.cta"))}</p>
   `;
-  const footer = `Notifica automatica per il team di ${escapeHtml(venue.name)}.`;
+  const footer = t(locale, "email.venueAlert.footer", { venue: escapeHtml(venue.name) });
   return {
-    subject: `🍷 ${fullName} · ${booking.partySize}p · ${formatDateTime(booking.startsAt)}`,
-    html: layoutBase(inner, footer),
-    text: `Nuova prenotazione widget per ${venue.name}: ${fullName}, ${booking.partySize} persone, ${formatDateTime(booking.startsAt)}. Codice ${fmtRef(booking.reference)}.`,
+    subject: t(locale, "email.venueAlert.subject", {
+      name: fullName,
+      party: booking.partySize,
+      when,
+    }),
+    html: layoutBase(locale, inner, footer),
+    text: t(locale, "email.venueAlert.text", {
+      venue: venue.name,
+      name: fullName,
+      party: booking.partySize,
+      when,
+      code: fmtRef(booking.reference),
+    }),
   };
 }
 
@@ -129,27 +154,34 @@ export function renderReminder(opts: {
   booking: BookingLike;
 }) {
   const { guest, venue, booking } = opts;
+  const locale = localeOf(guest);
+  const when = formatDateTime(booking.startsAt);
   const inner = `
-    <p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">Promemoria</p>
-    <h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:24px;line-height:1.25">Domani ti aspettiamo, ${escapeHtml(guest.firstName)}.</h1>
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.55">Un piccolo promemoria per la tua prenotazione presso <strong>${escapeHtml(venue.name)}</strong>.</p>
+    <p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">${escapeHtml(t(locale, "email.reminder.kicker"))}</p>
+    <h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:24px;line-height:1.25">${escapeHtml(t(locale, "email.reminder.headline", { first: guest.firstName }))}</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.55">${t(locale, "email.reminder.body", { venue: escapeHtml(venue.name) })}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee5cd;border-radius:10px;padding:14px 16px;margin-bottom:14px">
-      ${detailRow("Quando", escapeHtml(formatDateTime(booking.startsAt)))}
-      ${detailRow("Persone", String(booking.partySize))}
-      ${detailRow("Codice", `<span style="font-family:'Menlo',monospace">${fmtRef(booking.reference)}</span>`)}
+      ${detailRow(t(locale, "email.field.when"), escapeHtml(when))}
+      ${detailRow(t(locale, "email.field.party"), String(booking.partySize))}
+      ${detailRow(t(locale, "email.field.code"), `<span style="font-family:'Menlo',monospace">${fmtRef(booking.reference)}</span>`)}
     </table>
-    <p style="margin:0;font-size:13px;color:#7a7466">Se non puoi più venire, scrivici qui e libereremo il tavolo per altri ospiti.</p>
+    <p style="margin:0;font-size:13px;color:#7a7466">${escapeHtml(t(locale, "email.reminder.foot"))}</p>
     ${
       booking.manageUrl
-        ? `<p style="margin:14px 0 0"><a href="${booking.manageUrl}" style="color:#15161a">Modifica o annulla la prenotazione →</a></p>`
+        ? `<p style="margin:14px 0 0"><a href="${booking.manageUrl}" style="color:#15161a">${escapeHtml(t(locale, "email.manageInline"))}</a></p>`
         : ""
     }
   `;
-  const footer = `Promemoria automatico inviato 24h prima della prenotazione.`;
+  const footer = t(locale, "email.reminder.footer");
   return {
-    subject: `Promemoria · ${venue.name} · ${formatDateTime(booking.startsAt)}`,
-    html: layoutBase(inner, footer),
-    text: `Promemoria: domani ${formatDateTime(booking.startsAt)} hai una prenotazione presso ${venue.name} per ${booking.partySize} persone. Codice ${fmtRef(booking.reference)}.`,
+    subject: t(locale, "email.reminder.subject", { venue: venue.name, when }),
+    html: layoutBase(locale, inner, footer),
+    text: t(locale, "email.reminder.text", {
+      when,
+      venue: venue.name,
+      party: booking.partySize,
+      code: fmtRef(booking.reference),
+    }),
   };
 }
 

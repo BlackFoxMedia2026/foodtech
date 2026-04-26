@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { fireTrigger } from "@/server/automations";
+import { type Locale, pickLocale, t } from "@/lib/i18n";
 
 export const ResponseInput = z.object({
   npsScore: z.coerce.number().int().min(0).max(10),
@@ -139,14 +140,25 @@ export function renderSurveyEmail(opts: {
   guestFirstName: string;
   venueName: string;
   link: string;
+  language?: string | null;
 }) {
+  const locale: Locale = pickLocale(opts.language ?? null);
   const safe = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const html = `<!doctype html><html lang="it"><body style="margin:0;background:#f7f4ec;font-family:-apple-system,sans-serif;color:#15161a"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ec;padding:32px 16px"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border:1px solid #e8e1cf;border-radius:14px"><tr><td style="padding:28px"><p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">Ti ringraziamo</p><h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:24px">Com'è andata, ${safe(opts.guestFirstName)}?</h1><p style="margin:0 0 16px;font-size:15px;line-height:1.55">Speriamo che la tua esperienza presso <strong>${safe(opts.venueName)}</strong> ti sia piaciuta. Ci aiuti con un click?</p><p style="margin:0 0 18px"><a href="${opts.link}" style="display:inline-block;background:#c9a25a;color:#15161a;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Lascia un feedback</a></p><p style="margin:0;font-size:12px;color:#7a7466">Bastano 30 secondi. Le tue parole ci aiutano a migliorare.</p></td></tr></table></td></tr></table></body></html>`;
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  const kicker = t(locale, "email.survey.kicker");
+  const headline = t(locale, "email.survey.headline", { first: safe(opts.guestFirstName) });
+  const body = t(locale, "email.survey.body", { venue: safe(opts.venueName) });
+  const cta = t(locale, "email.survey.cta");
+  const note = t(locale, "email.survey.note");
+  const html = `<!doctype html><html lang="${locale}"><body style="margin:0;background:#f7f4ec;font-family:-apple-system,sans-serif;color:#15161a"><table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ec;padding:32px 16px"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border:1px solid #e8e1cf;border-radius:14px"><tr><td style="padding:28px"><p style="margin:0 0 6px;color:#7a7466;font-size:12px;letter-spacing:.16em;text-transform:uppercase">${safe(kicker)}</p><h1 style="margin:0 0 14px;font-family:Georgia,serif;font-size:24px">${headline}</h1><p style="margin:0 0 16px;font-size:15px;line-height:1.55">${body}</p><p style="margin:0 0 18px"><a href="${opts.link}" style="display:inline-block;background:#c9a25a;color:#15161a;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">${safe(cta)}</a></p><p style="margin:0;font-size:12px;color:#7a7466">${safe(note)}</p></td></tr></table></td></tr></table></body></html>`;
   return {
-    subject: `${opts.venueName} · com'è andata?`,
+    subject: t(locale, "email.survey.subject", { venue: opts.venueName }),
     html,
-    text: `Com'è andata, ${opts.guestFirstName}? Lasciaci un feedback: ${opts.link}`,
+    text: t(locale, "email.survey.text", { first: opts.guestFirstName, link: opts.link }),
   };
 }
 
@@ -161,7 +173,7 @@ export async function dispatchPostVisitSurveys() {
       closedAt: { gte: cutoffStart, lte: cutoffEnd },
     },
     include: {
-      guest: { select: { firstName: true, email: true } },
+      guest: { select: { firstName: true, email: true, language: true } },
       venue: { select: { name: true, email: true, slug: true } },
     },
     take: 200,
@@ -180,6 +192,7 @@ export async function dispatchPostVisitSurveys() {
     const tpl = renderSurveyEmail({
       guestFirstName: b.guest.firstName,
       venueName: b.venue.name,
+      language: b.guest.language,
       link: `${baseUrl}/s/${survey.token}`,
     });
     const r = await sendEmail({

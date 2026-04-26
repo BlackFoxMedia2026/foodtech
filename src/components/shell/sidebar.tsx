@@ -25,11 +25,13 @@ import {
   PiggyBank,
   TrendingUp,
   Network,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/portfolio", label: "Portfolio (multi-locale)", icon: Building2 },
+  { href: "/cockpit", label: "Cockpit", icon: Gauge },
   { href: "/overview", label: "Panoramica locale", icon: LayoutDashboard },
   { href: "/now", label: "Vista sala (live)", icon: Tv },
   { href: "/waitlist", label: "Lista d'attesa", icon: Hourglass },

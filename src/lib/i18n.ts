@@ -150,6 +150,58 @@ const dictionaries = {
     "bot.error.slotJustTaken":
       "Mi spiace, l'orario si è appena occupato. Vuoi che ti proponga le alternative più vicine?",
     "bot.error.generic": "Qualcosa è andato storto: {code}. Vuoi che chiami lo staff?",
+    "email.confirmation.kicker": "Richiesta ricevuta",
+    "email.confirmation.headline": "Ci siamo quasi, {first}.",
+    "email.confirmation.body":
+      "Abbiamo ricevuto la tua richiesta per <strong>{venue}</strong>. Il team la conferma a breve. Conserva il codice qui sotto.",
+    "email.confirmation.subject": "Richiesta ricevuta · {venue} · {when}",
+    "email.confirmation.text":
+      "Ciao {first}, abbiamo ricevuto la tua richiesta per {venue} il {when} per {party} persone. Codice: {code}.",
+    "email.confirmation.footer":
+      "Hai ricevuto questa email perché hai prenotato un tavolo presso {venue}. Per modifiche o cancellazioni rispondi pure a questo messaggio.",
+    "email.placeLabel": "Dove e quando",
+    "email.field.code": "Codice",
+    "email.field.when": "Data e ora",
+    "email.field.party": "Persone",
+    "email.field.occasion": "Occasione",
+    "email.field.notes": "Note",
+    "email.field.venue": "Locale",
+    "email.field.email": "Email",
+    "email.manageButton": "Gestisci la prenotazione",
+    "email.manageNote":
+      "Modifica orario, persone o annulla in autonomia fino a 2 ore prima.",
+    "email.manageInline": "Modifica o annulla la prenotazione →",
+    "email.venueAlert.kicker": "Nuova prenotazione widget",
+    "email.venueAlert.subject": "🍷 {name} · {party}p · {when}",
+    "email.venueAlert.cta": "Apri Tavolo per confermare o riassegnare il tavolo.",
+    "email.venueAlert.footer": "Notifica automatica per il team di {venue}.",
+    "email.venueAlert.text":
+      "Nuova prenotazione widget per {venue}: {name}, {party} persone, {when}. Codice {code}.",
+    "email.reminder.kicker": "Promemoria",
+    "email.reminder.headline": "Domani ti aspettiamo, {first}.",
+    "email.reminder.body":
+      "Un piccolo promemoria per la tua prenotazione presso <strong>{venue}</strong>.",
+    "email.reminder.foot":
+      "Se non puoi più venire, scrivici qui e libereremo il tavolo per altri ospiti.",
+    "email.reminder.subject": "Promemoria · {venue} · {when}",
+    "email.reminder.footer": "Promemoria automatico inviato 24h prima della prenotazione.",
+    "email.reminder.text":
+      "Promemoria: domani {when} hai una prenotazione presso {venue} per {party} persone. Codice {code}.",
+    "email.occasion.BIRTHDAY": "Compleanno",
+    "email.occasion.ANNIVERSARY": "Anniversario",
+    "email.occasion.BUSINESS": "Lavoro",
+    "email.occasion.DATE": "Romantica",
+    "email.occasion.CELEBRATION": "Celebrazione",
+    "email.occasion.OTHER": "Altro",
+    "email.survey.kicker": "Ti ringraziamo",
+    "email.survey.headline": "Com'è andata, {first}?",
+    "email.survey.body":
+      "Speriamo che la tua esperienza presso <strong>{venue}</strong> ti sia piaciuta. Ci aiuti con un click?",
+    "email.survey.cta": "Lascia un feedback",
+    "email.survey.note":
+      "Bastano 30 secondi. Le tue parole ci aiutano a migliorare.",
+    "email.survey.subject": "{venue} · com'è andata?",
+    "email.survey.text": "Com'è andata, {first}? Lasciaci un feedback: {link}",
   },
   en: {
     "widget.brand": "Tavolo · online booking",
@@ -297,6 +349,56 @@ const dictionaries = {
     "bot.error.slotJustTaken":
       "I'm sorry, that time was just taken. Want me to suggest the closest alternatives?",
     "bot.error.generic": "Something went wrong: {code}. Want me to call the staff?",
+    "email.confirmation.kicker": "Request received",
+    "email.confirmation.headline": "Almost there, {first}.",
+    "email.confirmation.body":
+      "We've received your request for <strong>{venue}</strong>. The team will confirm shortly. Save the code below.",
+    "email.confirmation.subject": "Request received · {venue} · {when}",
+    "email.confirmation.text":
+      "Hi {first}, we received your request for {venue} on {when} for {party} guests. Code: {code}.",
+    "email.confirmation.footer":
+      "You're receiving this email because you booked a table at {venue}. For changes or cancellations, just reply to this message.",
+    "email.placeLabel": "Where & when",
+    "email.field.code": "Code",
+    "email.field.when": "Date & time",
+    "email.field.party": "Guests",
+    "email.field.occasion": "Occasion",
+    "email.field.notes": "Notes",
+    "email.field.venue": "Venue",
+    "email.field.email": "Email",
+    "email.manageButton": "Manage booking",
+    "email.manageNote": "Change time, guests or cancel up to 2 hours before.",
+    "email.manageInline": "Edit or cancel the booking →",
+    "email.venueAlert.kicker": "New widget booking",
+    "email.venueAlert.subject": "🍷 {name} · {party}p · {when}",
+    "email.venueAlert.cta": "Open Tavolo to confirm or reassign the table.",
+    "email.venueAlert.footer": "Automatic notification for the {venue} team.",
+    "email.venueAlert.text":
+      "New widget booking for {venue}: {name}, {party} guests, {when}. Code {code}.",
+    "email.reminder.kicker": "Reminder",
+    "email.reminder.headline": "We're expecting you tomorrow, {first}.",
+    "email.reminder.body":
+      "A quick reminder for your booking at <strong>{venue}</strong>.",
+    "email.reminder.foot":
+      "If you can no longer make it, drop us a line and we'll free the table.",
+    "email.reminder.subject": "Reminder · {venue} · {when}",
+    "email.reminder.footer": "Automatic reminder sent 24h before the booking.",
+    "email.reminder.text":
+      "Reminder: tomorrow {when} you have a booking at {venue} for {party} guests. Code {code}.",
+    "email.occasion.BIRTHDAY": "Birthday",
+    "email.occasion.ANNIVERSARY": "Anniversary",
+    "email.occasion.BUSINESS": "Business",
+    "email.occasion.DATE": "Date night",
+    "email.occasion.CELEBRATION": "Celebration",
+    "email.occasion.OTHER": "Other",
+    "email.survey.kicker": "Thank you",
+    "email.survey.headline": "How was it, {first}?",
+    "email.survey.body":
+      "We hope you enjoyed your time at <strong>{venue}</strong>. Help us with a quick click?",
+    "email.survey.cta": "Leave feedback",
+    "email.survey.note": "30 seconds, tops. Your words help us get better.",
+    "email.survey.subject": "{venue} · how was it?",
+    "email.survey.text": "How was it, {first}? Leave feedback: {link}",
   },
 } satisfies Record<Locale, Record<string, string>>;
 

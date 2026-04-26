@@ -49,7 +49,7 @@ async function dispatchH24(now: Date) {
       status: { in: ["CONFIRMED", "PENDING"] },
     },
     include: {
-      guest: { select: { firstName: true, lastName: true, email: true } },
+      guest: { select: { firstName: true, lastName: true, email: true, language: true } },
       venue: { select: { name: true, city: true, address: true, phone: true, email: true } },
     },
     take: 500,
@@ -103,7 +103,7 @@ async function dispatchH2(now: Date) {
       status: { in: ["CONFIRMED"] },
     },
     include: {
-      guest: { select: { firstName: true, lastName: true, email: true } },
+      guest: { select: { firstName: true, lastName: true, email: true, language: true } },
       venue: { select: { name: true, city: true, address: true, phone: true, email: true } },
       events: {
         where: { kind: "REMINDER_SENT", message: { contains: "H-2" } },
