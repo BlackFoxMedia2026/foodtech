@@ -47,17 +47,29 @@ export function WidgetForm({
   const [time, setTime] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alts, setAlts] = useState<{ date: string; time: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     setLoadingSlots(true);
     setTime(null);
+    setAlts([]);
     const url = `/api/widget/${slug}/slots?date=${date}&partySize=${partySize}`;
     fetch(url)
       .then((r) => r.json())
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled) return;
-        setSlots(Array.isArray(data?.slots) ? data.slots : []);
+        const list: Slot[] = Array.isArray(data?.slots) ? data.slots : [];
+        setSlots(list);
+        if (list.filter((s) => s.available).length === 0) {
+          const altRes = await fetch(
+            `/api/widget/${slug}/alternatives?date=${date}&time=20:00&partySize=${partySize}`,
+          ).catch(() => null);
+          if (altRes && altRes.ok && !cancelled) {
+            const j = await altRes.json();
+            setAlts(Array.isArray(j?.items) ? j.items : []);
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setSlots([]);
@@ -165,9 +177,34 @@ export function WidgetForm({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t(locale, "widget.loadingSlots")}
                 </div>
               ) : availableSlots.length === 0 ? (
-                <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  {t(locale, "widget.noSlots")}
-                </p>
+                <div className="space-y-3">
+                  <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    {t(locale, "widget.noSlots")}
+                  </p>
+                  {alts.length > 0 && (
+                    <div className="rounded-md border border-gilt/30 bg-gilt/5 p-3">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gilt-dark">
+                        {locale === "en" ? "Suggested times" : "Orari alternativi"}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {alts.map((a) => (
+                          <button
+                            key={`${a.date}-${a.time}`}
+                            type="button"
+                            onClick={() => {
+                              setDate(a.date);
+                              setTime(a.time);
+                            }}
+                            className="rounded-md border border-gilt/40 bg-background px-2 py-2 text-xs hover:bg-gilt/10"
+                          >
+                            <span className="block font-medium">{a.time}</span>
+                            <span className="block text-[10px] text-muted-foreground">{a.date}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                   {slots.map((s) => (

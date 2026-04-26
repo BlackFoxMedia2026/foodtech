@@ -80,14 +80,23 @@ export async function getAvailableSlots(
       startsAt: { gte: startOfDay(day), lte: endOfDay(day) },
       status: { in: ["CONFIRMED", "PENDING", "ARRIVED", "SEATED"] },
     },
-    select: { startsAt: true, durationMin: true, partySize: true },
+    select: { startsAt: true, durationMin: true, partySize: true, tableId: true },
   });
 
-  const tableSeats = await db.table.aggregate({
-    where: { venueId, active: true },
-    _sum: { seats: true },
+  const blocks = await db.tableBlock.findMany({
+    where: {
+      venueId,
+      startsAt: { lte: endOfDay(day) },
+      endsAt: { gte: startOfDay(day) },
+    },
+    select: { startsAt: true, endsAt: true, tableId: true },
   });
-  const totalCapacity = tableSeats._sum.seats ?? 0;
+
+  const tables = await db.table.findMany({
+    where: { venueId, active: true },
+    select: { id: true, seats: true },
+  });
+  const totalCapacity = tables.reduce((s, t) => s + t.seats, 0);
 
   const now = new Date();
   const slots: { time: string; available: boolean }[] = [];
@@ -111,9 +120,24 @@ export async function getAvailableSlots(
       const seatsCapHit =
         totalCapacity > 0 && seatsBooked + partySize > Math.floor(totalCapacity * 0.9);
 
+      // Filter tables blocked or booked during the slot to ensure at least one table fits the party
+      const blockedTableIds = new Set(
+        blocks
+          .filter((b) => b.startsAt.getTime() < slotEnd.getTime() && b.endsAt.getTime() > slotStart.getTime())
+          .map((b) => b.tableId),
+      );
+      const occupiedTableIds = new Set(
+        overlapping
+          .map((b) => b.tableId)
+          .filter((id): id is string => Boolean(id)),
+      );
+      const fitsAtLeastOne = tables.some(
+        (t) => !blockedTableIds.has(t.id) && !occupiedTableIds.has(t.id) && t.seats >= partySize,
+      );
+
       slots.push({
         time: minutesToHHMM(m),
-        available: !shiftCapHit && !seatsCapHit,
+        available: !shiftCapHit && !seatsCapHit && fitsAtLeastOne,
       });
     }
   }
@@ -124,6 +148,47 @@ export async function getAvailableSlots(
     seen.add(s.time);
     return true;
   });
+}
+
+// Suggest the closest available time slots around the requested time across the
+// next ±N days, used by the public widget when the chosen slot is unavailable.
+export async function suggestAlternatives(
+  venueId: string,
+  dateISO: string,
+  desiredTime: string,
+  partySize: number,
+  limit = 5,
+) {
+  const dayBase = new Date(`${dateISO}T00:00:00`);
+  if (Number.isNaN(dayBase.getTime())) return [];
+  const desiredMinutes = (() => {
+    const [h, m] = desiredTime.split(":").map(Number);
+    return h * 60 + m;
+  })();
+
+  const offsets = [0, 1, -1, 2, -2, 3, -3];
+  const found: { date: string; time: string; distance: number }[] = [];
+
+  for (const off of offsets) {
+    if (found.length >= limit * 3) break;
+    const d = new Date(dayBase);
+    d.setDate(d.getDate() + off);
+    if (d < startOfDay()) continue;
+    const iso = d.toISOString().slice(0, 10);
+    const slots = await getAvailableSlots(venueId, iso, partySize);
+    for (const s of slots) {
+      if (!s.available) continue;
+      const [h, m] = s.time.split(":").map(Number);
+      const slotMin = h * 60 + m;
+      const distance = Math.abs(off) * 24 * 60 + Math.abs(slotMin - desiredMinutes);
+      found.push({ date: iso, time: s.time, distance });
+    }
+  }
+
+  return found
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, limit)
+    .map(({ date, time }) => ({ date, time }));
 }
 
 export async function createPublicBooking(slug: string, raw: unknown) {
