@@ -98,6 +98,9 @@ model Venue {
   wifiSetupAt           DateTime?
   calendarToken         String?   @unique
   googlePlaceId         String?
+  brandLogoUrl          String?
+  brandAccent           String?   @db.VarChar(9)
+  brandFootnote         String?   @db.VarChar(280)
   createdAt             DateTime  @default(now())
 
   org               Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)

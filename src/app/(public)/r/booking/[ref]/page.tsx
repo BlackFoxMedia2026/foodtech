@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { ChefHat } from "lucide-react";
 import { getBookingByReference } from "@/server/booking-self-service";
+import { getVenueBrandBySlug } from "@/server/branding";
 import { BookingManageForm } from "@/components/booking/manage-form";
 import { LocaleSwitch } from "@/components/widget/locale-switch";
 import { PreorderEditor } from "@/components/preorders/preorder-editor";
+import { PublicFootnote, PublicHeader } from "@/components/branding/public-shell";
 import {
   getPreorderForReference,
   venueMenuForPreorder,
@@ -22,9 +24,10 @@ export default async function BookingManagePage({
   const booking = await getBookingByReference(params.ref);
   if (!booking) notFound();
   const locale = pickLocale(searchParams.lang);
-  const [preorder, menu] = await Promise.all([
+  const [preorder, menu, brand] = await Promise.all([
     getPreorderForReference(params.ref),
     venueMenuForPreorder(booking.venue.id),
+    getVenueBrandBySlug(booking.venue.slug),
   ]);
   const closed =
     booking.status === "COMPLETED" ||
@@ -52,15 +55,21 @@ export default async function BookingManagePage({
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col gap-6 px-4 py-8">
-      <header className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-carbon-800 text-sand-50 font-display text-xs">
-            T
-          </span>
-          Tavolo
-        </div>
+      <div className="flex items-start justify-between gap-2">
+        {brand ? (
+          <div className="flex-1">
+            <PublicHeader brand={brand} kicker="La tua prenotazione" />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-carbon-800 text-sand-50 font-display text-xs">
+              T
+            </span>
+            Tavolo
+          </div>
+        )}
         <LocaleSwitch locale={locale} />
-      </header>
+      </div>
       <BookingManageForm booking={plain} locale={locale} />
 
       {menu.length > 0 && (
@@ -106,6 +115,7 @@ export default async function BookingManagePage({
           />
         </section>
       )}
+      {brand && <PublicFootnote brand={brand} />}
     </div>
   );
 }

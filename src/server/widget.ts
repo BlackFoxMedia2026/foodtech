@@ -48,6 +48,8 @@ export async function getPublicVenue(slug: string) {
       currency: true,
       depositThreshold: true,
       depositPerPersonCents: true,
+      brandLogoUrl: true,
+      brandAccent: true,
     },
   });
 }

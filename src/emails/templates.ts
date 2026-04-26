@@ -1,15 +1,37 @@
 import { formatDateTime } from "@/lib/utils";
 import { type Locale, pickLocale, t } from "@/lib/i18n";
 
-const layoutBase = (locale: Locale, inner: string, footer: string) => `<!doctype html>
+type BrandHeader = {
+  name: string;
+  logoUrl: string | null;
+  accent: string;
+};
+
+function brandHeader(brand: BrandHeader | null) {
+  const accent = brand?.accent ?? "#c9a25a";
+  const name = brand?.name ?? "Tavolo";
+  if (brand?.logoUrl) {
+    return `<img src="${brand.logoUrl}" alt="${name}" style="display:inline-block;width:30px;height:30px;border-radius:6px;object-fit:contain;vertical-align:middle">`;
+  }
+  return `<span style="display:inline-block;width:30px;height:30px;background:${accent};color:#15161a;font-weight:700;border-radius:6px;text-align:center;line-height:30px;font-family:Georgia,serif">${name.charAt(0).toUpperCase()}</span>`;
+}
+
+const layoutBase = (
+  locale: Locale,
+  inner: string,
+  footer: string,
+  brand: BrandHeader | null = null,
+) => {
+  const name = brand?.name ?? "Tavolo";
+  return `<!doctype html>
 <html lang="${locale}">
 <body style="margin:0;background:#f7f4ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#15161a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ec;padding:32px 16px">
     <tr><td align="center">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e8e1cf;border-radius:14px;overflow:hidden">
         <tr><td style="padding:24px 28px;border-bottom:1px solid #e8e1cf">
-          <span style="display:inline-block;width:30px;height:30px;background:#c9a25a;color:#15161a;font-weight:700;border-radius:6px;text-align:center;line-height:30px;font-family:Georgia,serif">T</span>
-          <span style="margin-left:10px;font-family:Georgia,serif;font-size:18px">Tavolo</span>
+          ${brandHeader(brand)}
+          <span style="margin-left:10px;font-family:Georgia,serif;font-size:18px">${name}</span>
         </td></tr>
         <tr><td style="padding:28px">${inner}</td></tr>
         <tr><td style="padding:18px 28px;background:#fbf8ef;border-top:1px solid #e8e1cf;font-size:12px;color:#7a7466">${footer}</td></tr>
@@ -18,6 +40,7 @@ const layoutBase = (locale: Locale, inner: string, footer: string) => `<!doctype
   </table>
 </body>
 </html>`;
+};
 
 export type GuestLike = {
   firstName: string;
@@ -32,7 +55,17 @@ export type VenueLike = {
   address?: string | null;
   phone?: string | null;
   email?: string | null;
+  brandLogoUrl?: string | null;
+  brandAccent?: string | null;
 };
+
+function brandFrom(venue: VenueLike): BrandHeader {
+  return {
+    name: venue.name,
+    logoUrl: venue.brandLogoUrl ?? null,
+    accent: venue.brandAccent ?? "#c9a25a",
+  };
+}
 
 export type BookingLike = {
   reference: string;
@@ -97,7 +130,7 @@ export function renderGuestConfirmation(opts: {
   const footer = t(locale, "email.confirmation.footer", { venue: escapeHtml(venue.name) });
   return {
     subject: t(locale, "email.confirmation.subject", { venue: venue.name, when }),
-    html: layoutBase(locale, inner, footer),
+    html: layoutBase(locale, inner, footer, brandFrom(venue)),
     text: t(locale, "email.confirmation.text", {
       first: guest.firstName,
       venue: venue.name,
@@ -137,7 +170,7 @@ export function renderVenueNotification(opts: {
       party: booking.partySize,
       when,
     }),
-    html: layoutBase(locale, inner, footer),
+    html: layoutBase(locale, inner, footer, brandFrom(venue)),
     text: t(locale, "email.venueAlert.text", {
       venue: venue.name,
       name: fullName,
@@ -175,7 +208,7 @@ export function renderReminder(opts: {
   const footer = t(locale, "email.reminder.footer");
   return {
     subject: t(locale, "email.reminder.subject", { venue: venue.name, when }),
-    html: layoutBase(locale, inner, footer),
+    html: layoutBase(locale, inner, footer, brandFrom(venue)),
     text: t(locale, "email.reminder.text", {
       when,
       venue: venue.name,
