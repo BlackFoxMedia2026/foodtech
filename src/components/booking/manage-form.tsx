@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { t, type Locale } from "@/lib/i18n";
 
 type Booking = {
   reference: string;
@@ -24,15 +25,15 @@ type Booking = {
   };
 };
 
-const ERR_LABEL: Record<string, string> = {
-  not_found: "Prenotazione non trovata.",
-  locked: "Questa prenotazione non è più modificabile.",
-  already_closed: "La prenotazione è già stata chiusa.",
-  too_late: "Mancano meno di 2 ore: contatta il locale per modifiche.",
-  slot_unavailable: "Slot non disponibile, prova un altro orario.",
-  invalid_datetime: "Data o ora non valida.",
-  rate_limited: "Hai fatto troppe richieste, riprova tra poco.",
-  invalid_input: "Controlla i campi.",
+const ERR_KEY: Record<string, string> = {
+  not_found: "manage.error.not_found",
+  locked: "manage.error.locked",
+  already_closed: "manage.error.already_closed",
+  too_late: "manage.error.too_late",
+  slot_unavailable: "manage.error.slot_unavailable",
+  invalid_datetime: "manage.error.invalid_datetime",
+  rate_limited: "manage.error.rate_limited",
+  invalid_input: "manage.error.invalid_input",
 };
 
 function toDateInput(iso: string) {
@@ -45,8 +46,16 @@ function toTimeInput(iso: string) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export function BookingManageForm({ booking }: { booking: Booking }) {
+export function BookingManageForm({
+  booking,
+  locale,
+}: {
+  booking: Booking;
+  locale: Locale;
+}) {
   const router = useRouter();
+  const tr = (key: string, vars?: Record<string, string | number>) =>
+    t(locale, key as never, vars);
   const closed =
     booking.status === "COMPLETED" ||
     booking.status === "CANCELLED" ||
@@ -54,6 +63,12 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
   const [busy, setBusy] = useState<"save" | "cancel" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function lookupError(code: string | undefined, fallback: string): string {
+    const key = code ? ERR_KEY[code] : null;
+    if (key) return tr(key);
+    return tr(fallback);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,15 +90,15 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
     setBusy(null);
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
-      setError(ERR_LABEL[b.error as string] ?? "Modifica non riuscita.");
+      setError(lookupError(b.error as string | undefined, "manage.error.update_failed"));
       return;
     }
-    setMessage("Aggiornato. Lo staff riceve una notifica.");
+    setMessage(tr("manage.updated"));
     router.refresh();
   }
 
   async function onCancel() {
-    if (!confirm("Confermi l'annullamento?")) return;
+    if (!confirm(tr("manage.confirmCancel"))) return;
     setBusy("cancel");
     setError(null);
     setMessage(null);
@@ -93,10 +108,10 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
     setBusy(null);
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
-      setError(ERR_LABEL[b.error as string] ?? "Annullamento non riuscito.");
+      setError(lookupError(b.error as string | undefined, "manage.error.cancel_failed"));
       return;
     }
-    setMessage("Prenotazione annullata. Riceverai una conferma via email.");
+    setMessage(tr("manage.cancelled"));
     router.refresh();
   }
 
@@ -104,7 +119,7 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
     <div className="space-y-6">
       <header className="space-y-2">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          La tua prenotazione
+          {tr("manage.kicker")}
         </p>
         <h1 className="text-display text-3xl">{booking.venue.name}</h1>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
@@ -122,11 +137,16 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Codice <span className="font-mono">{booking.reference.slice(-8).toUpperCase()}</span>
+          {tr("manage.code")}{" "}
+          <span className="font-mono">{booking.reference.slice(-8).toUpperCase()}</span>
           {booking.guest && (
             <>
-              {" · "}A nome di {booking.guest.firstName}
-              {booking.guest.lastName ? ` ${booking.guest.lastName}` : ""}
+              {" · "}
+              {tr("manage.bookedAs", {
+                name: [booking.guest.firstName, booking.guest.lastName]
+                  .filter(Boolean)
+                  .join(" "),
+              })}
             </>
           )}
         </p>
@@ -134,15 +154,14 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
 
       {closed && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Questa prenotazione è in stato <strong>{booking.status}</strong>: non puoi più
-          modificarla. Per assistenza contatta il locale.
+          {tr("manage.statusClosed", { status: booking.status })}
         </div>
       )}
 
       <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border bg-background p-5">
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="bm-party">Persone</Label>
+            <Label htmlFor="bm-party">{tr("manage.party")}</Label>
             <Input
               id="bm-party"
               name="partySize"
@@ -154,7 +173,7 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="bm-date">Data</Label>
+            <Label htmlFor="bm-date">{tr("manage.date")}</Label>
             <Input
               id="bm-date"
               name="date"
@@ -164,7 +183,7 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="bm-time">Ora</Label>
+            <Label htmlFor="bm-time">{tr("manage.time")}</Label>
             <Input
               id="bm-time"
               name="time"
@@ -175,7 +194,7 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="bm-notes">Note per il locale</Label>
+          <Label htmlFor="bm-notes">{tr("manage.notes")}</Label>
           <Textarea
             id="bm-notes"
             name="notes"
@@ -183,7 +202,7 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
             defaultValue={booking.notes ?? ""}
             disabled={closed}
             maxLength={500}
-            placeholder="Allergie, occasione, posto preferito…"
+            placeholder={tr("manage.notesPlaceholder")}
           />
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -195,18 +214,18 @@ export function BookingManageForm({ booking }: { booking: Booking }) {
             onClick={onCancel}
             disabled={busy !== null || closed}
           >
-            <Trash2 className="h-4 w-4" /> Annulla prenotazione
+            <Trash2 className="h-4 w-4" /> {tr("manage.cancel")}
           </Button>
           <Button type="submit" variant="gold" disabled={busy !== null || closed}>
             <Save className="h-4 w-4" />
-            {busy === "save" ? "Salvataggio…" : "Salva modifiche"}
+            {busy === "save" ? tr("manage.saving") : tr("manage.save")}
           </Button>
         </div>
       </form>
 
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
         <CalendarClock className="h-3.5 w-3.5" />
-        Le modifiche sono possibili fino a 2 ore prima dell&apos;orario.
+        {tr("manage.lockNote")}
       </p>
     </div>
   );

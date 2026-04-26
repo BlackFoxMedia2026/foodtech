@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { StatCard } from "@/components/overview/stat-card";
+import { ExportButton } from "@/components/ui/export-button";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,15 @@ export default async function StaffPerformancePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Operations</p>
-        <h1 className="text-display text-3xl">Staff performance</h1>
-        <p className="text-sm text-muted-foreground">
-          Attività registrate sui tavoli e prenotazioni gestite negli ultimi 30 giorni.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Operations</p>
+          <h1 className="text-display text-3xl">Staff performance</h1>
+          <p className="text-sm text-muted-foreground">
+            Attività registrate sui tavoli e prenotazioni gestite negli ultimi 30 giorni.
+          </p>
+        </div>
+        <ExportButton kind="bookings" label="Prenotazioni CSV" />
       </header>
 
       <section className="grid gap-3 md:grid-cols-3">

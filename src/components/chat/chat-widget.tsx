@@ -5,6 +5,7 @@ import { Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { t, type Locale } from "@/lib/i18n";
 
 type Message = { id: string; role: "USER" | "BOT"; text: string };
 
@@ -19,10 +20,13 @@ type Bot = {
 export function ChatWidget({
   venueSlug,
   venueName,
+  locale = "it",
 }: {
   venueSlug: string;
   venueName: string;
+  locale?: Locale;
 }) {
+  const tr = (key: string) => t(locale, key as never);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -73,7 +77,7 @@ export function ChatWidget({
         {
           id: `b-${Date.now()}`,
           role: "BOT",
-          text: "Mi spiace, c'è stato un errore. Vuoi riprovare?",
+          text: tr("chat.error"),
         },
       ]);
       return;
@@ -95,7 +99,7 @@ export function ChatWidget({
         </span>
         <div className="min-w-0">
           <p className="font-medium leading-tight">{venueName}</p>
-          <p className="text-xs text-muted-foreground">Assistente prenotazioni</p>
+          <p className="text-xs text-muted-foreground">{tr("chat.assistant")}</p>
         </div>
       </header>
 
@@ -115,7 +119,7 @@ export function ChatWidget({
         ))}
         {busy && (
           <div className="bg-secondary text-muted-foreground max-w-[60%] rounded-2xl px-3 py-2 text-xs italic">
-            …sto scrivendo
+            {tr("chat.typing")}
           </div>
         )}
       </div>
@@ -145,7 +149,7 @@ export function ChatWidget({
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={closed ? "Conversazione chiusa" : "Scrivi un messaggio…"}
+          placeholder={closed ? tr("chat.closed") : tr("chat.placeholder")}
           disabled={busy || closed}
           maxLength={500}
         />

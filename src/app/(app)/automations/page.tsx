@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/overview/stat-card";
 import { WorkflowDialog } from "@/components/automations/workflow-dialog";
+import { ExportButton } from "@/components/ui/export-button";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +90,10 @@ export default async function AutomationsPage() {
             messaggi, coupon e task.
           </p>
         </div>
-        {canEdit && <WorkflowDialog />}
+        <div className="flex items-center gap-2">
+          {canEdit && <ExportButton kind="automations" label="Esecuzioni CSV" />}
+          {canEdit && <WorkflowDialog />}
+        </div>
       </header>
 
       <section className="grid gap-3 md:grid-cols-4">

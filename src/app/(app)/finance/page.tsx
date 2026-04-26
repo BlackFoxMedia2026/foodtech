@@ -17,6 +17,7 @@ import { StatCard } from "@/components/overview/stat-card";
 import { CostDialog } from "@/components/finance/cost-dialog";
 import { ShiftDialog } from "@/components/finance/shift-dialog";
 import { MenuCostInput } from "@/components/finance/menu-cost-input";
+import { ExportButton } from "@/components/ui/export-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,8 @@ export default async function FinancePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportButton kind="costs" label="Costi CSV" />
+          <ExportButton kind="shifts" label="Turni CSV" />
           <ShiftDialog currency={ctx.venue.currency} />
           <CostDialog currency={ctx.venue.currency} />
         </div>

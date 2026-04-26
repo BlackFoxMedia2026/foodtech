@@ -5,7 +5,17 @@ import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const ALLOWED = ["guests", "bookings", "payments"] as const;
+const ALLOWED = [
+  "guests",
+  "bookings",
+  "payments",
+  "costs",
+  "shifts",
+  "messages",
+  "automations",
+  "menu-scans",
+  "chat-sessions",
+] as const;
 type Kind = (typeof ALLOWED)[number];
 
 function csvCell(v: unknown): string {
@@ -161,6 +171,202 @@ export async function GET(_req: Request, { params }: { params: { kind: string } 
         guestFirstName: p.guest?.firstName ?? "",
         guestLastName: p.guest?.lastName ?? "",
         guestEmail: p.guest?.email ?? "",
+      })),
+    );
+  } else if (kind === "costs") {
+    if (!can(ctx.role, "view_revenue")) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    const items = await db.costEntry.findMany({
+      where: { venueId: ctx.venueId },
+      orderBy: { occurredOn: "desc" },
+      take: 5000,
+    });
+    const headers = ["id", "occurredOn", "category", "label", "amountCents", "currency", "recurring", "createdAt"];
+    csv = csvRows(
+      headers,
+      items.map((c) => ({
+        id: c.id,
+        occurredOn: c.occurredOn.toISOString(),
+        category: c.category,
+        label: c.label,
+        amountCents: c.amountCents,
+        currency: c.currency,
+        recurring: c.recurring,
+        createdAt: c.createdAt.toISOString(),
+      })),
+    );
+  } else if (kind === "shifts") {
+    if (!can(ctx.role, "view_revenue")) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    const items = await db.staffShift.findMany({
+      where: { venueId: ctx.venueId },
+      orderBy: { date: "desc" },
+      take: 5000,
+    });
+    const headers = ["id", "date", "staffName", "role", "hours", "hourlyCents", "totalCents", "notes"];
+    csv = csvRows(
+      headers,
+      items.map((s) => ({
+        id: s.id,
+        date: s.date.toISOString(),
+        staffName: s.staffName,
+        role: s.role ?? "",
+        hours: s.hours,
+        hourlyCents: s.hourlyCents,
+        totalCents: Math.round(s.hours * s.hourlyCents),
+        notes: s.notes ?? "",
+      })),
+    );
+  } else if (kind === "messages") {
+    if (!can(ctx.role, "edit_marketing")) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    const items = await db.messageLog.findMany({
+      where: { venueId: ctx.venueId },
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+      include: {
+        campaign: { select: { name: true } },
+        guest: { select: { firstName: true, lastName: true } },
+      },
+    });
+    const headers = [
+      "id",
+      "createdAt",
+      "channel",
+      "status",
+      "toAddress",
+      "subject",
+      "bodyPreview",
+      "providerId",
+      "error",
+      "campaignName",
+      "guestName",
+      "sentAt",
+      "deliveredAt",
+      "failedAt",
+    ];
+    csv = csvRows(
+      headers,
+      items.map((m) => ({
+        id: m.id,
+        createdAt: m.createdAt.toISOString(),
+        channel: m.channel,
+        status: m.status,
+        toAddress: m.toAddress,
+        subject: m.subject ?? "",
+        bodyPreview: m.bodyPreview ?? "",
+        providerId: m.providerId ?? "",
+        error: m.error ?? "",
+        campaignName: m.campaign?.name ?? "",
+        guestName: m.guest
+          ? [m.guest.firstName, m.guest.lastName].filter(Boolean).join(" ")
+          : "",
+        sentAt: m.sentAt?.toISOString() ?? "",
+        deliveredAt: m.deliveredAt?.toISOString() ?? "",
+        failedAt: m.failedAt?.toISOString() ?? "",
+      })),
+    );
+  } else if (kind === "automations") {
+    if (!can(ctx.role, "edit_marketing")) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    const items = await db.automationRun.findMany({
+      where: { venueId: ctx.venueId },
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+      include: { workflow: { select: { name: true, trigger: true } } },
+    });
+    const headers = [
+      "id",
+      "createdAt",
+      "workflowName",
+      "trigger",
+      "status",
+      "startedAt",
+      "finishedAt",
+      "error",
+    ];
+    csv = csvRows(
+      headers,
+      items.map((r) => ({
+        id: r.id,
+        createdAt: r.createdAt.toISOString(),
+        workflowName: r.workflow?.name ?? "",
+        trigger: r.trigger,
+        status: r.status,
+        startedAt: r.startedAt?.toISOString() ?? "",
+        finishedAt: r.finishedAt?.toISOString() ?? "",
+        error: r.error ?? "",
+      })),
+    );
+  } else if (kind === "menu-scans") {
+    const items = await db.menuScan.findMany({
+      where: { venueId: ctx.venueId },
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+    });
+    const headers = [
+      "id",
+      "createdAt",
+      "menuKey",
+      "source",
+      "email",
+      "phone",
+      "consentMarketing",
+    ];
+    csv = csvRows(
+      headers,
+      items.map((s) => ({
+        id: s.id,
+        createdAt: s.createdAt.toISOString(),
+        menuKey: s.menuKey,
+        source: s.source,
+        email: s.email ?? "",
+        phone: s.phone ?? "",
+        consentMarketing: s.consentMarketing,
+      })),
+    );
+  } else if (kind === "chat-sessions") {
+    const items = await db.chatSession.findMany({
+      where: { venueId: ctx.venueId },
+      orderBy: { updatedAt: "desc" },
+      take: 5000,
+      include: { _count: { select: { messages: true } } },
+    });
+    const headers = [
+      "id",
+      "createdAt",
+      "updatedAt",
+      "source",
+      "status",
+      "messages",
+      "draftPartySize",
+      "draftDate",
+      "draftTime",
+      "draftFirstName",
+      "draftLastName",
+      "draftEmail",
+      "draftPhone",
+    ];
+    csv = csvRows(
+      headers,
+      items.map((s) => ({
+        id: s.id,
+        createdAt: s.createdAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
+        source: s.source,
+        status: s.status,
+        messages: s._count.messages,
+        draftPartySize: s.draftPartySize ?? "",
+        draftDate: s.draftDate ?? "",
+        draftTime: s.draftTime ?? "",
+        draftFirstName: s.draftFirstName ?? "",
+        draftLastName: s.draftLastName ?? "",
+        draftEmail: s.draftEmail ?? "",
+        draftPhone: s.draftPhone ?? "",
       })),
     );
   }
