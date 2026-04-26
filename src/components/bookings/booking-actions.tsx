@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Trash2,
   Pencil,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,6 +84,23 @@ export function BookingActions({
     else alert("Eliminazione non riuscita.");
   }
 
+  async function autoAssign() {
+    setBusy(true);
+    const res = await fetch(`/api/bookings/${booking.id}/auto-assign`, { method: "POST" });
+    setBusy(false);
+    if (res.ok) {
+      const j = await res.json();
+      const labels = j?.suggestion?.labels?.join(" + ") ?? "tavolo";
+      alert(`Assegnato: ${labels}`);
+      startTransition(() => router.refresh());
+    } else {
+      const j = await res.json().catch(() => ({}));
+      alert(j?.error === "no_table_available"
+        ? "Nessun tavolo disponibile per questa fascia oraria."
+        : "Operazione non riuscita.");
+    }
+  }
+
   const isClosed = booking.status === "COMPLETED" || booking.status === "CANCELLED" || booking.status === "NO_SHOW";
 
   return (
@@ -120,6 +138,12 @@ export function BookingActions({
       {isClosed && (
         <Button variant="ghost" size="sm" disabled={busy} onClick={() => patch({ status: "CONFIRMED" })}>
           <RotateCcw className="h-4 w-4" /> Riapri
+        </Button>
+      )}
+
+      {!isClosed && !booking.tableId && (
+        <Button variant="subtle" size="sm" disabled={busy} onClick={autoAssign}>
+          <Wand2 className="h-4 w-4" /> Suggerisci tavolo
         </Button>
       )}
 

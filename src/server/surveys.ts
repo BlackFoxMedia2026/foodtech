@@ -28,7 +28,10 @@ export async function getSurveyByToken(token: string) {
 
 export async function recordResponse(token: string, raw: unknown) {
   const data = ResponseInput.parse(raw);
-  const survey = await db.survey.findUnique({ where: { token }, include: { response: true } });
+  const survey = await db.survey.findUnique({
+    where: { token },
+    include: { response: true, venue: { select: { name: true, email: true } } },
+  });
   if (!survey) throw new Error("not_found");
   if (survey.response) throw new Error("already_submitted");
   const sentiment = npsSentiment(data.npsScore);
@@ -44,6 +47,22 @@ export async function recordResponse(token: string, raw: unknown) {
     }),
     db.survey.update({ where: { id: survey.id }, data: { respondedAt: new Date() } }),
   ]);
+
+  // Real-time alert to the venue when the feedback is negative
+  if (sentiment === "DETRACTOR" && survey.venue.email) {
+    const safeComment = (data.comment ?? "").replace(/</g, "&lt;");
+    void sendEmail({
+      to: { email: survey.venue.email, name: survey.venue.name },
+      subject: `⚠️ Feedback negativo · NPS ${data.npsScore}/10 · ${survey.venue.name}`,
+      html: `<p>Hai ricevuto un feedback critico (NPS <strong>${data.npsScore}/10</strong>).</p>${
+        data.comment
+          ? `<p><strong>Commento:</strong></p><blockquote style="border-left:3px solid #c9a25a;margin:0;padding:8px 12px;background:#fbf8ef">${safeComment}</blockquote>`
+          : ""
+      }<p>Apri Tavolo &gt; Analytics &gt; Recensioni per il dettaglio.</p>`,
+      text: `Feedback negativo NPS ${data.npsScore}/10. ${data.comment ?? ""}`,
+    });
+  }
+
   return { survey: updatedSurvey, sentiment };
 }
 
