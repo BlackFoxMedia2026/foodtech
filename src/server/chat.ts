@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createPublicBooking, getAvailableSlots, getPublicVenue } from "@/server/widget";
+import { type Locale, pickLocale, t } from "@/lib/i18n";
+import { captureError } from "@/lib/observability";
 
 export const ChatStartInput = z.object({
   source: z.enum(["WEB", "WIDGET", "WHATSAPP", "SMS", "VOICE"]).default("WEB"),
@@ -51,11 +53,12 @@ export async function startChatSession(slug: string, raw: unknown) {
   const venue = await getPublicVenue(slug);
   if (!venue) throw new Error("venue_not_found");
 
+  const locale = pickLocale(data.language);
   const session = await db.chatSession.create({
-    data: { venueId: venue.id, source: data.source, language: data.language },
+    data: { venueId: venue.id, source: data.source, language: locale },
   });
 
-  const greeting = renderGreeting(venue.name);
+  const greeting = t(locale, "bot.greeting", { venue: venue.name });
   await db.chatMessage.create({
     data: {
       sessionId: session.id,
@@ -71,7 +74,11 @@ export async function startChatSession(slug: string, raw: unknown) {
     bot: {
       reply: greeting,
       intent: "GREETING" as const,
-      quickReplies: ["Voglio prenotare", "Vorrei sapere gli orari", "Parlate con uno staff"],
+      quickReplies: [
+        t(locale, "bot.qr.book"),
+        t(locale, "bot.qr.hours"),
+        t(locale, "bot.qr.staff"),
+      ],
       draft: {} as ChatDraft,
       status: "OPEN" as const,
     } satisfies BotMessage,
@@ -92,7 +99,8 @@ export async function postChatTurn(sessionId: string, raw: unknown) {
   });
 
   const draft = readDraft(session);
-  const result = await advanceConversation(session.venue, draft, text);
+  const locale = pickLocale(session.language);
+  const result = await advanceConversation(session.venue, draft, text, locale);
 
   await db.chatSession.update({
     where: { id: session.id },
@@ -151,28 +159,23 @@ function readDraft(s: {
 
 // ─── Conversation logic (rule-based, deterministic, no external deps) ────────
 
-function renderGreeting(venueName: string) {
-  return `Ciao! Sono l'assistente prenotazioni di ${venueName}. Posso aiutarti a riservare un tavolo. Per quante persone?`;
-}
+const HANDOFF_TOKENS = /\b(staff|operatore|umano|aiuto|operator|human|help)\b/;
 
 async function advanceConversation(
   venue: { id: string; name: string; slug: string },
   draftIn: ChatDraft,
   rawInput: string,
+  locale: Locale,
 ): Promise<BotMessage> {
   const text = rawInput.trim();
   const lower = text.toLowerCase();
   const draft = { ...draftIn };
+  const tr = (key: string, vars?: Record<string, string | number>) =>
+    t(locale, key as never, vars);
 
-  if (
-    lower.includes("staff") ||
-    lower.includes("operatore") ||
-    lower.includes("umano") ||
-    lower.includes("aiuto")
-  ) {
+  if (HANDOFF_TOKENS.test(lower)) {
     return {
-      reply:
-        "Va bene! Ho avvisato lo staff. Lasciami il tuo numero o l'email e ti ricontattano.",
+      reply: tr("bot.handoff"),
       intent: "HANDOFF",
       draft,
       status: "HANDOFF",
@@ -187,7 +190,7 @@ async function advanceConversation(
   }
   if (draft.partySize == null) {
     return {
-      reply: "Perfetto! Per quante persone vorresti prenotare?",
+      reply: tr("bot.askParty"),
       intent: "ASK_PARTY_SIZE",
       quickReplies: ["2", "3", "4", "6"],
       draft,
@@ -202,9 +205,14 @@ async function advanceConversation(
   }
   if (!draft.date) {
     return {
-      reply: `Per ${draft.partySize} persone — per quale giorno? (es. "stasera", "domani", "venerdì", o una data)`,
+      reply: tr("bot.askDate", { party: draft.partySize }),
       intent: "ASK_DATE",
-      quickReplies: ["Stasera", "Domani", "Venerdì", "Sabato"],
+      quickReplies: [
+        tr("bot.qr.tonight"),
+        tr("bot.qr.tomorrow"),
+        tr("bot.qr.friday"),
+        tr("bot.qr.saturday"),
+      ],
       draft,
       status: "OPEN",
     };
@@ -220,14 +228,14 @@ async function advanceConversation(
     const free = slots.filter((s) => s.available).map((s) => s.time);
     if (free.length === 0) {
       return {
-        reply: `Per il ${draft.date} per ${draft.partySize} non vedo disponibilità. Prova un altro giorno o scrivimi "operatore" per parlarne con lo staff.`,
+        reply: tr("bot.noSlots", { date: draft.date, party: draft.partySize }),
         intent: "ASK_DATE",
         draft: { ...draft, date: null },
         status: "OPEN",
       };
     }
     return {
-      reply: `Per il ${draft.date} ho questi orari liberi: ${free.slice(0, 6).join(", ")}. A che ora preferisci?`,
+      reply: tr("bot.askTime", { date: draft.date, slots: free.slice(0, 6).join(", ") }),
       intent: "ASK_TIME",
       quickReplies: free.slice(0, 6),
       draft,
@@ -242,8 +250,8 @@ async function advanceConversation(
     const free = slots.filter((s) => s.available).map((s) => s.time).slice(0, 6);
     return {
       reply: free.length
-        ? `Quell'orario è già pieno. Disponibili: ${free.join(", ")}. Quale scegli?`
-        : `Quel giorno è completo. Vuoi provare un'altra data?`,
+        ? tr("bot.slotTaken", { slots: free.join(", ") })
+        : tr("bot.dayFull"),
       intent: free.length ? "ASK_TIME" : "ASK_DATE",
       quickReplies: free,
       draft: { ...draft, time: null, ...(free.length ? {} : { date: null }) },
@@ -259,7 +267,7 @@ async function advanceConversation(
       draft.lastName = name.last ?? null;
     } else {
       return {
-        reply: "Ottimo. A che nome posso prenotare? (nome e cognome)",
+        reply: tr("bot.askName"),
         intent: "ASK_NAME",
         draft,
         status: "OPEN",
@@ -275,7 +283,7 @@ async function advanceConversation(
     if (phone) draft.phone = phone;
     if (!draft.email && !draft.phone) {
       return {
-        reply: `Perfetto ${draft.firstName}! Mi lasci un'email o un numero di telefono per la conferma?`,
+        reply: tr("bot.askContact", { first: draft.firstName }),
         intent: "ASK_CONTACT",
         draft,
         status: "OPEN",
@@ -286,10 +294,16 @@ async function advanceConversation(
   // 6. Confirm + create booking
   const confirmIntent = isConfirmation(lower);
   if (!confirmIntent) {
+    const fullName = `${draft.firstName}${draft.lastName ? " " + draft.lastName : ""}`;
     return {
-      reply: `Confermo: ${draft.partySize} persone il ${draft.date} alle ${draft.time} a nome ${draft.firstName}${draft.lastName ? " " + draft.lastName : ""}. Procedo?`,
+      reply: tr("bot.confirm", {
+        party: draft.partySize,
+        date: draft.date,
+        time: draft.time,
+        name: fullName,
+      }),
       intent: "CONFIRM",
-      quickReplies: ["Sì, conferma", "Annulla"],
+      quickReplies: [tr("bot.qr.confirm"), tr("bot.qr.cancel")],
       draft,
       status: "OPEN",
     };
@@ -308,7 +322,7 @@ async function advanceConversation(
       notes: draft.notes ?? undefined,
     });
     return {
-      reply: `Fatto! Prenotazione confermata, riferimento ${booking.reference}. A presto da ${venue.name}!`,
+      reply: tr("bot.booked", { reference: booking.reference, venue: venue.name }),
       intent: "BOOKED",
       draft,
       status: "CONVERTED",
@@ -316,11 +330,18 @@ async function advanceConversation(
     };
   } catch (err) {
     const code = err instanceof Error ? err.message : "unknown";
+    if (code !== "slot_unavailable") {
+      captureError(err, {
+        module: "chat",
+        venueId: venue.id,
+        extra: { stage: "createPublicBooking", draft },
+      });
+    }
     return {
       reply:
         code === "slot_unavailable"
-          ? `Mi spiace, l'orario si è appena occupato. Vuoi che ti proponga le alternative più vicine?`
-          : `Qualcosa è andato storto: ${code}. Vuoi che chiami lo staff?`,
+          ? tr("bot.error.slotJustTaken")
+          : tr("bot.error.generic", { code }),
       intent: "FALLBACK",
       draft: { ...draft, time: null },
       status: "OPEN",
@@ -416,7 +437,7 @@ export function parseName(input: string): { first: string; last?: string } | nul
 }
 
 function isConfirmation(s: string): boolean {
-  return /\b(s[iì]|conferm|ok|va bene|procedi|certo)\b/.test(s);
+  return /\b(s[iì]|conferm|ok|va bene|procedi|certo|yes|yep|sure|confirm|go ahead|let'?s do it)\b/.test(s);
 }
 
 function formatISODate(d: Date): string {

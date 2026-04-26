@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { dispatchMessage, hasConsent } from "@/server/messages";
+import { captureError } from "@/lib/observability";
 
 export const TRIGGERS = [
   "BOOKING_CREATED",
@@ -207,6 +208,12 @@ async function runWorkflow(
         kind: a.kind,
         ok: false,
         info: err instanceof Error ? err.message : String(err),
+      });
+      captureError(err, {
+        module: "automations",
+        venueId: ctx.venueId,
+        resourceId: workflowId,
+        extra: { trigger, action: a.kind, runId: run.id },
       });
     }
   }
