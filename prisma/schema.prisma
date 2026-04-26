@@ -135,6 +135,7 @@ model Venue {
   menuScans         MenuScan[]
   connectors        Connector[]
   giftCards         GiftCard[]
+  posConnectors     POSConnector[]
 
   @@unique([orgId, slug])
 }
@@ -1446,4 +1447,70 @@ model BookingPreorderItem {
   preorder BookingPreorder @relation(fields: [preorderId], references: [id], onDelete: Cascade)
 
   @@index([preorderId])
+}
+
+// ─── POS integration: ingerisci vendite dal punto cassa ─────────────────────
+
+model POSConnector {
+  id            String             @id @default(cuid())
+  venueId       String
+  kind          POSConnectorKind
+  label         String?
+  status        POSConnectorStatus @default(DRAFT)
+  config        Json?
+  webhookSecret String?
+  externalRef   String?
+  lastSyncAt    DateTime?
+  lastError     String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  venue  Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  events POSEvent[]
+
+  @@unique([venueId, kind])
+  @@index([venueId, status])
+}
+
+enum POSConnectorKind {
+  SQUARE
+  LIGHTSPEED
+  SUMUP
+  IZETTLE
+  TOAST
+  CUSTOM
+}
+
+enum POSConnectorStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+model POSEvent {
+  id             String         @id @default(cuid())
+  posConnectorId String
+  venueId        String
+  externalRef    String?
+  action         String // sale.created / sale.refunded / ping
+  amountCents    Int            @default(0)
+  currency       String         @default("EUR")
+  payload        Json?
+  status         POSEventStatus @default(RECEIVED)
+  orderId        String?
+  error          String?
+  createdAt      DateTime       @default(now())
+
+  connector POSConnector @relation(fields: [posConnectorId], references: [id], onDelete: Cascade)
+
+  @@index([posConnectorId, createdAt])
+  @@index([venueId, createdAt])
+}
+
+enum POSEventStatus {
+  RECEIVED
+  PROCESSED
+  REJECTED
+  FAILED
 }

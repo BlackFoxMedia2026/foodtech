@@ -50,6 +50,7 @@ const NAV = [
   { href: "/chat", label: "Chatbot", icon: MessagesSquare },
   { href: "/voice", label: "Assistente vocale", icon: PhoneCall },
   { href: "/connectors", label: "Channel manager", icon: Network },
+  { href: "/pos", label: "POS · cassa", icon: CreditCard },
   { href: "/finance", label: "Controllo economico", icon: PiggyBank },
   { href: "/staff/performance", label: "Staff performance", icon: TrendingUp },
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
