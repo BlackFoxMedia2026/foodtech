@@ -794,6 +794,119 @@ async function ensureDemoExtras(venue: { id: string; name: string; kind: string 
     });
   }
 
+  // Demo finance entries (food cost, staff shifts, dish food costs)
+  const ceCount = await db.costEntry.count({ where: { venueId: venue.id } });
+  if (ceCount === 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayBefore = (n: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - n);
+      return d;
+    };
+    await db.costEntry.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          category: "FOOD",
+          label: "Fornitura pesce",
+          amountCents: 84_000,
+          occurredOn: dayBefore(2),
+        },
+        {
+          venueId: venue.id,
+          category: "BEVERAGE",
+          label: "Cantina vini",
+          amountCents: 132_000,
+          occurredOn: dayBefore(7),
+        },
+        {
+          venueId: venue.id,
+          category: "RENT",
+          label: "Affitto mensile",
+          amountCents: 280_000,
+          recurring: true,
+          occurredOn: dayBefore(14),
+        },
+        {
+          venueId: venue.id,
+          category: "MARKETING",
+          label: "Campagna social locale",
+          amountCents: 18_000,
+          occurredOn: dayBefore(5),
+        },
+      ],
+    });
+  }
+  const sshiftCount = await db.staffShift.count({ where: { venueId: venue.id } });
+  if (sshiftCount === 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayBefore = (n: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - n);
+      return d;
+    };
+    await db.staffShift.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          staffName: "Lucia",
+          role: "Sala",
+          date: dayBefore(1),
+          hours: 7,
+          hourlyCents: 1300,
+        },
+        {
+          venueId: venue.id,
+          staffName: "Davide",
+          role: "Cucina",
+          date: dayBefore(1),
+          hours: 8,
+          hourlyCents: 1500,
+        },
+        {
+          venueId: venue.id,
+          staffName: "Marta",
+          role: "Bar",
+          date: dayBefore(2),
+          hours: 6,
+          hourlyCents: 1200,
+        },
+      ],
+    });
+  }
+  const sampleItems = await db.menuItem.findMany({
+    where: { venueId: venue.id },
+    select: { id: true, priceCents: true },
+    take: 6,
+  });
+  for (const it of sampleItems) {
+    await db.menuItemCost
+      .upsert({
+        where: { menuItemId: it.id },
+        update: {},
+        create: {
+          venueId: venue.id,
+          menuItemId: it.id,
+          costCents: Math.max(0, Math.round(it.priceCents * 0.32)),
+        },
+      })
+      .catch(() => undefined);
+  }
+
+  // Demo menu scans
+  const msCount = await db.menuScan.count({ where: { venueId: venue.id } });
+  if (msCount === 0) {
+    await db.menuScan.createMany({
+      data: [
+        { venueId: venue.id, menuKey: "main", source: "QR" },
+        { venueId: venue.id, menuKey: "main", source: "QR", email: "ospite-curioso@example.com", consentMarketing: true },
+        { venueId: venue.id, menuKey: "main", source: "TABLE" },
+      ],
+    });
+  }
+
   // Demo MessageLog rows (so the operator sees a populated dispatch log).
   const mlCount = await db.messageLog.count({ where: { venueId: venue.id } });
   if (mlCount === 0) {

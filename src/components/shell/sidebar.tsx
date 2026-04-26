@@ -22,6 +22,8 @@ import {
   Workflow,
   MessagesSquare,
   PhoneCall,
+  PiggyBank,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +44,8 @@ const NAV = [
   { href: "/automations", label: "Automazioni", icon: Workflow },
   { href: "/chat", label: "Chatbot", icon: MessagesSquare },
   { href: "/voice", label: "Assistente vocale", icon: PhoneCall },
+  { href: "/finance", label: "Controllo economico", icon: PiggyBank },
+  { href: "/staff/performance", label: "Staff performance", icon: TrendingUp },
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
   { href: "/insights", label: "Analytics", icon: LineChart },
   { href: "/settings", label: "Impostazioni", icon: Settings },

@@ -120,6 +120,10 @@ model Venue {
   chatSessions      ChatSession[]
   callLogs          CallLog[]
   missedCalls       MissedCall[]
+  costEntries       CostEntry[]
+  staffShifts       StaffShift[]
+  menuItemCosts     MenuItemCost[]
+  menuScans         MenuScan[]
 
   @@unique([orgId, slug])
 }
@@ -1157,4 +1161,89 @@ model MissedCall {
   venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, createdAt])
+}
+
+// ─── Controllo economico (food cost, spese, turni) ────────────────────────────
+
+model CostEntry {
+  id          String       @id @default(cuid())
+  venueId     String
+  category    CostCategory
+  label       String
+  amountCents Int
+  currency    String       @default("EUR")
+  occurredOn  DateTime // day-resolution
+  recurring   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  createdBy   String?
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, occurredOn])
+}
+
+enum CostCategory {
+  FOOD
+  BEVERAGE
+  STAFF
+  RENT
+  UTILITIES
+  MARKETING
+  SUPPLIES
+  OTHER
+}
+
+model StaffShift {
+  id          String   @id @default(cuid())
+  venueId     String
+  staffName   String
+  role        String?
+  date        DateTime // day
+  hours       Float    @default(8)
+  hourlyCents Int      @default(1200)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, date])
+}
+
+model MenuItemCost {
+  id         String   @id @default(cuid())
+  venueId    String
+  menuItemId String   @unique
+  costCents  Int      @default(0) // raw food cost per portion
+  updatedAt  DateTime @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+}
+
+// ─── Menu Lead Magnet: trattalo come trigger commerciale, non solo lettura ────
+
+model MenuScan {
+  id               String         @id @default(cuid())
+  venueId          String
+  menuKey          String         @default("main")
+  source           MenuScanSource @default(QR)
+  ipHash           String?
+  userAgent        String?
+  guestId          String?
+  email            String?
+  phone            String?
+  consentMarketing Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, createdAt])
+}
+
+enum MenuScanSource {
+  QR
+  TABLE
+  WIDGET
+  LINK
 }
