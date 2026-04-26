@@ -142,6 +142,7 @@ model Venue {
   posConnectors     POSConnector[]
   reviews           Review[]
   notifications     Notification[]
+  apiTokens         ApiToken[]
 
   @@unique([orgId, slug])
 }
@@ -1597,4 +1598,24 @@ enum ReviewSource {
   YELP
   TRUSTPILOT
   MANUAL
+}
+
+// ─── API tokens per integrazioni esterne ─────────────────────────────────────
+
+model ApiToken {
+  id           String    @id @default(cuid())
+  venueId      String
+  name         String    @db.VarChar(120)
+  prefix       String    @unique @db.VarChar(16)
+  hashedSecret String
+  scopes       String[]  @default([])
+  lastUsedAt   DateTime?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, revokedAt])
 }
