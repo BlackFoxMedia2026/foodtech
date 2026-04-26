@@ -223,9 +223,18 @@ export function BookingManageForm({
         </div>
       </form>
 
-      <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <CalendarClock className="h-3.5 w-3.5" />
-        {tr("manage.lockNote")}
+      <p className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <CalendarClock className="h-3.5 w-3.5" />
+          {tr("manage.lockNote")}
+        </span>
+        <a
+          href={`/api/bookings/manage/${booking.reference}/ics`}
+          className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-foreground hover:bg-secondary"
+          download
+        >
+          <CalendarClock className="h-3.5 w-3.5" /> {tr("manage.addToCalendar")}
+        </a>
       </p>
     </div>
   );

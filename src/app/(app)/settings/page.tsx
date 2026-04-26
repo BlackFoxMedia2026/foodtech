@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { WidgetLinkCard } from "@/components/settings/widget-link-card";
+import { CalendarFeedCard } from "@/components/settings/calendar-feed-card";
 import { NotificationsStatusCard } from "@/components/settings/notifications-status-card";
 import { PaymentsStatusCard } from "@/components/settings/payments-status-card";
 import { ShiftsEditor } from "@/components/settings/shifts-editor";
@@ -80,6 +81,16 @@ export default async function SettingsPage() {
       </div>
 
       <WidgetLinkCard slug={ctx.venue.slug} />
+
+      {can(ctx.role, "manage_venue") && (
+        <CalendarFeedCard
+          baseUrl={
+            process.env.NEXTAUTH_URL ??
+            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "")
+          }
+          venueSlug={ctx.venue.slug}
+        />
+      )}
 
       <NotificationsStatusCard
         enabled={isEmailEnabled()}
