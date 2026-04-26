@@ -25,7 +25,15 @@ export default async function ExperiencesPage() {
           <h1 className="text-display text-3xl">Esperienze</h1>
           <p className="text-sm text-muted-foreground">{items.length} eventi in calendario</p>
         </div>
-        <ExperienceDialog />
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/events/scan"
+            className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs hover:bg-secondary"
+          >
+            Check-in ticket
+          </Link>
+          <ExperienceDialog />
+        </div>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">

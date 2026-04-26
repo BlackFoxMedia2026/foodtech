@@ -180,7 +180,10 @@ async function onTicketPaid(session: Stripe.Checkout.Session) {
       partySize: ticket.quantity,
       startsAt: ticket.experience.startsAt,
       occasion: null,
-      notes: ticket.experience.title,
+      notes: `${ticket.experience.title}\n\nApri il ticket con QR: ${
+        process.env.NEXTAUTH_URL ||
+        `https://${process.env.VERCEL_URL || "localhost:3000"}`
+      }/t/${ticket.id}`,
     },
   });
 

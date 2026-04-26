@@ -62,6 +62,7 @@ export async function createTicket(opts: {
       totalCents,
       venueName: venue.name,
       venueEmail: venue.email,
+      ticketId: ticket.id,
     });
     return { ticketId: ticket.id, checkoutUrl: null as string | null, free: true };
   }
@@ -143,16 +144,23 @@ async function notifyTicketBuyer(opts: {
   totalCents: number;
   venueName: string;
   venueEmail: string | null;
+  ticketId?: string;
 }) {
+  const baseUrl =
+    process.env.NEXTAUTH_URL ||
+    `https://${process.env.VERCEL_URL || "localhost:3000"}`;
+  const ticketLink = opts.ticketId ? `${baseUrl}/t/${opts.ticketId}` : null;
   const tpl = renderGuestConfirmation({
     guest: { firstName: opts.buyerName.split(" ")[0] || opts.buyerName, lastName: null },
     venue: { name: opts.venueName, city: null, address: null, phone: null, email: opts.venueEmail },
     booking: {
-      reference: `tk-${Date.now()}`,
+      reference: opts.ticketId ?? `tk-${Date.now()}`,
       partySize: opts.quantity,
       startsAt: opts.startsAt,
       occasion: null,
-      notes: opts.experienceTitle,
+      notes: ticketLink
+        ? `${opts.experienceTitle}\n\nApri il ticket con QR: ${ticketLink}`
+        : opts.experienceTitle,
     },
   });
   await sendEmail({

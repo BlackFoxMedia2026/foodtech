@@ -426,6 +426,8 @@ model Ticket {
   quantity     Int       @default(1)
   totalCents   Int       @default(0)
   status       TicketStatus @default(PAID)
+  checkedInAt  DateTime?
+  checkedInBy  String?
   createdAt    DateTime @default(now())
 
   experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
@@ -435,6 +437,7 @@ enum TicketStatus {
   PAID
   REFUNDED
   CANCELLED
+  CHECKED_IN
 }
 
 // ─── Marketing ───────────────────────────────────────────────────────────────
