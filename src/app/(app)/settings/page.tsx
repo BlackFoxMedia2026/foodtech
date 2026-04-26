@@ -10,6 +10,7 @@ import { PaymentsStatusCard } from "@/components/settings/payments-status-card";
 import { ShiftsEditor } from "@/components/settings/shifts-editor";
 import { TemplatesCard } from "@/components/settings/templates-card";
 import { IntegrationsCard } from "@/components/settings/integrations-card";
+import { TeamCard } from "@/components/settings/team-card";
 import { listShifts } from "@/server/shifts";
 import { listTemplates } from "@/server/templates";
 import { isEmailEnabled } from "@/lib/email";
@@ -66,26 +67,16 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Team</CardTitle>
-            <CardDescription>Accessi al locale corrente</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8"><AvatarFallback>{initials(m.user.name ?? m.user.email)}</AvatarFallback></Avatar>
-                  <div>
-                    <p className="font-medium">{m.user.name ?? m.user.email}</p>
-                    <p className="text-xs text-muted-foreground">{m.user.email}</p>
-                  </div>
-                </div>
-                <Badge tone="neutral">{ROLE_LABELS[m.role]}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <TeamCard
+          initial={members.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            role: m.role,
+            user: { name: m.user.name, email: m.user.email },
+          }))}
+          selfUserId={ctx.userId}
+          canEdit={can(ctx.role, "manage_venue")}
+        />
       </div>
 
       <WidgetLinkCard slug={ctx.venue.slug} />

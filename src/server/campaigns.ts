@@ -101,6 +101,11 @@ export async function sendCampaign(venueId: string, id: string, fromAddress: str
     take: 1000,
   });
 
+  const baseUrl =
+    process.env.NEXTAUTH_URL ||
+    `https://${process.env.VERCEL_URL || "localhost:3000"}`;
+  const trackingPixel = `<img src="${baseUrl}/api/track/open/${c.id}" alt="" width="1" height="1" style="display:block;width:1px;height:1px;border:0" />`;
+
   let sent = 0;
   for (const g of recipients) {
     if (!g.email) continue;
@@ -109,6 +114,7 @@ export async function sendCampaign(venueId: string, id: string, fromAddress: str
       bodyMarkdown: c.body ?? "",
       firstName: g.firstName,
       fromAddress,
+      trailingHtml: trackingPixel,
     });
     const subject = c.subject || baseSubject || `Novità da ${c.venue.name}`;
     const res = await sendEmail({
@@ -148,7 +154,13 @@ function paragraphsToHtml(s: string) {
     .join("");
 }
 
-function renderCampaignHtml(opts: { venueName: string; bodyMarkdown: string; firstName: string; fromAddress: string }) {
+function renderCampaignHtml(opts: {
+  venueName: string;
+  bodyMarkdown: string;
+  firstName: string;
+  fromAddress: string;
+  trailingHtml?: string;
+}) {
   const personalised = opts.bodyMarkdown.replace(/\{\{firstName\}\}/g, opts.firstName);
   return `<!doctype html>
 <html lang="it"><body style="margin:0;background:#f7f4ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#15161a">
@@ -163,5 +175,6 @@ function renderCampaignHtml(opts: { venueName: string; bodyMarkdown: string; fir
 Ricevi questa email perché sei iscritto alla newsletter di ${escapeHtml(opts.venueName)}.
 </td></tr>
 </table>
+${opts.trailingHtml ?? ""}
 </td></tr></table></body></html>`;
 }
