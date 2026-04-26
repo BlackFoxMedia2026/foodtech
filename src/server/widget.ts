@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templates";
 import { planDeposit, stripe } from "@/lib/stripe";
 import { fireTrigger } from "@/server/automations";
+import { buildManageLink } from "@/server/booking-self-service";
 
 export const PublicBookingInput = z.object({
   partySize: z.coerce.number().int().min(1).max(20),
@@ -346,10 +347,15 @@ async function notifyBookingCreated(opts: {
 }) {
   const { guest, venue, booking } = opts;
 
+  const baseUrl =
+    process.env.NEXTAUTH_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const bookingWithLink = { ...booking, manageUrl: buildManageLink(baseUrl, booking.reference) };
+
   const tasks: Promise<unknown>[] = [];
 
   if (guest.email) {
-    const tpl = renderGuestConfirmation({ guest, venue, booking });
+    const tpl = renderGuestConfirmation({ guest, venue, booking: bookingWithLink });
     tasks.push(
       sendEmail({
         to: { email: guest.email, name: [guest.firstName, guest.lastName].filter(Boolean).join(" ") || undefined },
@@ -362,7 +368,7 @@ async function notifyBookingCreated(opts: {
   }
 
   if (venue.email) {
-    const tpl = renderVenueNotification({ guest, venue, booking });
+    const tpl = renderVenueNotification({ guest, venue, booking: bookingWithLink });
     tasks.push(
       sendEmail({
         to: { email: venue.email, name: venue.name },

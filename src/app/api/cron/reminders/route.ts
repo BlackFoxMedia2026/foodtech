@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { renderReminder } from "@/emails/templates";
 import { scanScheduledTriggers } from "@/server/automations";
+import { buildManageLink } from "@/server/booking-self-service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -53,13 +54,23 @@ async function dispatchH24(now: Date) {
     },
     take: 500,
   });
+  const baseUrl =
+    process.env.NEXTAUTH_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   let sent = 0;
   for (const b of bookings) {
     if (!b.guest?.email) continue;
     const tpl = renderReminder({
       guest: b.guest,
       venue: b.venue,
-      booking: { reference: b.reference, partySize: b.partySize, startsAt: b.startsAt, occasion: null, notes: null },
+      booking: {
+        reference: b.reference,
+        partySize: b.partySize,
+        startsAt: b.startsAt,
+        occasion: null,
+        notes: null,
+        manageUrl: buildManageLink(baseUrl, b.reference),
+      },
     });
     const res = await sendEmail({
       to: { email: b.guest.email, name: [b.guest.firstName, b.guest.lastName].filter(Boolean).join(" ") || undefined },

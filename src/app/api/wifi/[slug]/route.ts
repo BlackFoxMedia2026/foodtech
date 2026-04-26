@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { submitWifiLead } from "@/server/wifi";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: Request, { params }: { params: { slug: string } }) {
+  const limited = rateLimit(req, { key: `wifi:${params.slug}`, max: 6, windowMs: 60_000 });
+  if (!limited.ok) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   let body: unknown;
   try {
     body = await req.json();

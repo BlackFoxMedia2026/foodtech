@@ -47,6 +47,7 @@ export type BookingLike = {
   startsAt: Date | string;
   occasion?: string | null;
   notes?: string | null;
+  manageUrl?: string | null;
 };
 
 const fmtRef = (ref: string) => ref.slice(-8).toUpperCase();
@@ -78,6 +79,12 @@ export function renderGuestConfirmation(opts: {
       venue.address || venue.city || venue.phone
         ? `<p style="margin:0 0 8px;font-size:13px;color:#7a7466">Dove e quando</p>
            <p style="margin:0;font-size:14px;line-height:1.5">${[venue.address, venue.city].filter((v): v is string => Boolean(v)).map(escapeHtml).join(" · ")}${venue.phone ? `<br>${escapeHtml(venue.phone)}` : ""}</p>`
+        : ""
+    }
+    ${
+      booking.manageUrl
+        ? `<p style="margin:18px 0 0"><a href="${booking.manageUrl}" style="display:inline-block;background:#15161a;color:#f7f4ec;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Gestisci la prenotazione</a></p>
+           <p style="margin:6px 0 0;font-size:12px;color:#7a7466">Modifica orario, persone o annulla in autonomia fino a 2 ore prima.</p>`
         : ""
     }`;
   const footer = `Hai ricevuto questa email perché hai prenotato un tavolo presso ${escapeHtml(venue.name)}. Per modifiche o cancellazioni rispondi pure a questo messaggio.`;
@@ -132,6 +139,11 @@ export function renderReminder(opts: {
       ${detailRow("Codice", `<span style="font-family:'Menlo',monospace">${fmtRef(booking.reference)}</span>`)}
     </table>
     <p style="margin:0;font-size:13px;color:#7a7466">Se non puoi più venire, scrivici qui e libereremo il tavolo per altri ospiti.</p>
+    ${
+      booking.manageUrl
+        ? `<p style="margin:14px 0 0"><a href="${booking.manageUrl}" style="color:#15161a">Modifica o annulla la prenotazione →</a></p>`
+        : ""
+    }
   `;
   const footer = `Promemoria automatico inviato 24h prima della prenotazione.`;
   return {

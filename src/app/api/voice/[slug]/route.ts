@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { recordInboundCall } from "@/server/voice";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,6 +14,8 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
   if (secret && req.headers.get("x-voice-secret") !== secret) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const limited = rateLimit(req, { key: `voice:${params.slug}`, max: 60, windowMs: 60_000 });
+  if (!limited.ok) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   try {
     const body = await req.json();
     const result = await recordInboundCall(params.slug, body);
