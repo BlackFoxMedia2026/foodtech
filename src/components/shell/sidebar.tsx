@@ -27,6 +27,7 @@ import {
   Network,
   Gauge,
   Gift,
+  ChefHat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ const NAV = [
   { href: "/cockpit", label: "Cockpit", icon: Gauge },
   { href: "/overview", label: "Panoramica locale", icon: LayoutDashboard },
   { href: "/now", label: "Vista sala (live)", icon: Tv },
+  { href: "/kitchen", label: "Cucina (KDS)", icon: ChefHat },
   { href: "/waitlist", label: "Lista d'attesa", icon: Hourglass },
   { href: "/bookings", label: "Prenotazioni", icon: CalendarRange },
   { href: "/floor", label: "Sala", icon: LayoutPanelLeft },
