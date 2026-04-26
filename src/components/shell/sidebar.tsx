@@ -28,6 +28,7 @@ import {
   Gauge,
   Gift,
   ChefHat,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,7 @@ const NAV = [
   { href: "/finance", label: "Controllo economico", icon: PiggyBank },
   { href: "/staff/performance", label: "Staff performance", icon: TrendingUp },
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
+  { href: "/reviews", label: "Recensioni", icon: Star },
   { href: "/insights", label: "Analytics", icon: LineChart },
   { href: "/settings", label: "Impostazioni", icon: Settings },
 ];
