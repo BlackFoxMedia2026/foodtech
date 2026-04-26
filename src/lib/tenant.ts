@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
@@ -6,14 +7,21 @@ import type { StaffRole } from "@prisma/client";
 
 const VENUE_COOKIE = "tavolo.venue";
 
-export async function requireUser() {
+// requireUser is cached per request: every server component on the page
+// that calls it will share the same auth() roundtrip.
+export const requireUser = cache(async () => {
   const session = await auth();
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (!userId) redirect("/sign-in");
   return { userId, session: session! };
-}
+});
 
-export async function getActiveVenue() {
+// getActiveVenue is also cached per request. Every page typically calls it
+// at least twice (the AppShell layout + the page itself), and slow pages
+// call it again from each server component that needs RBAC. Without dedup
+// each page paid 1 auth + 1 membership query × N callers; now it's 1 + 1
+// total per render.
+export const getActiveVenue = cache(async () => {
   const { userId, session } = await requireUser();
 
   const memberships = await db.venueMembership.findMany({
@@ -38,7 +46,7 @@ export async function getActiveVenue() {
     org: active.venue.org,
     allMemberships: memberships,
   };
-}
+});
 
 export type Ability =
   | "manage_org"
