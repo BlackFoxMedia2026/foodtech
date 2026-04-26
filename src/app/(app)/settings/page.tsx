@@ -12,6 +12,7 @@ import { ShiftsEditor } from "@/components/settings/shifts-editor";
 import { TemplatesCard } from "@/components/settings/templates-card";
 import { IntegrationsCard } from "@/components/settings/integrations-card";
 import { TeamCard } from "@/components/settings/team-card";
+import { TableQrCard } from "@/components/settings/table-qr-card";
 import { listShifts } from "@/server/shifts";
 import { listTemplates } from "@/server/templates";
 import { isEmailEnabled } from "@/lib/email";
@@ -31,7 +32,7 @@ const ROLE_LABELS = {
 
 export default async function SettingsPage() {
   const ctx = await getActiveVenue();
-  const [venues, members, shifts, templates] = await Promise.all([
+  const [venues, members, shifts, templates, tables] = await Promise.all([
     db.venue.findMany({ where: { orgId: ctx.orgId }, orderBy: { name: "asc" } }),
     db.venueMembership.findMany({
       where: { venueId: ctx.venueId },
@@ -39,6 +40,11 @@ export default async function SettingsPage() {
     }),
     listShifts(ctx.venueId),
     listTemplates(ctx.venueId),
+    db.table.findMany({
+      where: { venueId: ctx.venueId, active: true },
+      orderBy: { label: "asc" },
+      select: { id: true, label: true, seats: true },
+    }),
   ]);
   const canEditMarketing = can(ctx.role, "edit_marketing");
 
@@ -81,6 +87,8 @@ export default async function SettingsPage() {
       </div>
 
       <WidgetLinkCard slug={ctx.venue.slug} />
+
+      {can(ctx.role, "manage_venue") && <TableQrCard tables={tables} />}
 
       {can(ctx.role, "manage_venue") && (
         <CalendarFeedCard

@@ -80,7 +80,12 @@ export async function kitchenTickets(venueId: string): Promise<KitchenTicket[]> 
       notes: i.notes,
     })),
     orderId: o.id,
-    pickupOrTable: o.kind === "DELIVERY" ? "Consegna" : "Ritiro",
+    pickupOrTable:
+      o.kind === "DELIVERY"
+        ? "Consegna"
+        : o.kind === "TABLE"
+          ? `Tavolo ${o.tableLabel ?? "?"}`
+          : "Ritiro",
   }));
 
   const preorderTickets: KitchenTicket[] = preorders

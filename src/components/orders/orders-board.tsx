@@ -27,7 +27,7 @@ type Item = {
 type Order = {
   id: string;
   reference: string;
-  kind: "TAKEAWAY" | "DELIVERY";
+  kind: "TAKEAWAY" | "DELIVERY" | "TABLE";
   status: "RECEIVED" | "PREPARING" | "READY" | "ON_THE_WAY" | "COMPLETED" | "CANCELLED";
   customerName: string;
   phone: string;
