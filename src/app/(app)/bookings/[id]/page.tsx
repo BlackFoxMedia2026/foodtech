@@ -101,6 +101,12 @@ export default async function BookingDetail({ params }: { params: { id: string }
               />
             )}
             <Info label="Riferimento" value={item.reference.slice(0, 10)} />
+            {item.isGroup && (
+              <Info
+                label="Evento di gruppo"
+                value={`${item.eventType ?? "—"}${item.budgetCents ? ` · budget ${formatCurrency(item.budgetCents, ctx.venue.currency)}/pax` : ""}`}
+              />
+            )}
           </CardContent>
         </Card>
 

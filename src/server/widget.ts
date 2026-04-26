@@ -8,7 +8,7 @@ import { fireTrigger } from "@/server/automations";
 import { buildManageLink } from "@/server/booking-self-service";
 
 export const PublicBookingInput = z.object({
-  partySize: z.coerce.number().int().min(1).max(20),
+  partySize: z.coerce.number().int().min(1).max(50),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
   firstName: z.string().min(1).max(60),
@@ -21,7 +21,12 @@ export const PublicBookingInput = z.object({
     .nullable(),
   notes: z.string().max(500).optional().nullable(),
   marketingOptIn: z.coerce.boolean().optional(),
+  // Group booking extras (kicked in when partySize >= GROUP_THRESHOLD).
+  eventType: z.string().max(60).optional().nullable(),
+  budget: z.coerce.number().int().min(0).optional().nullable(),
 });
+
+export const GROUP_THRESHOLD = 8;
 
 export type PublicBookingInputType = z.infer<typeof PublicBookingInput>;
 
@@ -246,19 +251,24 @@ export async function createPublicBooking(slug: string, raw: unknown) {
     perPersonCents: venue.depositPerPersonCents,
   });
 
+  const isGroup = data.partySize >= GROUP_THRESHOLD;
   const booking = await db.booking.create({
     data: {
       venueId: venue.id,
       guestId: guest.id,
       partySize: data.partySize,
       startsAt,
-      durationMin: DEFAULT_DURATION_MIN,
+      durationMin: isGroup ? Math.max(DEFAULT_DURATION_MIN, 150) : DEFAULT_DURATION_MIN,
       status: "PENDING",
       source: "WIDGET",
       occasion: data.occasion ?? null,
       notes: data.notes ?? null,
       depositCents: deposit.required ? deposit.amountCents : 0,
       depositStatus: deposit.required ? "NONE" : "NONE",
+      isGroup,
+      eventType: isGroup ? data.eventType ?? null : null,
+      budgetCents:
+        isGroup && data.budget != null ? Math.round(data.budget * 100) : null,
     },
   });
 

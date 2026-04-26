@@ -133,6 +133,7 @@ model Venue {
   menuItemCosts     MenuItemCost[]
   menuScans         MenuScan[]
   connectors        Connector[]
+  giftCards         GiftCard[]
 
   @@unique([orgId, slug])
 }
@@ -349,6 +350,9 @@ model Booking {
   internalNotes String?
   depositCents  Int           @default(0)
   depositStatus DepositStatus @default(NONE)
+  isGroup       Boolean       @default(false)
+  eventType     String?       @db.VarChar(60)
+  budgetCents   Int?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   arrivedAt     DateTime?
@@ -1355,4 +1359,53 @@ enum LoyaltyTxnKind {
   REDEEMED
   ADJUSTED
   EXPIRED
+}
+
+// ─── Gift cards: vendi una carta regalo, riscatta a porzioni ────────────────
+
+model GiftCard {
+  id              String         @id @default(cuid())
+  venueId         String
+  code            String         @unique
+  initialCents    Int
+  balanceCents    Int
+  currency        String         @default("EUR")
+  recipientName   String?
+  recipientEmail  String?
+  senderName      String?
+  message         String?        @db.VarChar(500)
+  status          GiftCardStatus @default(ACTIVE)
+  expiresAt       DateTime?
+  stripePaymentId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdBy       String?
+
+  venue       Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  redemptions GiftCardRedemption[]
+
+  @@index([venueId, status])
+}
+
+enum GiftCardStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  CANCELLED
+}
+
+model GiftCardRedemption {
+  id          String   @id @default(cuid())
+  giftCardId  String
+  amountCents Int
+  bookingId   String?
+  orderId     String?
+  reason      String?  @db.VarChar(200)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  giftCard GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+
+  @@index([giftCardId, createdAt])
 }

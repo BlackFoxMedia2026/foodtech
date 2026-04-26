@@ -276,7 +276,7 @@ async function main() {
   console.log("  Login demo:  owner@tavolo.demo  /  tavolo2026");
 }
 
-async function ensureDemoExtras(venue: { id: string; name: string; kind: string }) {
+async function ensureDemoExtras(venue: { id: string; name: string; kind: string; slug: string }) {
   // Templates: skip if already populated
   const tplCount = await db.messageTemplate.count({ where: { venueId: venue.id } });
   if (tplCount === 0) {
@@ -926,6 +926,32 @@ async function ensureDemoExtras(venue: { id: string; name: string; kind: string 
         { venueId: venue.id, menuKey: "main", source: "QR", email: "ospite-curioso@example.com", consentMarketing: true },
         { venueId: venue.id, menuKey: "main", source: "TABLE" },
       ],
+    });
+  }
+
+  // Demo gift cards
+  const gcCount = await db.giftCard.count({ where: { venueId: venue.id } });
+  if (gcCount === 0) {
+    const sample = await db.giftCard.create({
+      data: {
+        venueId: venue.id,
+        code: `GIFT-${venue.slug.slice(0, 4).toUpperCase()}-DEMO`,
+        initialCents: 10_000,
+        balanceCents: 7_500,
+        status: "ACTIVE",
+        recipientName: "Lucia Rossi",
+        recipientEmail: "lucia@example.com",
+        senderName: "Marco",
+        message: "Buon compleanno! Goditi una serata da " + venue.name + ".",
+        expiresAt: new Date(Date.now() + 365 * 86400_000),
+      },
+    });
+    await db.giftCardRedemption.create({
+      data: {
+        giftCardId: sample.id,
+        amountCents: 2_500,
+        reason: "Aperitivo del 12/04",
+      },
     });
   }
 

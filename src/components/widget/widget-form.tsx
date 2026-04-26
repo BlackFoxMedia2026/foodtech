@@ -86,6 +86,8 @@ export function WidgetForm({
     setSubmitting(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const eventTypeRaw = String(fd.get("eventType") ?? "").trim();
+    const budgetRaw = String(fd.get("budget") ?? "").trim();
     const payload = {
       partySize,
       date,
@@ -97,6 +99,8 @@ export function WidgetForm({
       occasion: (fd.get("occasion") as string) || null,
       notes: String(fd.get("notes") ?? "").trim() || null,
       marketingOptIn: fd.get("marketingOptIn") === "on",
+      eventType: eventTypeRaw || null,
+      budget: budgetRaw ? Number(budgetRaw) : null,
     };
 
     const res = await fetch(`/api/widget/${slug}`, {
@@ -305,6 +309,42 @@ export function WidgetForm({
               <Label htmlFor="notes">{t(locale, "widget.notes")}</Label>
               <Textarea id="notes" name="notes" rows={3} />
             </div>
+
+            {partySize >= 8 && (
+              <div className="space-y-3 rounded-md border border-gilt/40 bg-gilt/5 p-3">
+                <p className="text-xs font-medium text-gilt-dark">
+                  {t(locale, "widget.group.kicker")}
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="eventType" className="text-xs">
+                      {t(locale, "widget.group.eventType")}
+                    </Label>
+                    <select
+                      id="eventType"
+                      name="eventType"
+                      className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                    >
+                      <option value="">—</option>
+                      <option value="COMPLEANNO">{t(locale, "widget.group.event.birthday")}</option>
+                      <option value="LAVORO">{t(locale, "widget.group.event.business")}</option>
+                      <option value="EVENTO">{t(locale, "widget.group.event.event")}</option>
+                      <option value="MATRIMONIO">{t(locale, "widget.group.event.wedding")}</option>
+                      <option value="ALTRO">{t(locale, "widget.group.event.other")}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="budget" className="text-xs">
+                      {t(locale, "widget.group.budget", { currency })}
+                    </Label>
+                    <Input id="budget" name="budget" type="number" min={0} step="10" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t(locale, "widget.group.note")}
+                </p>
+              </div>
+            )}
 
             <label className="flex items-start gap-2 text-xs text-muted-foreground">
               <input
