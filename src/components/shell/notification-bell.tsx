@@ -62,9 +62,14 @@ export function NotificationBell() {
   }
 
   useEffect(() => {
-    load();
-    const id = setInterval(load, 60_000);
-    return () => clearInterval(id);
+    // Defer the first fetch so it doesn't compete with the page's own
+    // server fetches during initial paint, then poll every 2 minutes.
+    const first = setTimeout(load, 1500);
+    const interval = setInterval(load, 120_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
   }, []);
 
   // close on outside click
