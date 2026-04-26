@@ -599,6 +599,7 @@ model Order {
   phone         String
   email         String?
   address       String?
+  tableLabel    String?       @db.VarChar(40)
   scheduledAt   DateTime
   totalCents    Int           @default(0)
   currency      String        @default("EUR")
@@ -621,6 +622,7 @@ model Order {
 enum OrderKind {
   TAKEAWAY
   DELIVERY
+  TABLE
 }
 
 enum OrderStatus {
