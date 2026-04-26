@@ -225,6 +225,8 @@ export async function createPublicBooking(slug: string, raw: unknown) {
     },
   });
 
+  if (existingGuest?.blocked) throw new Error("guest_blocked");
+
   const guest =
     existingGuest ??
     (await db.guest.create({

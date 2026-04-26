@@ -1,7 +1,16 @@
 import Link from "next/link";
-import { ExternalLink, Wifi, Mail, Phone, Smartphone } from "lucide-react";
-import { getActiveVenue } from "@/lib/tenant";
+import {
+  CheckCircle2,
+  ExternalLink,
+  Mail,
+  Phone,
+  Settings2,
+  Smartphone,
+  Wifi,
+} from "lucide-react";
+import { can, getActiveVenue } from "@/lib/tenant";
 import { listWifiLeads, wifiStats } from "@/server/wifi";
+import { getWifiSetup } from "@/server/wifi-setup";
 import {
   Card,
   CardContent,
@@ -18,11 +27,14 @@ export const dynamic = "force-dynamic";
 
 export default async function WifiPage() {
   const ctx = await getActiveVenue();
-  const [leads, stats] = await Promise.all([
+  const [leads, stats, setup] = await Promise.all([
     listWifiLeads(ctx.venueId),
     wifiStats(ctx.venueId),
+    getWifiSetup(ctx.venueId),
   ]);
   const provider = whichWifiProvider();
+  const canEdit = can(ctx.role, "edit_marketing");
+  const setupDone = Boolean(setup?.setupAt);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -34,14 +46,54 @@ export default async function WifiPage() {
             Cattura ospiti dalla rete del locale e arricchiscili nel CRM.
           </p>
         </div>
-        <Link
-          href={`/wifi/${ctx.venue.slug}`}
-          target="_blank"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          Apri captive portal pubblico <ExternalLink className="h-3 w-3" />
-        </Link>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Link
+              href="/wifi/setup"
+              className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-secondary"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {setupDone ? "Modifica setup" : "Configura ora"}
+            </Link>
+          )}
+          <Link
+            href={`/wifi/${ctx.venue.slug}`}
+            target="_blank"
+            className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-secondary"
+          >
+            Anteprima portale <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
       </header>
+
+      {!setupDone && canEdit && (
+        <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <Settings2 className="mt-0.5 h-4 w-4" />
+          <div className="flex-1">
+            <p className="font-medium">Il portale Wi-Fi non è ancora configurato.</p>
+            <p className="text-xs">
+              Bastano 5 step: brand, consenso GDPR, coupon di benvenuto, QR &amp; router, test.
+              Senza setup il portale funziona ma con valori di default.
+            </p>
+          </div>
+          <Link
+            href="/wifi/setup"
+            className="inline-flex items-center gap-1 rounded-md bg-amber-900 px-3 py-1.5 text-xs font-medium text-amber-50 hover:bg-amber-800"
+          >
+            Avvia wizard
+          </Link>
+        </div>
+      )}
+
+      {setupDone && setup?.autoCouponEnabled && (
+        <div className="flex items-start gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
+          <CheckCircle2 className="mt-0.5 h-4 w-4" />
+          <span>
+            Setup completato il {formatDateTime(setup.setupAt!)}. Coupon di benvenuto:{" "}
+            <strong>{setup.autoCouponPercent}%</strong> per {setup.autoCouponDays} giorni, attivo.
+          </span>
+        </div>
+      )}
 
       <section className="grid gap-3 md:grid-cols-4">
         <StatCard label="Lead totali" value={String(stats.totalLeads)} emphasize />
