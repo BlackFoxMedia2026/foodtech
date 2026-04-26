@@ -20,6 +20,8 @@ import {
   Wifi,
   Ticket,
   Workflow,
+  MessagesSquare,
+  PhoneCall,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,8 @@ const NAV = [
   { href: "/coupons", label: "Coupon", icon: Ticket },
   { href: "/wifi", label: "Wi-Fi marketing", icon: Wifi },
   { href: "/automations", label: "Automazioni", icon: Workflow },
+  { href: "/chat", label: "Chatbot", icon: MessagesSquare },
+  { href: "/voice", label: "Assistente vocale", icon: PhoneCall },
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
   { href: "/insights", label: "Analytics", icon: LineChart },
   { href: "/settings", label: "Impostazioni", icon: Settings },

@@ -26,6 +26,13 @@ function setTime(date: Date, h: number, m = 0) {
   return d;
 }
 
+function formatISO(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 async function main() {
   const existingOrg = await db.organization.findUnique({
     where: { slug: "casa-aurora" },
@@ -723,6 +730,67 @@ async function ensureDemoExtras(venue: { id: string; name: string; kind: string 
           ],
         },
       ],
+    });
+  }
+
+  // Demo conversational booking session
+  const csCount = await db.chatSession.count({ where: { venueId: venue.id } });
+  if (csCount === 0) {
+    const session = await db.chatSession.create({
+      data: {
+        venueId: venue.id,
+        source: "WEB",
+        status: "CONVERTED",
+        draftPartySize: 4,
+        draftDate: formatISO(new Date()),
+        draftTime: "20:30",
+        draftFirstName: "Giulia",
+        draftLastName: "Bianchi",
+        draftEmail: "giulia@example.com",
+      },
+    });
+    await db.chatMessage.createMany({
+      data: [
+        { sessionId: session.id, role: "BOT", text: `Ciao! Sono l'assistente di ${venue.name}.`, intent: "GREETING" },
+        { sessionId: session.id, role: "USER", text: "Vorrei prenotare per 4 stasera alle 20:30" },
+        { sessionId: session.id, role: "BOT", text: "Perfetto, a che nome?", intent: "ASK_NAME" },
+        { sessionId: session.id, role: "USER", text: "Giulia Bianchi, giulia@example.com" },
+        { sessionId: session.id, role: "BOT", text: "Confermato! A presto.", intent: "BOOKED" },
+      ],
+    });
+  }
+
+  // Demo voice draft + missed call
+  const callCount = await db.callLog.count({ where: { venueId: venue.id } });
+  if (callCount === 0) {
+    const draft = await db.voiceBookingDraft.create({
+      data: {
+        venueId: venue.id,
+        callerName: "Marco Rossi",
+        phone: "+390000000001",
+        partySize: 2,
+        preferredDate: formatISO(new Date(Date.now() + 86400_000)),
+        preferredTime: "21:00",
+        notes: "Trascrizione: vorrei prenotare per due persone domani sera alle nove.",
+      },
+    });
+    await db.callLog.create({
+      data: {
+        venueId: venue.id,
+        fromNumber: "+390000000001",
+        toNumber: venue.kind === "BEACH_CLUB" ? "+390000000099" : null,
+        status: "COMPLETED",
+        durationSec: 47,
+        intent: "BOOKING",
+        transcript:
+          "Buongiorno, sono Marco Rossi e vorrei prenotare per due persone domani sera alle ventuno.",
+        draftId: draft.id,
+        startedAt: new Date(Date.now() - 3600_000),
+        endedAt: new Date(Date.now() - 3550_000),
+      },
+    });
+    await db.missedCall.create({
+      data: { venueId: venue.id, fromNumber: "+390000000002" },
     });
   }
 

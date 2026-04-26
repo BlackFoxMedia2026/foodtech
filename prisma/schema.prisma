@@ -14,15 +14,15 @@ datasource db {
 // ─── Identità ────────────────────────────────────────────────────────────────
 
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  name            String?
-  passwordHash    String?
-  image           String?
-  createdAt       DateTime         @default(now())
-  orgMemberships  OrgMembership[]
+  id               String            @id @default(cuid())
+  email            String            @unique
+  name             String?
+  passwordHash     String?
+  image            String?
+  createdAt        DateTime          @default(now())
+  orgMemberships   OrgMembership[]
   venueMemberships VenueMembership[]
-  sessions        Session[]
+  sessions         Session[]
 }
 
 model Session {
@@ -52,14 +52,14 @@ enum Plan {
 }
 
 model OrgMembership {
-  id        String      @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
-  orgId    String
-  role      OrgRole     @default(OWNER)
-  createdAt DateTime    @default(now())
+  orgId     String
+  role      OrgRole  @default(OWNER)
+  createdAt DateTime @default(now())
 
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([userId, orgId])
   @@map("org_membership")
@@ -72,51 +72,54 @@ enum OrgRole {
 }
 
 model Venue {
-  id          String            @id @default(cuid())
-  orgId       String
-  name        String
-  slug        String
-  kind        VenueKind          @default(RESTAURANT)
-  timezone    String             @default("Europe/Rome")
-  currency    String             @default("EUR")
-  address     String?
-  city        String?
-  country     String?
-  phone       String?
-  email       String?
-  coverImage  String?
-  active      Boolean            @default(true)
-  depositThreshold     Int       @default(8)
-  depositPerPersonCents Int      @default(2000)
-  createdAt   DateTime           @default(now())
+  id                    String    @id @default(cuid())
+  orgId                 String
+  name                  String
+  slug                  String
+  kind                  VenueKind @default(RESTAURANT)
+  timezone              String    @default("Europe/Rome")
+  currency              String    @default("EUR")
+  address               String?
+  city                  String?
+  country               String?
+  phone                 String?
+  email                 String?
+  coverImage            String?
+  active                Boolean   @default(true)
+  depositThreshold      Int       @default(8)
+  depositPerPersonCents Int       @default(2000)
+  createdAt             DateTime  @default(now())
 
-  org         Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  members     VenueMembership[]
-  rooms       Room[]
-  tables      Table[]
-  shifts      Shift[]
-  bookings    Booking[]
-  guests      Guest[]
-  experiences Experience[]
-  campaigns   Campaign[]
-  payments    Payment[]
-  blocks      TableBlock[]
-  decor       FloorDecor[]
-  templates   MessageTemplate[]
-  surveys     Survey[]
-  waitlist    WaitlistEntry[]
-  menuCategories MenuCategory[]
-  menuItems   MenuItem[]
-  orders      Order[]
-  wifiLeads   WifiLead[]
-  wifiSessions WifiSession[]
-  consentLogs ConsentLog[]
-  coupons     Coupon[]
+  org               Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members           VenueMembership[]
+  rooms             Room[]
+  tables            Table[]
+  shifts            Shift[]
+  bookings          Booking[]
+  guests            Guest[]
+  experiences       Experience[]
+  campaigns         Campaign[]
+  payments          Payment[]
+  blocks            TableBlock[]
+  decor             FloorDecor[]
+  templates         MessageTemplate[]
+  surveys           Survey[]
+  waitlist          WaitlistEntry[]
+  menuCategories    MenuCategory[]
+  menuItems         MenuItem[]
+  orders            Order[]
+  wifiLeads         WifiLead[]
+  wifiSessions      WifiSession[]
+  consentLogs       ConsentLog[]
+  coupons           Coupon[]
   couponRedemptions CouponRedemption[]
-  reviewLinks ReviewLink[]
-  reviewLinkClicks ReviewLinkClick[]
-  messageLogs MessageLog[]
-  workflows   AutomationWorkflow[]
+  reviewLinks       ReviewLink[]
+  reviewLinkClicks  ReviewLinkClick[]
+  messageLogs       MessageLog[]
+  workflows         AutomationWorkflow[]
+  chatSessions      ChatSession[]
+  callLogs          CallLog[]
+  missedCalls       MissedCall[]
 
   @@unique([orgId, slug])
 }
@@ -130,14 +133,14 @@ enum VenueKind {
 }
 
 model VenueMembership {
-  id        String      @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   venueId   String
-  role      StaffRole   @default(RECEPTION)
-  createdAt DateTime    @default(now())
+  role      StaffRole @default(RECEPTION)
+  createdAt DateTime  @default(now())
 
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  venue     Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@unique([userId, venueId])
   @@map("venue_membership")
@@ -154,36 +157,36 @@ enum StaffRole {
 // ─── Sala e tavoli ───────────────────────────────────────────────────────────
 
 model Room {
-  id        String   @id @default(cuid())
-  venueId   String
-  name      String
-  width     Int       @default(1200)  // canvas px
-  height    Int       @default(800)
-  ordering  Int       @default(0)
-  venue     Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  tables    Table[]
-  decor     FloorDecor[]
+  id       String       @id @default(cuid())
+  venueId  String
+  name     String
+  width    Int          @default(1200) // canvas px
+  height   Int          @default(800)
+  ordering Int          @default(0)
+  venue    Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  tables   Table[]
+  decor    FloorDecor[]
 }
 
 model Table {
-  id        String   @id @default(cuid())
-  venueId   String
-  roomId    String?
-  label     String                              // es. "T7", "Beach 12"
-  seats     Int       @default(2)
-  shape     TableShape @default(ROUND)
-  posX      Int       @default(0)
-  posY      Int       @default(0)
-  width     Int?
-  height    Int?
-  rotation  Int       @default(0)
-  combinable Boolean   @default(true)
-  active    Boolean   @default(true)
+  id         String     @id @default(cuid())
+  venueId    String
+  roomId     String?
+  label      String // es. "T7", "Beach 12"
+  seats      Int        @default(2)
+  shape      TableShape @default(ROUND)
+  posX       Int        @default(0)
+  posY       Int        @default(0)
+  width      Int?
+  height     Int?
+  rotation   Int        @default(0)
+  combinable Boolean    @default(true)
+  active     Boolean    @default(true)
 
-  venue     Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  room      Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  bookings  Booking[]
-  blocks    TableBlock[]
+  venue    Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  room     Room?        @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  bookings Booking[]
+  blocks   TableBlock[]
 
   @@unique([venueId, label])
 }
@@ -197,21 +200,21 @@ enum TableShape {
 }
 
 model FloorDecor {
-  id        String     @id @default(cuid())
+  id        String    @id @default(cuid())
   venueId   String
   roomId    String?
   kind      DecorKind
   label     String?
-  posX      Int        @default(0)
-  posY      Int        @default(0)
-  width     Int        @default(80)
-  height    Int        @default(80)
-  rotation  Int        @default(0)
+  posX      Int       @default(0)
+  posY      Int       @default(0)
+  width     Int       @default(80)
+  height    Int       @default(80)
+  rotation  Int       @default(0)
   color     String?
-  createdAt DateTime   @default(now())
+  createdAt DateTime  @default(now())
 
-  venue     Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  room      Room?      @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  room  Room? @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   @@index([venueId])
 }
@@ -239,64 +242,64 @@ enum DecorKind {
 }
 
 model TableBlock {
-  id        String   @id @default(cuid())
-  venueId   String
-  tableId   String
-  startsAt  DateTime
-  endsAt    DateTime
-  reason    String?
+  id       String   @id @default(cuid())
+  venueId  String
+  tableId  String
+  startsAt DateTime
+  endsAt   DateTime
+  reason   String?
 
-  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
 }
 
 model Shift {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   venueId     String
-  name        String                       // "Pranzo", "Cena", "Aperitivo"
-  weekday     Int                          // 0 = domenica
-  startMinute Int                          // 0..1439
+  name        String // "Pranzo", "Cena", "Aperitivo"
+  weekday     Int // 0 = domenica
+  startMinute Int // 0..1439
   endMinute   Int
-  capacity    Int       @default(80)
-  slotMinutes Int       @default(15)
-  active      Boolean   @default(true)
+  capacity    Int     @default(80)
+  slotMinutes Int     @default(15)
+  active      Boolean @default(true)
 
-  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 }
 
 // ─── CRM ─────────────────────────────────────────────────────────────────────
 
 model Guest {
-  id           String      @id @default(cuid())
-  venueId      String
-  firstName    String
-  lastName     String?
-  email        String?
-  phone        String?
-  birthday     DateTime?
-  language     String       @default("it")
-  loyaltyTier  LoyaltyTier  @default(NEW)
-  totalVisits  Int          @default(0)
-  totalSpend   Decimal      @default(0) @db.Decimal(12, 2)
-  noShowCount  Int          @default(0)
-  lastVisitAt  DateTime?
-  preferences  Json?                       // diete, posti preferiti
-  allergies    String?
-  privateNotes String?                     // visibile solo a manager
-  tags         String[]                    @default([])
-  marketingOptIn Boolean    @default(false)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id             String      @id @default(cuid())
+  venueId        String
+  firstName      String
+  lastName       String?
+  email          String?
+  phone          String?
+  birthday       DateTime?
+  language       String      @default("it")
+  loyaltyTier    LoyaltyTier @default(NEW)
+  totalVisits    Int         @default(0)
+  totalSpend     Decimal     @default(0) @db.Decimal(12, 2)
+  noShowCount    Int         @default(0)
+  lastVisitAt    DateTime?
+  preferences    Json? // diete, posti preferiti
+  allergies      String?
+  privateNotes   String? // visibile solo a manager
+  tags           String[]    @default([])
+  marketingOptIn Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  venue        Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  bookings     Booking[]
-  payments     Payment[]
-  orders       Order[]
-  wifiLeads    WifiLead[]
-  consentLogs  ConsentLog[]
-  coupons      Coupon[]
+  venue             Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  bookings          Booking[]
+  payments          Payment[]
+  orders            Order[]
+  wifiLeads         WifiLead[]
+  consentLogs       ConsentLog[]
+  coupons           Coupon[]
   couponRedemptions CouponRedemption[]
-  messageLogs  MessageLog[]
+  messageLogs       MessageLog[]
 
   @@index([venueId, email])
   @@index([venueId, phone])
@@ -313,32 +316,33 @@ enum LoyaltyTier {
 // ─── Prenotazioni ────────────────────────────────────────────────────────────
 
 model Booking {
-  id            String         @id @default(cuid())
-  reference     String         @unique @default(cuid())
+  id            String        @id @default(cuid())
+  reference     String        @unique @default(cuid())
   venueId       String
   guestId       String?
   tableId       String?
   partySize     Int
   startsAt      DateTime
-  durationMin   Int            @default(105)
-  status        BookingStatus  @default(CONFIRMED)
-  source        BookingSource  @default(WIDGET)
+  durationMin   Int           @default(105)
+  status        BookingStatus @default(CONFIRMED)
+  source        BookingSource @default(WIDGET)
   occasion      Occasion?
   notes         String?
   internalNotes String?
-  depositCents  Int            @default(0)
-  depositStatus DepositStatus  @default(NONE)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  depositCents  Int           @default(0)
+  depositStatus DepositStatus @default(NONE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   arrivedAt     DateTime?
   seatedAt      DateTime?
   closedAt      DateTime?
 
-  venue         Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  guest         Guest?         @relation(fields: [guestId], references: [id], onDelete: SetNull)
-  table         Table?         @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  payments      Payment[]
-  events        BookingEvent[]
+  venue      Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest      Guest?             @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  table      Table?             @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  payments   Payment[]
+  events     BookingEvent[]
+  voiceDraft VoiceBookingDraft?
 
   @@index([venueId, startsAt])
   @@index([venueId, status])
@@ -353,7 +357,7 @@ model BookingEvent {
   actorId   String?
   createdAt DateTime         @default(now())
 
-  booking   Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId, createdAt])
 }
@@ -419,32 +423,32 @@ model Experience {
   description String?
   startsAt    DateTime
   endsAt      DateTime
-  capacity    Int       @default(40)
-  priceCents  Int       @default(0)
+  capacity    Int      @default(40)
+  priceCents  Int      @default(0)
   ticketUrl   String?
   coverImage  String?
-  published   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
-  venue       Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  tickets     Ticket[]
+  venue   Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
 
   @@unique([venueId, slug])
 }
 
 model Ticket {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   experienceId String
   buyerName    String
   buyerEmail   String
-  quantity     Int       @default(1)
-  totalCents   Int       @default(0)
+  quantity     Int          @default(1)
+  totalCents   Int          @default(0)
   status       TicketStatus @default(PAID)
   checkedInAt  DateTime?
   checkedInBy  String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime     @default(now())
 
-  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
 }
 
 enum TicketStatus {
@@ -457,21 +461,21 @@ enum TicketStatus {
 // ─── Marketing ───────────────────────────────────────────────────────────────
 
 model Campaign {
-  id         String         @id @default(cuid())
-  venueId    String
-  name       String
-  channel    CampaignChannel @default(EMAIL)
-  segment    Json?                      // filtro CRM
-  subject    String?
-  body       String?
+  id          String          @id @default(cuid())
+  venueId     String
+  name        String
+  channel     CampaignChannel @default(EMAIL)
+  segment     Json? // filtro CRM
+  subject     String?
+  body        String?
   scheduledAt DateTime?
-  status     CampaignStatus  @default(DRAFT)
-  sentCount  Int             @default(0)
-  openedCount Int            @default(0)
-  bookedCount Int            @default(0)
-  createdAt  DateTime        @default(now())
+  status      CampaignStatus  @default(DRAFT)
+  sentCount   Int             @default(0)
+  openedCount Int             @default(0)
+  bookedCount Int             @default(0)
+  createdAt   DateTime        @default(now())
 
-  venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue       Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
   messageLogs MessageLog[]
 }
 
@@ -482,17 +486,17 @@ enum CampaignChannel {
 }
 
 model MessageTemplate {
-  id         String          @id @default(cuid())
-  venueId    String
-  name       String
-  channel    CampaignChannel @default(EMAIL)
-  subject    String?
-  body       String
-  category   TemplateCategory @default(GENERIC)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  id        String           @id @default(cuid())
+  venueId   String
+  name      String
+  channel   CampaignChannel  @default(EMAIL)
+  subject   String?
+  body      String
+  category  TemplateCategory @default(GENERIC)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
-  venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@unique([venueId, name])
   @@index([venueId, category])
@@ -520,69 +524,69 @@ enum CampaignStatus {
 // ─── Pagamenti ───────────────────────────────────────────────────────────────
 
 model MenuCategory {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   venueId   String
   name      String
-  ordering  Int        @default(0)
-  menuKey   String     @default("main") // "main" | "lunch" | "dinner" | "tasting" | "events" | custom
-  active    Boolean    @default(true)
-  createdAt DateTime   @default(now())
+  ordering  Int      @default(0)
+  menuKey   String   @default("main") // "main" | "lunch" | "dinner" | "tasting" | "events" | custom
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-  venue     Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  items     MenuItem[]
+  venue Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  items MenuItem[]
 
   @@index([venueId, menuKey, ordering])
 }
 
 model MenuItem {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   categoryId  String
   venueId     String
   name        String
   description String?
-  priceCents  Int          @default(0)
-  currency    String       @default("EUR")
-  available   Boolean      @default(true)
-  ordering    Int          @default(0)
-  allergens   String[]     @default([])
-  dietary     String[]     @default([])
+  priceCents  Int      @default(0)
+  currency    String   @default("EUR")
+  available   Boolean  @default(true)
+  ordering    Int      @default(0)
+  allergens   String[] @default([])
+  dietary     String[] @default([])
   imageUrl    String?
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime @default(now())
 
-  category    MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  venue       Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  orderItems  OrderItem[]
+  category   MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  venue      Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
 
   @@index([categoryId, ordering])
 }
 
 model Order {
-  id            String         @id @default(cuid())
-  reference     String         @unique @default(cuid())
+  id            String        @id @default(cuid())
+  reference     String        @unique @default(cuid())
   venueId       String
   guestId       String?
-  kind          OrderKind      @default(TAKEAWAY)
-  status        OrderStatus    @default(RECEIVED)
-  paymentStatus PaymentStatus  @default(PENDING)
+  kind          OrderKind     @default(TAKEAWAY)
+  status        OrderStatus   @default(RECEIVED)
+  paymentStatus PaymentStatus @default(PENDING)
   customerName  String
   phone         String
   email         String?
   address       String?
   scheduledAt   DateTime
-  totalCents    Int            @default(0)
-  currency      String         @default("EUR")
+  totalCents    Int           @default(0)
+  currency      String        @default("EUR")
   notes         String?
   stripeId      String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   preparedAt    DateTime?
   readyAt       DateTime?
   completedAt   DateTime?
   cancelledAt   DateTime?
 
-  venue         Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  guest         Guest?         @relation(fields: [guestId], references: [id], onDelete: SetNull)
-  items         OrderItem[]
+  venue Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest Guest?      @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  items OrderItem[]
 
   @@index([venueId, status, scheduledAt])
 }
@@ -602,39 +606,39 @@ enum OrderStatus {
 }
 
 model OrderItem {
-  id           String     @id @default(cuid())
-  orderId      String
-  menuItemId   String?
-  name         String     // snapshot
-  priceCents   Int
-  quantity     Int        @default(1)
-  notes        String?
+  id         String  @id @default(cuid())
+  orderId    String
+  menuItemId String?
+  name       String // snapshot
+  priceCents Int
+  quantity   Int     @default(1)
+  notes      String?
 
-  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
 
   @@index([orderId])
 }
 
 model WaitlistEntry {
-  id            String           @id @default(cuid())
-  venueId       String
-  guestId       String?
-  guestName     String
-  phone         String?
-  email         String?
-  partySize     Int
+  id              String         @id @default(cuid())
+  venueId         String
+  guestId         String?
+  guestName       String
+  phone           String?
+  email           String?
+  partySize       Int
   expectedWaitMin Int            @default(20)
-  status        WaitlistStatus   @default(WAITING)
-  notifiedAt    DateTime?
-  seatedAt      DateTime?
-  cancelledAt   DateTime?
-  position      Int              @default(0)
-  notes         String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  status          WaitlistStatus @default(WAITING)
+  notifiedAt      DateTime?
+  seatedAt        DateTime?
+  cancelledAt     DateTime?
+  position        Int            @default(0)
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  venue         Venue            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, status, createdAt])
 }
@@ -648,30 +652,30 @@ enum WaitlistStatus {
 }
 
 model Survey {
-  id         String           @id @default(cuid())
-  token      String           @unique @default(cuid())
-  venueId    String
-  bookingId  String?          @unique
-  guestId    String?
-  sentAt     DateTime         @default(now())
+  id          String    @id @default(cuid())
+  token       String    @unique @default(cuid())
+  venueId     String
+  bookingId   String?   @unique
+  guestId     String?
+  sentAt      DateTime  @default(now())
   respondedAt DateTime?
 
-  venue      Venue            @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  response   SurveyResponse?
+  venue    Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  response SurveyResponse?
 
   @@index([venueId, sentAt])
 }
 
 model SurveyResponse {
-  id         String       @id @default(cuid())
-  surveyId   String       @unique
-  npsScore   Int          // 0..10
-  sentiment  Sentiment
-  comment    String?
-  recommend  Boolean?
-  createdAt  DateTime     @default(now())
+  id        String    @id @default(cuid())
+  surveyId  String    @unique
+  npsScore  Int // 0..10
+  sentiment Sentiment
+  comment   String?
+  recommend Boolean?
+  createdAt DateTime  @default(now())
 
-  survey     Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
 }
@@ -688,16 +692,16 @@ model Payment {
   bookingId       String?
   guestId         String?
   amountCents     Int
-  currency        String         @default("EUR")
-  kind            PaymentKind    @default(DEPOSIT)
-  status          PaymentStatus  @default(PENDING)
+  currency        String        @default("EUR")
+  kind            PaymentKind   @default(DEPOSIT)
+  status          PaymentStatus @default(PENDING)
   stripePaymentId String?
-  createdAt       DateTime       @default(now())
+  createdAt       DateTime      @default(now())
   refundedAt      DateTime?
 
-  venue           Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  booking         Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  guest           Guest?         @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  venue   Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  guest   Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
 
   @@index([venueId, createdAt])
 }
@@ -720,22 +724,22 @@ enum PaymentStatus {
 // ─── Wi-Fi marketing ─────────────────────────────────────────────────────────
 
 model WifiLead {
-  id           String        @id @default(cuid())
-  venueId      String
-  guestId      String?
-  name         String
-  email        String?
-  phone        String?
-  source       String?       // ssid, ap-mac, table, campaign id
-  ipAddress    String?
-  userAgent    String?
-  consentMarketing Boolean   @default(false)
-  consentPrivacy   Boolean   @default(true)
-  createdAt    DateTime      @default(now())
+  id               String   @id @default(cuid())
+  venueId          String
+  guestId          String?
+  name             String
+  email            String?
+  phone            String?
+  source           String? // ssid, ap-mac, table, campaign id
+  ipAddress        String?
+  userAgent        String?
+  consentMarketing Boolean  @default(false)
+  consentPrivacy   Boolean  @default(true)
+  createdAt        DateTime @default(now())
 
-  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  guest        Guest?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
-  sessions     WifiSession[]
+  venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest    Guest?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  sessions WifiSession[]
 
   @@index([venueId, createdAt])
   @@index([venueId, email])
@@ -751,28 +755,28 @@ model WifiSession {
   durationSec Int?
   ipAddress   String?
   userAgent   String?
-  deviceType  String?   // mobile / desktop / tablet (best-effort)
+  deviceType  String? // mobile / desktop / tablet (best-effort)
 
-  lead        WifiLead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  venue       Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  lead  WifiLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  venue Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, startedAt])
 }
 
 model ConsentLog {
-  id         String          @id @default(cuid())
-  venueId    String
-  guestId    String?
-  leadId     String?
-  channel    ConsentChannel
-  granted    Boolean
-  source     String?         // wifi / widget / admin / chat / coupon
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime        @default(now())
+  id        String         @id @default(cuid())
+  venueId   String
+  guestId   String?
+  leadId    String?
+  channel   ConsentChannel
+  granted   Boolean
+  source    String? // wifi / widget / admin / chat / coupon
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime       @default(now())
 
-  venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  guest      Guest?          @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  venue Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest Guest? @relation(fields: [guestId], references: [id], onDelete: SetNull)
 
   @@index([venueId, channel, createdAt])
   @@index([guestId])
@@ -790,29 +794,29 @@ enum ConsentChannel {
 // ─── Coupon e promozioni ─────────────────────────────────────────────────────
 
 model Coupon {
-  id              String              @id @default(cuid())
+  id              String         @id @default(cuid())
   venueId         String
-  code            String              @unique
+  code            String         @unique
   name            String
   description     String?
-  kind            CouponKind          @default(PERCENT)
-  value           Int                 @default(0)   // % (0..100) or cents based on kind
-  freeItem        String?             // for FREE_ITEM kind: item name snapshot
-  category        CouponCategory      @default(GENERIC)
-  status          CouponStatus        @default(ACTIVE)
+  kind            CouponKind     @default(PERCENT)
+  value           Int            @default(0) // % (0..100) or cents based on kind
+  freeItem        String? // for FREE_ITEM kind: item name snapshot
+  category        CouponCategory @default(GENERIC)
+  status          CouponStatus   @default(ACTIVE)
   validFrom       DateTime?
   validUntil      DateTime?
-  maxRedemptions  Int?                // total cap
-  maxPerGuest     Int                 @default(1)
-  guestId         String?             // when assigned to a specific guest
-  segment         Json?               // optional segment selector
-  redemptionCount Int                 @default(0)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  maxRedemptions  Int? // total cap
+  maxPerGuest     Int            @default(1)
+  guestId         String? // when assigned to a specific guest
+  segment         Json? // optional segment selector
+  redemptionCount Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  venue           Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  guest           Guest?              @relation(fields: [guestId], references: [id], onDelete: SetNull)
-  redemptions     CouponRedemption[]
+  venue       Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest       Guest?             @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  redemptions CouponRedemption[]
 
   @@index([venueId, status])
   @@index([venueId, category])
@@ -851,14 +855,14 @@ model CouponRedemption {
   bookingId   String?
   orderId     String?
   ticketId    String?
-  amountCents Int?     // discount applied at redemption
+  amountCents Int? // discount applied at redemption
   notes       String?
   redeemedAt  DateTime @default(now())
-  redeemedBy  String?  // user id of staff member, when manual
+  redeemedBy  String? // user id of staff member, when manual
 
-  coupon      Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
-  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  guest       Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  venue  Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest  Guest? @relation(fields: [guestId], references: [id], onDelete: SetNull)
 
   @@index([venueId, redeemedAt])
   @@index([couponId])
@@ -867,17 +871,17 @@ model CouponRedemption {
 // ─── Review funnel ────────────────────────────────────────────────────────────
 
 model ReviewLink {
-  id         String              @id @default(cuid())
-  venueId    String
-  platform   ReviewPlatform
-  label      String?             // optional override
-  url        String
-  ordering   Int                 @default(0)
-  active     Boolean             @default(true)
-  createdAt  DateTime            @default(now())
+  id        String         @id @default(cuid())
+  venueId   String
+  platform  ReviewPlatform
+  label     String? // optional override
+  url       String
+  ordering  Int            @default(0)
+  active    Boolean        @default(true)
+  createdAt DateTime       @default(now())
 
-  venue      Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  clicks     ReviewLinkClick[]
+  venue  Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  clicks ReviewLinkClick[]
 
   @@index([venueId, active, ordering])
 }
@@ -894,17 +898,17 @@ enum ReviewPlatform {
 }
 
 model ReviewLinkClick {
-  id         String      @id @default(cuid())
-  linkId     String
-  venueId    String
-  surveyId   String?
-  npsScore   Int?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime    @default(now())
+  id        String   @id @default(cuid())
+  linkId    String
+  venueId   String
+  surveyId  String?
+  npsScore  Int?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
-  link       ReviewLink  @relation(fields: [linkId], references: [id], onDelete: Cascade)
-  venue      Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  link  ReviewLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  venue Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([linkId, createdAt])
   @@index([venueId, createdAt])
@@ -913,27 +917,27 @@ model ReviewLinkClick {
 // ─── Message log (multi-channel per-recipient delivery audit) ────────────────
 
 model MessageLog {
-  id           String        @id @default(cuid())
-  venueId      String
-  campaignId   String?
+  id            String         @id @default(cuid())
+  venueId       String
+  campaignId    String?
   workflowRunId String?
-  guestId      String?
-  channel      MessageChannel
-  toAddress    String        // email / phone / wa-number snapshot
-  subject      String?
-  bodyPreview  String?
-  status       MessageStatus @default(QUEUED)
-  providerId   String?
-  error        String?
-  sentAt       DateTime?
-  deliveredAt  DateTime?
-  failedAt     DateTime?
-  createdAt    DateTime      @default(now())
+  guestId       String?
+  channel       MessageChannel
+  toAddress     String // email / phone / wa-number snapshot
+  subject       String?
+  bodyPreview   String?
+  status        MessageStatus  @default(QUEUED)
+  providerId    String?
+  error         String?
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  failedAt      DateTime?
+  createdAt     DateTime       @default(now())
 
-  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  guest        Guest?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
-  workflowRun  AutomationRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+  venue       Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  campaign    Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  guest       Guest?         @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  workflowRun AutomationRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
 
   @@index([venueId, createdAt])
   @@index([campaignId])
@@ -957,21 +961,21 @@ enum MessageStatus {
 // ─── Marketing automation workflows ──────────────────────────────────────────
 
 model AutomationWorkflow {
-  id          String              @id @default(cuid())
-  venueId     String
-  name        String
-  description String?
-  trigger     AutomationTrigger
-  active      Boolean             @default(false)
-  conditions  Json?               // segment-style filters (e.g. { tier: ["VIP"], minVisits: 3 })
-  actions     Json                // [{ kind, params }]
-  delayMinutes Int                @default(0)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  createdBy   String?
+  id           String            @id @default(cuid())
+  venueId      String
+  name         String
+  description  String?
+  trigger      AutomationTrigger
+  active       Boolean           @default(false)
+  conditions   Json? // segment-style filters (e.g. { tier: ["VIP"], minVisits: 3 })
+  actions      Json // [{ kind, params }]
+  delayMinutes Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  createdBy    String?
 
-  venue       Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  runs        AutomationRun[]
+  venue Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  runs  AutomationRun[]
 
   @@index([venueId, trigger, active])
 }
@@ -989,17 +993,17 @@ enum AutomationTrigger {
 }
 
 model AutomationRun {
-  id          String           @id @default(cuid())
-  workflowId  String
-  venueId     String
-  trigger     AutomationTrigger
-  status      AutomationRunStatus @default(QUEUED)
-  payload     Json?            // event payload at trigger time
-  result      Json?            // counters, errors per action
-  error       String?
-  startedAt   DateTime?
-  finishedAt  DateTime?
-  createdAt   DateTime         @default(now())
+  id         String              @id @default(cuid())
+  workflowId String
+  venueId    String
+  trigger    AutomationTrigger
+  status     AutomationRunStatus @default(QUEUED)
+  payload    Json? // event payload at trigger time
+  result     Json? // counters, errors per action
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime            @default(now())
 
   workflow    AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   messageLogs MessageLog[]
@@ -1014,4 +1018,143 @@ enum AutomationRunStatus {
   SUCCEEDED
   FAILED
   PARTIAL
+}
+
+// ─── Conversational booking (chatbot + voice scaffold) ───────────────────────
+
+model ChatSession {
+  id             String     @id @default(cuid())
+  venueId        String
+  source         ChatSource @default(WEB)
+  guestId        String?
+  bookingId      String?
+  status         ChatStatus @default(OPEN)
+  draftPartySize Int?
+  draftDate      String? // YYYY-MM-DD captured during the conversation
+  draftTime      String? // HH:MM
+  draftFirstName String?
+  draftLastName  String?
+  draftEmail     String?
+  draftPhone     String?
+  draftNotes     String?
+  language       String     @default("it")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([venueId, createdAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      ChatRole
+  text      String
+  intent    String? // e.g. "ASK_PARTY_SIZE", "CONFIRM"
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+enum ChatRole {
+  USER
+  BOT
+  STAFF
+}
+
+enum ChatSource {
+  WEB
+  WHATSAPP
+  SMS
+  WIDGET
+  VOICE
+}
+
+enum ChatStatus {
+  OPEN
+  CONVERTED
+  ABANDONED
+  HANDOFF
+}
+
+model CallLog {
+  id           String        @id @default(cuid())
+  venueId      String
+  fromNumber   String
+  toNumber     String?
+  direction    CallDirection @default(INBOUND)
+  status       CallStatus    @default(QUEUED)
+  recordingUrl String?
+  transcript   String?
+  durationSec  Int?
+  intent       String? // BOOKING / INFO / OTHER
+  draftId      String?       @unique
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime      @default(now())
+
+  venue Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  draft VoiceBookingDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
+
+  @@index([venueId, createdAt])
+}
+
+enum CallDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CallStatus {
+  QUEUED
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+  FAILED
+}
+
+model VoiceBookingDraft {
+  id            String      @id @default(cuid())
+  venueId       String
+  callerName    String?
+  phone         String?
+  partySize     Int?
+  preferredDate String? // YYYY-MM-DD
+  preferredTime String? // HH:MM
+  notes         String?
+  status        DraftStatus @default(NEW)
+  bookingId     String?     @unique
+  reviewedBy    String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  call    CallLog?
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([venueId, createdAt])
+}
+
+enum DraftStatus {
+  NEW
+  CONFIRMED
+  REJECTED
+}
+
+model MissedCall {
+  id             String    @id @default(cuid())
+  venueId        String
+  fromNumber     String
+  attempts       Int       @default(1)
+  callbackSentAt DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, createdAt])
 }
