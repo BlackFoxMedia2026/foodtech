@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { dispatchMessage } from "@/server/messages";
 import { captureError } from "@/lib/observability";
+import { notify } from "@/server/notifications";
 
 // Auto-promotion: when a table opens up we offer it to the next compatible
 // guest on the waitlist. The offer is a magic-link token valid for 10 min;
@@ -197,6 +198,14 @@ export async function acceptOffer(token: string) {
       convertedBookingId: booking.id,
       offerToken: null,
     },
+  });
+  await notify({
+    venueId: entry.venueId,
+    kind: "WAITLIST_ACCEPTED",
+    title: `Waitlist · ${entry.guestName} sta arrivando`,
+    body: `${entry.partySize} ${entry.partySize === 1 ? "persona" : "persone"} · accettata l'offerta tavolo`,
+    link: `/bookings/${booking.id}`,
+    meta: { bookingId: booking.id, reference: booking.reference },
   });
   return { bookingId: booking.id, reference: booking.reference };
 }

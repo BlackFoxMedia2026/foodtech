@@ -1,6 +1,7 @@
 import { z } from "zod";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
+import { notify } from "@/server/notifications";
 
 export const GiftCardInput = z.object({
   amount: z.coerce.number().min(5).max(10_000), // EUR (display); we convert to cents internally
@@ -137,6 +138,15 @@ export async function redeemGiftCard(
       },
     });
     return { card: updated, redemption };
+  }).then(async (out) => {
+    await notify({
+      venueId,
+      kind: "GIFT_CARD_REDEEMED",
+      title: `Gift card riscattata · ${(cents / 100).toFixed(2)} ${out.card.currency}`,
+      body: `${out.card.code} · saldo residuo ${(out.card.balanceCents / 100).toFixed(2)}`,
+      link: "/gift-cards",
+    });
+    return out;
   });
 }
 

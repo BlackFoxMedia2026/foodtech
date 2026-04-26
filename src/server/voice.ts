@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { voiceProvider } from "@/lib/voice-provider";
+import { notify } from "@/server/notifications";
 
 export const InboundCallInput = z.object({
   fromNumber: z.string().min(3).max(40),
@@ -63,6 +64,22 @@ export async function recordInboundCall(venueSlug: string, raw: unknown) {
 
   if (data.status === "MISSED") {
     await markMissedCall(venue.id, data.fromNumber);
+    await notify({
+      venueId: venue.id,
+      kind: "MISSED_CALL",
+      title: "Chiamata persa",
+      body: data.fromNumber,
+      link: "/voice",
+    });
+  }
+  if (draftRow) {
+    await notify({
+      venueId: venue.id,
+      kind: "MISSED_CALL",
+      title: "Bozza voice da approvare",
+      body: `${draftRow.callerName ?? "Sconosciuto"} · ${draftRow.partySize ?? "?"} pax · ${draftRow.preferredDate ?? "—"}`,
+      link: "/voice",
+    });
   }
 
   return { callId: call.id, draftId: draftRow?.id ?? null };

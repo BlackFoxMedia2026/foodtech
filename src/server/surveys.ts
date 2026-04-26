@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { fireTrigger } from "@/server/automations";
 import { type Locale, pickLocale, t } from "@/lib/i18n";
+import { notify } from "@/server/notifications";
 
 export const ResponseInput = z.object({
   npsScore: z.coerce.number().int().min(0).max(10),
@@ -70,6 +71,14 @@ export async function recordResponse(token: string, raw: unknown) {
       bookingId: survey.bookingId ?? undefined,
       payload: { score: data.npsScore, comment: data.comment ?? null },
     }).catch(() => undefined);
+    await notify({
+      venueId: survey.venueId,
+      kind: "NPS_DETRACTOR",
+      title: `NPS detrattore · ${data.npsScore}/10`,
+      body: data.comment ? data.comment.slice(0, 280) : "Nessun commento",
+      link: "/insights/feedback",
+      meta: { score: data.npsScore },
+    });
   }
 
   // Real-time alert to the venue when the feedback is negative

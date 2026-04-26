@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { fetchPlaceDetails, isGooglePlacesEnabled } from "@/lib/google-places";
 import { captureError } from "@/lib/observability";
+import { notify } from "@/server/notifications";
 
 const SOURCES = [
   "GOOGLE",
@@ -103,6 +104,16 @@ export async function syncGoogleReviews(venueId: string) {
   let inserted = 0;
   for (const r of details.reviews) {
     try {
+      const before = await db.review.findUnique({
+        where: {
+          venueId_source_externalRef: {
+            venueId,
+            source: "GOOGLE",
+            externalRef: r.externalRef,
+          },
+        },
+        select: { id: true },
+      });
       await db.review.upsert({
         where: {
           venueId_source_externalRef: {
@@ -135,6 +146,16 @@ export async function syncGoogleReviews(venueId: string) {
         },
       });
       inserted++;
+      if (!before) {
+        await notify({
+          venueId,
+          kind: "REVIEW_RECEIVED",
+          title: `Recensione Google · ${r.rating}/5`,
+          body: r.text ? r.text.slice(0, 280) : r.authorName ?? undefined,
+          link: "/reviews",
+          meta: { rating: r.rating, source: "GOOGLE" },
+        });
+      }
     } catch (err) {
       captureError(err, {
         module: "reviews",

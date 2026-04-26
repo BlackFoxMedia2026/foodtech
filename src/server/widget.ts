@@ -6,6 +6,7 @@ import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templ
 import { planDeposit, stripe } from "@/lib/stripe";
 import { fireTrigger } from "@/server/automations";
 import { buildManageLink } from "@/server/booking-self-service";
+import { notify } from "@/server/notifications";
 
 export const PublicBookingInput = z.object({
   partySize: z.coerce.number().int().min(1).max(50),
@@ -292,6 +293,15 @@ export async function createPublicBooking(slug: string, raw: unknown) {
     bookingId: booking.id,
     payload: { source: "WIDGET", partySize: data.partySize },
   }).catch(() => undefined);
+
+  await notify({
+    venueId: venue.id,
+    kind: "BOOKING_CREATED",
+    title: `Nuova prenotazione · ${data.partySize} pax`,
+    body: `${[data.firstName, data.lastName].filter(Boolean).join(" ")} · ${data.date} ${data.time}`,
+    link: `/bookings/${booking.id}`,
+    meta: { reference: booking.reference, source: "WIDGET" },
+  });
 
   return { reference: booking.reference, venue, booking, checkoutUrl };
 }
