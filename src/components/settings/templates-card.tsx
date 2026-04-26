@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import {
   Dialog,
   DialogContent,
@@ -218,12 +219,12 @@ function TemplateDialog({
             </div>
             <div className="space-y-1.5 sm:col-span-3">
               <Label htmlFor="t-body">Corpo</Label>
-              <Textarea
+              <MarkdownEditor
                 id="t-body"
                 name="body"
                 rows={8}
-                required
                 defaultValue={initial?.body ?? "Ciao {{firstName}},\n\n…"}
+                hint="Markdown · usa {{firstName}}, {{venueName}}, {{date}}"
               />
             </div>
           </div>

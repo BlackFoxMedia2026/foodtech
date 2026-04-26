@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -236,13 +237,12 @@ export function CampaignDialog({
           </div>
           <div className="space-y-1.5 sm:col-span-3">
             <Label htmlFor="cmp-body">Corpo</Label>
-            <Textarea
+            <MarkdownEditor
               id="cmp-body"
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={setBody}
               rows={10}
-              required
-              disabled={sent}
+              hint="Markdown · usa {{firstName}} per personalizzare"
             />
           </div>
         </div>
