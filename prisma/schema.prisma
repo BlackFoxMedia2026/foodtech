@@ -124,6 +124,7 @@ model Venue {
   staffShifts       StaffShift[]
   menuItemCosts     MenuItemCost[]
   menuScans         MenuScan[]
+  connectors        Connector[]
 
   @@unique([orgId, slug])
 }
@@ -1246,4 +1247,72 @@ enum MenuScanSource {
   TABLE
   WIDGET
   LINK
+}
+
+// ─── Channel Manager (TheFork / Google Reserve / Booking.com / custom) ───────
+
+model Connector {
+  id            String          @id @default(cuid())
+  venueId       String
+  kind          ConnectorKind
+  label         String?
+  status        ConnectorStatus @default(DRAFT)
+  config        Json? // mapping ids, default party size, prefix for reference, etc.
+  webhookSecret String? // shared secret for HMAC verification
+  externalRef   String? // external account / property id (display only)
+  lastSyncAt    DateTime?
+  lastError     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  venue  Venue            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  events ConnectorEvent[]
+
+  @@unique([venueId, kind])
+  @@index([venueId, status])
+}
+
+enum ConnectorKind {
+  THEFORK
+  GOOGLE_RESERVE
+  BOOKING_COM
+  OPENTABLE
+  CUSTOM
+}
+
+enum ConnectorStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+model ConnectorEvent {
+  id          String               @id @default(cuid())
+  connectorId String
+  venueId     String
+  direction   ConnectorDirection
+  kind        String // e.g. "booking.created", "booking.cancelled", "ping"
+  status      ConnectorEventStatus @default(RECEIVED)
+  payload     Json?
+  bookingId   String?
+  error       String?
+  createdAt   DateTime             @default(now())
+
+  connector Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  @@index([connectorId, createdAt])
+  @@index([venueId, createdAt])
+}
+
+enum ConnectorDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum ConnectorEventStatus {
+  RECEIVED
+  PROCESSED
+  REJECTED
+  FAILED
 }

@@ -895,6 +895,28 @@ async function ensureDemoExtras(venue: { id: string; name: string; kind: string 
       .catch(() => undefined);
   }
 
+  // Demo channel-manager connectors
+  const connectorCount = await db.connector.count({ where: { venueId: venue.id } });
+  if (connectorCount === 0) {
+    await db.connector.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          kind: "THEFORK",
+          label: "TheFork (demo)",
+          status: "DRAFT",
+          externalRef: `fork-${venue.id.slice(-6)}`,
+        },
+        {
+          venueId: venue.id,
+          kind: "GOOGLE_RESERVE",
+          label: "Google Reserve (demo)",
+          status: "DRAFT",
+        },
+      ],
+    });
+  }
+
   // Demo menu scans
   const msCount = await db.menuScan.count({ where: { venueId: venue.id } });
   if (msCount === 0) {
