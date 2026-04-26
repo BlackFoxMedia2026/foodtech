@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { lookupOffer } from "@/server/waitlist-promotion";
+import { getVenueBrandBySlug } from "@/server/branding";
 import { Card, CardContent } from "@/components/ui/card";
 import { OfferActions } from "@/components/waitlist/offer-actions";
+import { PublicFootnote, PublicHeader } from "@/components/branding/public-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,7 @@ export default async function WaitlistOfferPage({
 }) {
   const entry = await lookupOffer(params.token);
   if (!entry) notFound();
+  const brand = await getVenueBrandBySlug(entry.venue.slug);
   const expired =
     entry.offerExpiresAt && entry.offerExpiresAt < new Date();
   const handled =
@@ -23,15 +26,13 @@ export default async function WaitlistOfferPage({
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col gap-6 px-4 py-10">
-      <header className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="grid h-7 w-7 place-items-center rounded-md bg-carbon-800 text-sand-50 font-display text-xs">
-          T
-        </span>
-        Tavolo · offerta tavolo
-      </header>
+      {brand && <PublicHeader brand={brand} kicker="Offerta tavolo" />}
 
       <Card className="overflow-hidden">
-        <div className="bg-gradient-to-br from-gilt to-gilt-dark p-6 text-carbon-900">
+        <div
+          className="p-6 text-carbon-900"
+          style={brand ? { background: brand.accent } : undefined}
+        >
           <CheckCircle2 className="h-7 w-7" />
           <p className="mt-2 text-xs uppercase tracking-[0.2em]">Tavolo libero</p>
           <h1 className="text-display text-3xl">{entry.venue.name}</h1>
@@ -76,9 +77,7 @@ export default async function WaitlistOfferPage({
         </CardContent>
       </Card>
 
-      <footer className="mt-auto pt-4 text-[10px] text-muted-foreground">
-        Powered by Tavolo · gestione liste d&apos;attesa
-      </footer>
+      {brand && <PublicFootnote brand={brand} />}
     </div>
   );
 }

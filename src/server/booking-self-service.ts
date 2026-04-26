@@ -32,6 +32,8 @@ export async function getBookingByReference(reference: string) {
           email: true,
           timezone: true,
           currency: true,
+          brandLogoUrl: true,
+          brandAccent: true,
         },
       },
     },

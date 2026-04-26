@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { Gift } from "lucide-react";
 import { lookupGiftCard } from "@/server/gift-cards";
+import { getVenueBrandBySlug } from "@/server/branding";
 import { Card, CardContent } from "@/components/ui/card";
+import { PublicFootnote, PublicHeader } from "@/components/branding/public-shell";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,7 @@ export default async function GiftCardPublicPage({
 }) {
   const card = await lookupGiftCard(params.code);
   if (!card) notFound();
+  const brand = await getVenueBrandBySlug(card.venue.slug);
 
   const balance = formatCurrency(card.balanceCents, card.currency);
   const initial = formatCurrency(card.initialCents, card.currency);
@@ -20,15 +23,17 @@ export default async function GiftCardPublicPage({
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col gap-6 px-4 py-10">
-      <header className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="grid h-7 w-7 place-items-center rounded-md bg-carbon-800 text-sand-50 font-display text-xs">
-          T
-        </span>
-        Tavolo · gift card
-      </header>
+      {brand && <PublicHeader brand={brand} kicker="Gift card" />}
 
       <Card className="overflow-hidden">
-        <div className="bg-gradient-to-br from-gilt to-gilt-dark p-6 text-carbon-900">
+        <div
+          className="p-6 text-carbon-900"
+          style={
+            brand
+              ? { background: brand.accent }
+              : { background: "linear-gradient(to bottom right, #c9a25a, #b58a48)" }
+          }
+        >
           <div className="flex items-center justify-between">
             <Gift className="h-7 w-7" />
             <span className="text-[10px] uppercase tracking-[0.2em]">{card.venue.name}</span>
@@ -67,9 +72,13 @@ export default async function GiftCardPublicPage({
         </CardContent>
       </Card>
 
-      <footer className="mt-auto pt-4 text-[10px] text-muted-foreground">
-        Powered by Tavolo · saldo aggiornato in tempo reale.
-      </footer>
+      {brand ? (
+        <PublicFootnote brand={brand} />
+      ) : (
+        <footer className="mt-auto pt-4 text-[10px] text-muted-foreground">
+          Powered by Tavolo · saldo aggiornato in tempo reale.
+        </footer>
+      )}
     </div>
   );
 }

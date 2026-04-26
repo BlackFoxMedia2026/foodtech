@@ -13,6 +13,8 @@ import { TemplatesCard } from "@/components/settings/templates-card";
 import { IntegrationsCard } from "@/components/settings/integrations-card";
 import { TeamCard } from "@/components/settings/team-card";
 import { TableQrCard } from "@/components/settings/table-qr-card";
+import { BrandingCard } from "@/components/settings/branding-card";
+import { getVenueBrandById } from "@/server/branding";
 import { listShifts } from "@/server/shifts";
 import { listTemplates } from "@/server/templates";
 import { isEmailEnabled } from "@/lib/email";
@@ -32,7 +34,7 @@ const ROLE_LABELS = {
 
 export default async function SettingsPage() {
   const ctx = await getActiveVenue();
-  const [venues, members, shifts, templates, tables] = await Promise.all([
+  const [venues, members, shifts, templates, tables, brand] = await Promise.all([
     db.venue.findMany({ where: { orgId: ctx.orgId }, orderBy: { name: "asc" } }),
     db.venueMembership.findMany({
       where: { venueId: ctx.venueId },
@@ -45,6 +47,7 @@ export default async function SettingsPage() {
       orderBy: { label: "asc" },
       select: { id: true, label: true, seats: true },
     }),
+    getVenueBrandById(ctx.venueId),
   ]);
   const canEditMarketing = can(ctx.role, "edit_marketing");
 
@@ -87,6 +90,16 @@ export default async function SettingsPage() {
       </div>
 
       <WidgetLinkCard slug={ctx.venue.slug} />
+
+      {can(ctx.role, "manage_venue") && (
+        <BrandingCard
+          initial={
+            brand
+              ? { logoUrl: brand.logoUrl, accent: brand.accent, footnote: brand.footnote }
+              : null
+          }
+        />
+      )}
 
       {can(ctx.role, "manage_venue") && <TableQrCard tables={tables} />}
 

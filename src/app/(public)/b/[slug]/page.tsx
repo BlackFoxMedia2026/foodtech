@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { MapPin, Phone } from "lucide-react";
 import { getPublicVenue } from "@/server/widget";
+import { getVenueBrandBySlug } from "@/server/branding";
 import { WidgetForm } from "@/components/widget/widget-form";
 import { LocaleSwitch } from "@/components/widget/locale-switch";
+import { PublicHeader } from "@/components/branding/public-shell";
 import { isStripeEnabled } from "@/lib/stripe";
 import { formatCurrency } from "@/lib/utils";
 import { dict, pickLocale, t } from "@/lib/i18n";
@@ -20,18 +22,25 @@ export default async function PublicBookingPage({
   if (!venue) notFound();
   const locale = pickLocale(searchParams.lang);
   const d = dict(locale);
+  const brand = await getVenueBrandBySlug(params.slug);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-6 py-10">
-      <header className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-carbon-800 text-sand-50 font-display text-xs">
-            T
-          </span>
-          <span>{d["widget.brand"]}</span>
-        </div>
+      <div className="flex items-start justify-between gap-3">
+        {brand ? (
+          <div className="flex-1">
+            <PublicHeader brand={brand} kicker={d["widget.brand"]} />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-carbon-800 text-sand-50 font-display text-xs">
+              T
+            </span>
+            <span>{d["widget.brand"]}</span>
+          </div>
+        )}
         <LocaleSwitch locale={locale} />
-      </header>
+      </div>
 
       <section className="space-y-3">
         <p className="text-xs uppercase tracking-[0.18em] text-gilt-dark">
