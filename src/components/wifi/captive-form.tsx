@@ -19,10 +19,14 @@ export function WifiCaptiveForm({
   slug,
   venueName,
   source,
+  legalText,
+  accent,
 }: {
   slug: string;
   venueName: string;
   source: string | null;
+  legalText?: string | null;
+  accent?: string | null;
 }) {
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -92,8 +96,13 @@ export function WifiCaptiveForm({
           <label className="flex items-start gap-2 text-xs">
             <input type="checkbox" name="consentPrivacy" required className="mt-0.5 h-3.5 w-3.5" />
             <span>
-              Ho letto l&apos;informativa privacy e acconsento al trattamento dei dati come previsto dal
-              GDPR. <span className="text-rose-600">*</span>
+              {legalText ?? (
+                <>
+                  Ho letto l&apos;informativa privacy e acconsento al trattamento dei dati come previsto dal
+                  GDPR.
+                </>
+              )}{" "}
+              <span className="text-rose-600">*</span>
             </span>
           </label>
           <label className="flex items-start gap-2 text-xs">
@@ -105,7 +114,13 @@ export function WifiCaptiveForm({
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" variant="gold" className="w-full" disabled={busy}>
+          <Button
+            type="submit"
+            variant="gold"
+            className="w-full"
+            disabled={busy}
+            style={accent ? { background: accent, color: "#15161a" } : undefined}
+          >
             {busy ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" /> Connessione…

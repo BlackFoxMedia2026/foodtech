@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Cake, Mail, Phone, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Ban, Cake, Mail, Phone, ShieldAlert, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoyaltyPill } from "@/components/guests/loyalty-pill";
+import { LoyaltyBlockActions } from "@/components/guests/loyalty-block-actions";
 import { StatusBadge } from "@/components/bookings/status-badge";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { getGuest } from "@/server/guests";
+import { loyaltyHistory } from "@/server/loyalty";
 import { formatCurrency, formatDate, formatDateTime, initials } from "@/lib/utils";
 
 export default async function GuestDetail({ params }: { params: { id: string } }) {
@@ -16,6 +18,9 @@ export default async function GuestDetail({ params }: { params: { id: string } }
   const g = await getGuest(ctx.venueId, params.id);
   if (!g) notFound();
   const canSeePrivate = can(ctx.role, "view_private");
+  const canEditMarketing = can(ctx.role, "edit_marketing");
+  const canManageBookings = can(ctx.role, "manage_bookings");
+  const txns = await loyaltyHistory(g.id, 10);
 
   const name = `${g.firstName} ${g.lastName ?? ""}`.trim();
 
@@ -35,6 +40,16 @@ export default async function GuestDetail({ params }: { params: { id: string } }
             <h1 className="text-display text-3xl">{name}</h1>
             <div className="mt-2 flex flex-wrap gap-2">
               <LoyaltyPill tier={g.loyaltyTier} />
+              {g.loyaltyPoints > 0 && (
+                <Badge tone="gold" className="inline-flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> {g.loyaltyPoints} pt
+                </Badge>
+              )}
+              {g.blocked && (
+                <Badge tone="danger" className="inline-flex items-center gap-1">
+                  <Ban className="h-3 w-3" /> Bloccato
+                </Badge>
+              )}
               {g.tags.map((t) => <Badge key={t} tone="neutral">{t}</Badge>)}
               {g.allergies && (
                 <Badge tone="danger" className="badge-dot">{g.allergies}</Badge>
@@ -90,6 +105,56 @@ export default async function GuestDetail({ params }: { params: { id: string } }
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-gilt-dark" /> Loyalty
+                </span>
+                <span className="text-display text-xl">{g.loyaltyPoints} pt</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <LoyaltyBlockActions
+                guestId={g.id}
+                blocked={g.blocked}
+                blockedReason={g.blockedReason}
+                canEdit={canEditMarketing}
+                canBlock={canManageBookings}
+              />
+              {txns.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Ancora nessun movimento. I punti vengono accreditati a ordine completato.
+                </p>
+              ) : (
+                <ul className="divide-y text-xs">
+                  {txns.map((t) => (
+                    <li key={t.id} className="flex items-center justify-between py-1.5">
+                      <div>
+                        <p className="font-medium">{t.reason ?? t.kind}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatDateTime(t.createdAt)}
+                        </p>
+                      </div>
+                      <span
+                        className={
+                          t.points > 0
+                            ? "text-emerald-700"
+                            : t.points < 0
+                              ? "text-rose-700"
+                              : "text-muted-foreground"
+                        }
+                      >
+                        {t.points > 0 ? "+" : ""}
+                        {t.points}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <Card>

@@ -14,9 +14,25 @@ export default async function WifiCaptivePage({
 }) {
   const venue = await db.venue.findFirst({
     where: { slug: params.slug, active: true },
-    select: { id: true, name: true, slug: true, city: true, address: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      city: true,
+      address: true,
+      wifiPortalLogoUrl: true,
+      wifiPortalAccent: true,
+      wifiPortalWelcome: true,
+      wifiPortalLegal: true,
+    },
   });
   if (!venue) notFound();
+
+  const accent = venue.wifiPortalAccent ?? "#c9a25a";
+  const accentSoft = `${accent}1a`;
+  const welcome =
+    venue.wifiPortalWelcome ??
+    "Connetti il tuo dispositivo alla nostra rete in pochi secondi.";
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-10">
@@ -28,17 +44,35 @@ export default async function WifiCaptivePage({
       </header>
 
       <section className="space-y-3 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-gilt/15 text-gilt-dark">
-          <Wifi className="h-7 w-7" />
-        </span>
-        <p className="text-xs uppercase tracking-[0.18em] text-gilt-dark">Benvenuto in</p>
-        <h1 className="text-display text-3xl leading-tight">{venue.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          Connetti il tuo dispositivo alla nostra rete in pochi secondi.
+        {venue.wifiPortalLogoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={venue.wifiPortalLogoUrl}
+            alt={venue.name}
+            className="mx-auto h-14 w-14 rounded-md object-contain"
+          />
+        ) : (
+          <span
+            className="mx-auto grid h-14 w-14 place-items-center rounded-full"
+            style={{ background: accentSoft, color: accent }}
+          >
+            <Wifi className="h-7 w-7" />
+          </span>
+        )}
+        <p className="text-xs uppercase tracking-[0.18em]" style={{ color: accent }}>
+          Benvenuto in
         </p>
+        <h1 className="text-display text-3xl leading-tight">{venue.name}</h1>
+        <p className="text-sm text-muted-foreground">{welcome}</p>
       </section>
 
-      <WifiCaptiveForm slug={venue.slug} venueName={venue.name} source={searchParams.src ?? null} />
+      <WifiCaptiveForm
+        slug={venue.slug}
+        venueName={venue.name}
+        source={searchParams.src ?? null}
+        legalText={venue.wifiPortalLegal}
+        accent={venue.wifiPortalAccent}
+      />
 
       <footer className="mt-auto pt-8 text-[10px] text-muted-foreground">
         Tavolo gestisce le credenziali Wi-Fi nel rispetto del GDPR. I dati restano del locale.

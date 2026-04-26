@@ -2,6 +2,9 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
 import { fireTrigger } from "@/server/automations";
+import { awardBookingPoints } from "@/server/loyalty";
+
+const BLACKLIST_NO_SHOW_THRESHOLD = 2;
 
 export const BookingInput = z.object({
   guestId: z.string().optional().nullable(),
@@ -150,6 +153,23 @@ export async function updateBooking(venueId: string, id: string, raw: unknown, o
   }
 
   if (data.status === "COMPLETED" && existing.status !== "COMPLETED") {
+    if (existing.guestId) {
+      await awardBookingPoints({
+        venueId,
+        guestId: existing.guestId,
+        bookingId: id,
+        partySize: existing.partySize,
+      }).catch(() => undefined);
+      await db.guest
+        .update({
+          where: { id: existing.guestId },
+          data: {
+            totalVisits: { increment: 1 },
+            lastVisitAt: new Date(),
+          },
+        })
+        .catch(() => undefined);
+    }
     await fireTrigger("BOOKING_COMPLETED", {
       venueId,
       guestId: existing.guestId ?? undefined,
@@ -157,7 +177,33 @@ export async function updateBooking(venueId: string, id: string, raw: unknown, o
     }).catch(() => undefined);
   }
 
+  if (
+    data.status === "NO_SHOW" &&
+    existing.status !== "NO_SHOW" &&
+    existing.guestId
+  ) {
+    await flagNoShow(existing.guestId);
+  }
+
   return updated;
+}
+
+async function flagNoShow(guestId: string) {
+  const guest = await db.guest.update({
+    where: { id: guestId },
+    data: { noShowCount: { increment: 1 } },
+    select: { id: true, noShowCount: true, blocked: true },
+  });
+  if (!guest.blocked && guest.noShowCount >= BLACKLIST_NO_SHOW_THRESHOLD) {
+    await db.guest.update({
+      where: { id: guest.id },
+      data: {
+        blocked: true,
+        blockedAt: new Date(),
+        blockedReason: `Auto: ${guest.noShowCount} no-show consecutivi.`,
+      },
+    });
+  }
 }
 
 export async function deleteBooking(venueId: string, id: string) {

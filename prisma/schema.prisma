@@ -88,6 +88,14 @@ model Venue {
   active                Boolean   @default(true)
   depositThreshold      Int       @default(8)
   depositPerPersonCents Int       @default(2000)
+  wifiPortalLogoUrl     String?
+  wifiPortalAccent      String?   @db.VarChar(9)
+  wifiPortalWelcome     String?   @db.VarChar(500)
+  wifiPortalLegal       String?   @db.VarChar(2000)
+  wifiAutoCouponEnabled Boolean   @default(false)
+  wifiAutoCouponPercent Int       @default(10)
+  wifiAutoCouponDays    Int       @default(30)
+  wifiSetupAt           DateTime?
   createdAt             DateTime  @default(now())
 
   org               Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -293,18 +301,23 @@ model Guest {
   privateNotes   String? // visibile solo a manager
   tags           String[]    @default([])
   marketingOptIn Boolean     @default(false)
+  loyaltyPoints  Int         @default(0)
+  blocked        Boolean     @default(false)
+  blockedReason  String?     @db.VarChar(400)
+  blockedAt      DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  venue             Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  bookings          Booking[]
-  payments          Payment[]
-  orders            Order[]
-  wifiLeads         WifiLead[]
-  consentLogs       ConsentLog[]
-  coupons           Coupon[]
-  couponRedemptions CouponRedemption[]
-  messageLogs       MessageLog[]
+  venue               Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  bookings            Booking[]
+  payments            Payment[]
+  orders              Order[]
+  wifiLeads           WifiLead[]
+  consentLogs         ConsentLog[]
+  coupons             Coupon[]
+  couponRedemptions   CouponRedemption[]
+  messageLogs         MessageLog[]
+  loyaltyTransactions LoyaltyTransaction[]
 
   @@index([venueId, email])
   @@index([venueId, phone])
@@ -1315,4 +1328,31 @@ enum ConnectorEventStatus {
   PROCESSED
   REJECTED
   FAILED
+}
+
+// ─── Loyalty: punti su ogni euro speso, riscatti tracciati ───────────────────
+
+model LoyaltyTransaction {
+  id        String         @id @default(cuid())
+  guestId   String
+  venueId   String
+  kind      LoyaltyTxnKind
+  points    Int
+  reason    String?        @db.VarChar(200)
+  bookingId String?
+  orderId   String?
+  createdBy String?
+  createdAt DateTime       @default(now())
+
+  guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, createdAt])
+  @@index([guestId, createdAt])
+}
+
+enum LoyaltyTxnKind {
+  EARNED
+  REDEEMED
+  ADJUSTED
+  EXPIRED
 }

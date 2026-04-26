@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { sendMessage } from "@/lib/messaging";
 import { fireTrigger } from "@/server/automations";
+import { awardOrderPoints } from "@/server/loyalty";
 
 export const OrderItemInput = z.object({
   menuItemId: z.string().optional(),
@@ -193,6 +194,14 @@ export async function updateOrderStatus(venueId: string, id: string, raw: unknow
   }
 
   if (data.status === "COMPLETED" && existing.status !== "COMPLETED") {
+    if (existing.guestId) {
+      await awardOrderPoints({
+        venueId,
+        guestId: existing.guestId,
+        orderId: id,
+        totalCents: existing.totalCents,
+      }).catch(() => undefined);
+    }
     await fireTrigger("ORDER_COMPLETED", {
       venueId,
       guestId: existing.guestId ?? undefined,

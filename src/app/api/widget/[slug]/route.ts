@@ -28,7 +28,9 @@ export async function POST(
         ? 404
         : code === "slot_unavailable" || code === "outside_service" || code === "invalid_datetime"
           ? 409
-          : 500;
+          : code === "guest_blocked"
+            ? 403
+            : 500;
     return NextResponse.json({ error: code }, { status });
   }
 }
