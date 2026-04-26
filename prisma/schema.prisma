@@ -138,6 +138,7 @@ model Venue {
   giftCards         GiftCard[]
   posConnectors     POSConnector[]
   reviews           Review[]
+  notifications     Notification[]
 
   @@unique([orgId, slug])
 }
@@ -1527,6 +1528,40 @@ enum POSEventStatus {
   PROCESSED
   REJECTED
   FAILED
+}
+
+// ─── Notifiche in-app per lo staff ──────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  venueId   String
+  kind      NotificationKind
+  title     String           @db.VarChar(160)
+  body      String?          @db.VarChar(500)
+  link      String?          @db.VarChar(300)
+  meta      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, createdAt])
+  @@index([venueId, readAt])
+}
+
+enum NotificationKind {
+  BOOKING_CREATED
+  BOOKING_CANCELLED
+  NPS_DETRACTOR
+  WAITLIST_ACCEPTED
+  CONNECTOR_INBOUND
+  POS_INBOUND
+  AUTOMATION_FAILED
+  GIFT_CARD_REDEEMED
+  WIFI_LEAD
+  CHAT_HANDOFF
+  MISSED_CALL
+  REVIEW_RECEIVED
 }
 
 // ─── Recensioni aggregate (Google + altre piattaforme) ──────────────────────

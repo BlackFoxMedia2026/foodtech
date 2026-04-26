@@ -10,6 +10,7 @@ import {
 } from "@/lib/pos";
 import { awardOrderPoints } from "@/server/loyalty";
 import { captureError } from "@/lib/observability";
+import { notify } from "@/server/notifications";
 
 const KINDS = ["SQUARE", "LIGHTSPEED", "SUMUP", "IZETTLE", "TOAST", "CUSTOM"] as const;
 const STATUSES = ["DRAFT", "ACTIVE", "PAUSED", "ERROR"] as const;
@@ -214,6 +215,15 @@ async function persistSale(
       where: { id: connectorId },
       data: { lastSyncAt: new Date(), lastError: null, status: "ACTIVE" },
     });
+    if (sale.action !== "sale.refunded") {
+      await notify({
+        venueId,
+        kind: "POS_INBOUND",
+        title: `POS · vendita ${(sale.totalCents / 100).toFixed(2)} ${sale.currency}`,
+        body: sale.customerName ?? "Cassa",
+        link: "/pos",
+      });
+    }
     return { eventId: event.id, orderId: order.id };
   } catch (err) {
     captureError(err, {

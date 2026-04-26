@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { dispatchMessage, hasConsent } from "@/server/messages";
 import { captureError } from "@/lib/observability";
+import { notify } from "@/server/notifications";
 
 export const TRIGGERS = [
   "BOOKING_CREATED",
@@ -217,14 +218,30 @@ async function runWorkflow(
       });
     }
   }
+  const finalStatus = allOk
+    ? "SUCCEEDED"
+    : result.actions.some((a) => a.ok)
+      ? "PARTIAL"
+      : "FAILED";
   await db.automationRun.update({
     where: { id: run.id },
     data: {
-      status: allOk ? "SUCCEEDED" : result.actions.some((a) => a.ok) ? "PARTIAL" : "FAILED",
+      status: finalStatus,
       finishedAt: new Date(),
       result: result as unknown as Prisma.InputJsonValue,
     },
   });
+  if (finalStatus === "FAILED") {
+    const failedAction = result.actions.find((a) => !a.ok);
+    await notify({
+      venueId: ctx.venueId,
+      kind: "AUTOMATION_FAILED",
+      title: "Automation fallita",
+      body: `${trigger} · ${failedAction?.kind ?? "?"} · ${failedAction?.info ?? ""}`,
+      link: "/automations",
+      meta: { runId: run.id, workflowId },
+    });
+  }
 }
 
 async function runAction(action: Action, ctx: FireContext, runId: string): Promise<string> {

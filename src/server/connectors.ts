@@ -11,6 +11,7 @@ import {
 import { createBooking } from "@/server/bookings";
 import { fireTrigger } from "@/server/automations";
 import { captureError } from "@/lib/observability";
+import { notify } from "@/server/notifications";
 
 const KINDS = [
   "THEFORK",
@@ -205,6 +206,13 @@ async function createInbound(
       bookingId: created.id,
       payload: { source: "connector", externalId: inbound.externalId },
     }).catch(() => undefined);
+    await notify({
+      venueId,
+      kind: "CONNECTOR_INBOUND",
+      title: `Channel · prenotazione da ${inbound.firstName}`,
+      body: `${inbound.partySize} pax · ${inbound.date} ${inbound.time}`,
+      link: `/bookings/${created.id}`,
+    });
     return { eventId: event.id, bookingId: created.id };
   } catch (err) {
     captureError(err, {

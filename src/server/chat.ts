@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { createPublicBooking, getAvailableSlots, getPublicVenue } from "@/server/widget";
 import { type Locale, pickLocale, t } from "@/lib/i18n";
 import { captureError } from "@/lib/observability";
+import { notify } from "@/server/notifications";
 
 export const ChatStartInput = z.object({
   source: z.enum(["WEB", "WIDGET", "WHATSAPP", "SMS", "VOICE"]).default("WEB"),
@@ -131,6 +132,16 @@ export async function postChatTurn(sessionId: string, raw: unknown) {
       payload: result.alternatives ? { alternatives: result.alternatives } : undefined,
     },
   });
+
+  if (result.status === "HANDOFF") {
+    await notify({
+      venueId: session.venueId,
+      kind: "CHAT_HANDOFF",
+      title: "Chat · richiesta operatore",
+      body: text.slice(0, 200),
+      link: "/chat",
+    });
+  }
 
   return result;
 }
