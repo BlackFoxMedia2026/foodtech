@@ -14,6 +14,7 @@ import { IntegrationsCard } from "@/components/settings/integrations-card";
 import { TeamCard } from "@/components/settings/team-card";
 import { TableQrCard } from "@/components/settings/table-qr-card";
 import { BrandingCard } from "@/components/settings/branding-card";
+import { ApiTokensCard } from "@/components/settings/api-tokens-card";
 import { getVenueBrandById } from "@/server/branding";
 import { listShifts } from "@/server/shifts";
 import { listTemplates } from "@/server/templates";
@@ -102,6 +103,8 @@ export default async function SettingsPage() {
       )}
 
       {can(ctx.role, "manage_venue") && <TableQrCard tables={tables} />}
+
+      {can(ctx.role, "manage_venue") && <ApiTokensCard />}
 
       {can(ctx.role, "manage_venue") && (
         <CalendarFeedCard
