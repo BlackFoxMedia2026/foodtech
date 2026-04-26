@@ -107,6 +107,7 @@ model Venue {
   waitlist    WaitlistEntry[]
   menuCategories MenuCategory[]
   menuItems   MenuItem[]
+  orders      Order[]
 
   @@unique([orgId, slug])
 }
@@ -281,6 +282,7 @@ model Guest {
   venue        Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
   bookings     Booking[]
   payments     Payment[]
+  orders       Order[]
 
   @@index([venueId, email])
   @@index([venueId, phone])
@@ -531,8 +533,69 @@ model MenuItem {
 
   category    MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   venue       Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
 
   @@index([categoryId, ordering])
+}
+
+model Order {
+  id            String         @id @default(cuid())
+  reference     String         @unique @default(cuid())
+  venueId       String
+  guestId       String?
+  kind          OrderKind      @default(TAKEAWAY)
+  status        OrderStatus    @default(RECEIVED)
+  paymentStatus PaymentStatus  @default(PENDING)
+  customerName  String
+  phone         String
+  email         String?
+  address       String?
+  scheduledAt   DateTime
+  totalCents    Int            @default(0)
+  currency      String         @default("EUR")
+  notes         String?
+  stripeId      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  preparedAt    DateTime?
+  readyAt       DateTime?
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+
+  venue         Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest         Guest?         @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  items         OrderItem[]
+
+  @@index([venueId, status, scheduledAt])
+}
+
+enum OrderKind {
+  TAKEAWAY
+  DELIVERY
+}
+
+enum OrderStatus {
+  RECEIVED
+  PREPARING
+  READY
+  ON_THE_WAY
+  COMPLETED
+  CANCELLED
+}
+
+model OrderItem {
+  id           String     @id @default(cuid())
+  orderId      String
+  menuItemId   String?
+  name         String     // snapshot
+  priceCents   Int
+  quantity     Int        @default(1)
+  notes        String?
+
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
 }
 
 model WaitlistEntry {

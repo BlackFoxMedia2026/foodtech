@@ -16,6 +16,7 @@ import {
   Building2,
   Hourglass,
   BookOpen,
+  ShoppingBag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const NAV = [
   { href: "/bookings", label: "Prenotazioni", icon: CalendarRange },
   { href: "/floor", label: "Sala", icon: LayoutPanelLeft },
   { href: "/menu", label: "Menu digitale", icon: BookOpen },
+  { href: "/orders", label: "Asporto / Delivery", icon: ShoppingBag },
   { href: "/guests", label: "Ospiti", icon: Users },
   { href: "/experiences", label: "Esperienze", icon: Sparkles },
   { href: "/campaigns", label: "Campagne", icon: Megaphone },
