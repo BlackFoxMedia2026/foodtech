@@ -38,7 +38,16 @@ type Active = {
   email: string | null;
   partySize: number;
   expectedWaitMin: number;
-  status: "WAITING" | "NOTIFIED" | "SEATED" | "CANCELLED" | "NO_SHOW";
+  status:
+    | "WAITING"
+    | "OFFERED"
+    | "NOTIFIED"
+    | "CONFIRMED"
+    | "SEATED"
+    | "EXPIRED"
+    | "DECLINED"
+    | "CANCELLED"
+    | "NO_SHOW";
   createdAt: string;
   notifiedAt: string | null;
   notes: string | null;
@@ -48,7 +57,16 @@ type Closed = {
   id: string;
   guestName: string;
   partySize: number;
-  status: "SEATED" | "CANCELLED" | "NO_SHOW" | "WAITING" | "NOTIFIED";
+  status:
+    | "SEATED"
+    | "CANCELLED"
+    | "NO_SHOW"
+    | "WAITING"
+    | "OFFERED"
+    | "NOTIFIED"
+    | "CONFIRMED"
+    | "EXPIRED"
+    | "DECLINED";
   updatedAt: string;
 };
 
@@ -82,6 +100,23 @@ export function WaitlistBoard({
     setBusyId(id);
     await fetch(`/api/waitlist/${id}/notify`, { method: "POST" });
     setBusyId(null);
+    startTransition(() => router.refresh());
+  }
+
+  async function promote(id: string) {
+    setBusyId(id);
+    const res = await fetch(`/api/waitlist/${id}/promote`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setBusyId(null);
+    if (!data.ok) {
+      alert(
+        data.reason === "no_candidate"
+          ? "Nessun ospite in attesa per questa dimensione tavolo."
+          : data.reason === "no_contact"
+            ? "Il primo in coda non ha email/telefono — chiamalo a voce."
+            : "Promozione non riuscita.",
+      );
+    }
     startTransition(() => router.refresh());
   }
 
@@ -157,6 +192,15 @@ export function WaitlistBoard({
                       onClick={() => notify(a.id)}
                     >
                       <BellRing className="h-3.5 w-3.5" /> Notifica
+                    </Button>
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      disabled={busyId === a.id || a.status === "OFFERED"}
+                      onClick={() => promote(a.id)}
+                      title="Manda magic-link al prossimo in coda con questa dimensione tavolo"
+                    >
+                      Offri tavolo
                     </Button>
                     <SeatPicker tables={tables} onSeat={(tid) => seat(a.id, tid)} disabled={busyId === a.id} />
                     <Button

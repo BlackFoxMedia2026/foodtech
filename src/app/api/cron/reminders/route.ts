@@ -4,6 +4,7 @@ import { sendEmail } from "@/lib/email";
 import { renderReminder } from "@/emails/templates";
 import { scanScheduledTriggers } from "@/server/automations";
 import { buildManageLink } from "@/server/booking-self-service";
+import { expireOldOffers } from "@/server/waitlist-promotion";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,12 +32,17 @@ export async function GET(req: Request) {
   await scanScheduledTriggers().catch((e) => {
     console.error("[cron:reminders] scanScheduledTriggers failed", e);
   });
+  const offers = await expireOldOffers().catch((e) => {
+    console.error("[cron:reminders] expireOldOffers failed", e);
+    return { expired: 0 };
+  });
 
   return NextResponse.json({
     h24: tomorrow,
     h2: previsit,
     birthdays,
     automations: "scanned",
+    offersExpired: offers.expired,
   });
 }
 
