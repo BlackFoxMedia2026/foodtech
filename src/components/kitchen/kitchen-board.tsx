@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Check, ChefHat, RefreshCw, Soup, Truck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,13 +75,17 @@ export function KitchenBoard({ initialTickets }: { initialTickets: Ticket[] }) {
   }, [initialTickets]);
 
   // Tiny audio bell when a new ticket appears (not on first paint).
-  const [seenIds, setSeenIds] = useState(() => new Set(initialTickets.map((t) => t.id)));
+  // We use a ref instead of state so updating the seen-set doesn't itself
+  // schedule a re-render (which would infinite-loop the effect).
+  const seenIdsRef = useRef<Set<string>>(
+    new Set(initialTickets.map((t) => t.id)),
+  );
   useEffect(() => {
     if (muted) {
-      setSeenIds(new Set(initialTickets.map((t) => t.id)));
+      seenIdsRef.current = new Set(initialTickets.map((t) => t.id));
       return;
     }
-    const fresh = initialTickets.filter((t) => !seenIds.has(t.id));
+    const fresh = initialTickets.filter((t) => !seenIdsRef.current.has(t.id));
     if (fresh.length > 0) {
       try {
         const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -94,8 +98,8 @@ export function KitchenBoard({ initialTickets }: { initialTickets: Ticket[] }) {
         // ignore audio context errors (no user gesture yet, etc.)
       }
     }
-    setSeenIds(new Set(initialTickets.map((t) => t.id)));
-  }, [initialTickets, muted, seenIds]);
+    seenIdsRef.current = new Set(initialTickets.map((t) => t.id));
+  }, [initialTickets, muted]);
 
   const visible = useMemo(
     () => tickets.filter((t) => filter === "ALL" || t.source === filter),
