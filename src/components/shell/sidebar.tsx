@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Network,
   Gauge,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,7 @@ const NAV = [
   { href: "/experiences", label: "Esperienze", icon: Sparkles },
   { href: "/campaigns", label: "Campagne", icon: Megaphone },
   { href: "/coupons", label: "Coupon", icon: Ticket },
+  { href: "/gift-cards", label: "Gift card", icon: Gift },
   { href: "/wifi", label: "Wi-Fi marketing", icon: Wifi },
   { href: "/automations", label: "Automazioni", icon: Workflow },
   { href: "/chat", label: "Chatbot", icon: MessagesSquare },
