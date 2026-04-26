@@ -626,6 +626,142 @@ async function ensureDemoExtras(venue: { id: string; name: string; kind: string 
       ],
     });
   }
+
+  // Marketing automation demo workflows (idempotent: skip if any present)
+  const wfPresent = await db.automationWorkflow.count({ where: { venueId: venue.id } });
+  if (wfPresent === 0) {
+    await db.automationWorkflow.createMany({
+      data: [
+        {
+          venueId: venue.id,
+          name: "Grazie post-visita su WhatsApp",
+          description: "Saluto al cliente subito dopo la chiusura del tavolo.",
+          trigger: "BOOKING_COMPLETED",
+          active: true,
+          conditions: { requireConsent: true },
+          actions: [
+            {
+              kind: "SEND_WHATSAPP",
+              params: {
+                body:
+                  "Grazie {{firstName}}! Ci ha fatto piacere ospitarti da " +
+                  venue.name +
+                  ". Se ti va, lasciaci un feedback.",
+              },
+            },
+          ],
+        },
+        {
+          venueId: venue.id,
+          name: "Recupero NPS detrattore",
+          description:
+            "Avvisa lo staff e tagga il guest quando arriva un punteggio basso, così il manager può chiamare.",
+          trigger: "NPS_DETRACTOR",
+          active: true,
+          conditions: { requireConsent: false },
+          actions: [
+            { kind: "ADD_GUEST_TAG", params: { tag: "nps-detractor" } },
+            {
+              kind: "CREATE_STAFF_TASK",
+              params: {
+                title: "Richiamare ospite",
+                details: "Feedback negativo: contattare entro 24h per recuperare la relazione.",
+              },
+            },
+          ],
+        },
+        {
+          venueId: venue.id,
+          name: "Win-back inattivi 90 giorni",
+          description: "Coupon e messaggio agli ospiti che non tornano da 3 mesi.",
+          trigger: "GUEST_INACTIVE",
+          active: false,
+          conditions: { inactiveDays: 90, minVisits: 1, requireConsent: true },
+          actions: [
+            {
+              kind: "CREATE_COUPON",
+              params: {
+                couponName: "Ti rivogliamo",
+                couponKind: "PERCENT",
+                couponValue: 15,
+                couponDays: 45,
+                couponCategory: "WINBACK",
+              },
+            },
+            {
+              kind: "SEND_EMAIL",
+              params: {
+                subject: "Ci manchi, {{firstName}}",
+                body:
+                  "Ciao {{firstName}}, è da un po' che non ti vediamo. " +
+                  "Abbiamo creato un coupon dedicato per te: ti aspettiamo da " +
+                  venue.name +
+                  ".",
+              },
+            },
+          ],
+        },
+        {
+          venueId: venue.id,
+          name: "Benvenuto Wi-Fi",
+          description:
+            "Email di ringraziamento + tag per chi si registra al captive portal.",
+          trigger: "WIFI_LEAD_CREATED",
+          active: false,
+          conditions: { requireConsent: true },
+          actions: [
+            { kind: "ADD_GUEST_TAG", params: { tag: "wifi-onboarded" } },
+            {
+              kind: "SEND_EMAIL",
+              params: {
+                subject: "Benvenuto da " + venue.name,
+                body:
+                  "Grazie per esserti collegato {{firstName}}. " +
+                  "La prossima volta passa a salutarci, ti aspettiamo!",
+              },
+            },
+          ],
+        },
+      ],
+    });
+  }
+
+  // Demo MessageLog rows (so the operator sees a populated dispatch log).
+  const mlCount = await db.messageLog.count({ where: { venueId: venue.id } });
+  if (mlCount === 0) {
+    const sampleGuest = await db.guest.findFirst({
+      where: { venueId: venue.id, email: { not: null } },
+      select: { id: true, email: true, phone: true, firstName: true },
+    });
+    if (sampleGuest) {
+      const now = Date.now();
+      await db.messageLog.createMany({
+        data: [
+          {
+            venueId: venue.id,
+            guestId: sampleGuest.id,
+            channel: "EMAIL",
+            toAddress: sampleGuest.email!,
+            subject: "Promemoria H-24",
+            bodyPreview: `Ciao ${sampleGuest.firstName}, ti aspettiamo domani.`,
+            status: "SENT",
+            sentAt: new Date(now - 6 * 3600_000),
+          },
+          {
+            venueId: venue.id,
+            guestId: sampleGuest.id,
+            channel: "WHATSAPP",
+            toAddress: sampleGuest.phone ?? "+39000000000",
+            bodyPreview: "Grazie per la visita di ieri 🌿",
+            status: sampleGuest.phone ? "SENT" : "SKIPPED",
+            error: sampleGuest.phone ? null : "no_provider",
+            sentAt: sampleGuest.phone ? new Date(now - 2 * 3600_000) : null,
+            failedAt: sampleGuest.phone ? null : new Date(now - 2 * 3600_000),
+          },
+        ],
+      });
+    }
+  }
 }
 
 main()

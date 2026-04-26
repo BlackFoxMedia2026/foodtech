@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { sendCampaign } from "@/server/campaigns";
 import { isEmailEnabled } from "@/lib/email";
+import { isMessagingEnabled } from "@/lib/messaging";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,10 +16,14 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       params.id,
       process.env.RESEND_FROM ?? "Tavolo <noreply@tavolo.local>",
     );
-    return NextResponse.json({ ...result, emailEnabled: isEmailEnabled() });
+    return NextResponse.json({
+      ...result,
+      emailEnabled: isEmailEnabled(),
+      messagingEnabled: isMessagingEnabled(),
+    });
   } catch (err) {
     const code = err instanceof Error ? err.message : "unknown";
-    const status = code === "not_found" ? 404 : code === "already_sent" ? 409 : code === "channel_unsupported" ? 400 : 500;
+    const status = code === "not_found" ? 404 : code === "already_sent" ? 409 : 500;
     return NextResponse.json({ error: code }, { status });
   }
 }

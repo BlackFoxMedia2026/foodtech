@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
+import { fireTrigger } from "@/server/automations";
 
 export const BookingInput = z.object({
   guestId: z.string().optional().nullable(),
@@ -89,6 +90,13 @@ export async function createBooking(venueId: string, raw: unknown, opts?: { acto
     },
   });
 
+  await fireTrigger("BOOKING_CREATED", {
+    venueId,
+    guestId: guestId ?? undefined,
+    bookingId: created.id,
+    payload: { partySize: data.partySize, source: data.source },
+  }).catch(() => undefined);
+
   return created;
 }
 
@@ -139,6 +147,14 @@ export async function updateBooking(venueId: string, id: string, raw: unknown, o
     await db.bookingEvent.createMany({
       data: events.map((e) => ({ ...e, bookingId: id, actorId: opts?.actorId ?? null })),
     });
+  }
+
+  if (data.status === "COMPLETED" && existing.status !== "COMPLETED") {
+    await fireTrigger("BOOKING_COMPLETED", {
+      venueId,
+      guestId: existing.guestId ?? undefined,
+      bookingId: id,
+    }).catch(() => undefined);
   }
 
   return updated;

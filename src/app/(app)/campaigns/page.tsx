@@ -1,12 +1,14 @@
 import { db } from "@/lib/db";
 import { getActiveVenue, can } from "@/lib/tenant";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Megaphone } from "lucide-react";
 import { CampaignDialog } from "@/components/campaigns/campaign-dialog";
 import { isEmailEnabled } from "@/lib/email";
+import { isMessagingEnabled } from "@/lib/messaging";
 import { formatDateTime } from "@/lib/utils";
 import { listTemplates } from "@/server/templates";
+import { messageLogStats, recentMessageLogs } from "@/server/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -23,14 +25,25 @@ const STATUS_TONE = {
   ARCHIVED: "neutral",
 } as const;
 
+const LOG_STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
+  SENT: "success",
+  DELIVERED: "success",
+  QUEUED: "neutral",
+  SKIPPED: "warning",
+  FAILED: "danger",
+};
+
 export default async function CampaignsPage() {
   const ctx = await getActiveVenue();
-  const [items, templates] = await Promise.all([
+  const [items, templates, logs, logStats] = await Promise.all([
     db.campaign.findMany({ where: { venueId: ctx.venueId }, orderBy: { createdAt: "desc" } }),
     listTemplates(ctx.venueId),
+    recentMessageLogs(ctx.venueId, 25),
+    messageLogStats(ctx.venueId),
   ]);
   const canEdit = can(ctx.role, "edit_marketing");
   const emailEnabled = isEmailEnabled();
+  const messagingEnabled = isMessagingEnabled();
   const tplOptions = templates.map((t) => ({
     id: t.id,
     name: t.name,
@@ -52,10 +65,21 @@ export default async function CampaignsPage() {
         {canEdit && <CampaignDialog emailEnabled={emailEnabled} templates={tplOptions} />}
       </header>
 
-      {!emailEnabled && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Provider email non configurato. Aggiungi <code className="rounded bg-amber-100 px-1">RESEND_API_KEY</code> nelle env per spedire davvero.
-        </p>
+      {(!emailEnabled || !messagingEnabled) && (
+        <div className="space-y-2 text-sm">
+          {!emailEnabled && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+              Provider email non configurato. Aggiungi{" "}
+              <code className="rounded bg-amber-100 px-1">RESEND_API_KEY</code> per email reali.
+            </p>
+          )}
+          {!messagingEnabled && (
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sky-800">
+              SMS / WhatsApp simulati: configura il provider (es.{" "}
+              <code className="rounded bg-sky-100 px-1">TWILIO_*</code>) per spedire davvero.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -116,6 +140,67 @@ export default async function CampaignsPage() {
           );
         })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Registro messaggi</CardTitle>
+          <CardDescription>
+            Ultimi 25 invii (campagne + automazioni). Stato per audit GDPR e troubleshooting.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            {logStats.length === 0 ? (
+              <span>Ancora nessun invio negli ultimi 30 giorni.</span>
+            ) : (
+              logStats.map((s, i) => (
+                <span
+                  key={`${s.channel}-${s.status}-${i}`}
+                  className="rounded-full border px-2 py-0.5"
+                >
+                  {s.channel} · {s.status}: {s.count}
+                </span>
+              ))
+            )}
+          </div>
+          {logs.length === 0 ? (
+            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+              Nessun messaggio in coda. Crea una campagna o attiva un&apos;automazione per popolare questo log.
+            </p>
+          ) : (
+            <ul className="divide-y text-sm">
+              {logs.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      <Badge tone={CHANNEL_TONE[m.channel]}>{m.channel}</Badge>{" "}
+                      <span className="ml-2">{m.toAddress}</span>
+                      {m.guest && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {m.guest.firstName}
+                          {m.guest.lastName ? ` ${m.guest.lastName}` : ""}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                      {m.campaign?.name ? `${m.campaign.name} · ` : ""}
+                      {m.subject ?? m.bodyPreview ?? "—"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {m.error && <span className="text-amber-700">{m.error}</span>}
+                    <Badge tone={LOG_STATUS_TONE[m.status] ?? "neutral"}>{m.status}</Badge>
+                    <span className="text-muted-foreground">{formatDateTime(m.createdAt)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

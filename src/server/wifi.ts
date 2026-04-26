@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { wifiProvider } from "@/lib/wifi-provider";
+import { fireTrigger } from "@/server/automations";
 
 export const WifiSubmitInput = z.object({
   name: z.string().min(2).max(80),
@@ -168,6 +169,12 @@ export async function submitWifiLead(opts: {
     ipAddress: opts.ipAddress,
     userAgent: opts.userAgent,
   });
+
+  await fireTrigger("WIFI_LEAD_CREATED", {
+    venueId: venue.id,
+    guestId: guest.id,
+    payload: { leadId: lead.id, source: data.source ?? null },
+  }).catch(() => undefined);
 
   return { leadId: lead.id, sessionId: session.id, guestId: guest.id, grant };
 }

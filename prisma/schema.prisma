@@ -115,6 +115,8 @@ model Venue {
   couponRedemptions CouponRedemption[]
   reviewLinks ReviewLink[]
   reviewLinkClicks ReviewLinkClick[]
+  messageLogs MessageLog[]
+  workflows   AutomationWorkflow[]
 
   @@unique([orgId, slug])
 }
@@ -294,6 +296,7 @@ model Guest {
   consentLogs  ConsentLog[]
   coupons      Coupon[]
   couponRedemptions CouponRedemption[]
+  messageLogs  MessageLog[]
 
   @@index([venueId, email])
   @@index([venueId, phone])
@@ -469,6 +472,7 @@ model Campaign {
   createdAt  DateTime        @default(now())
 
   venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  messageLogs MessageLog[]
 }
 
 enum CampaignChannel {
@@ -904,4 +908,110 @@ model ReviewLinkClick {
 
   @@index([linkId, createdAt])
   @@index([venueId, createdAt])
+}
+
+// ─── Message log (multi-channel per-recipient delivery audit) ────────────────
+
+model MessageLog {
+  id           String        @id @default(cuid())
+  venueId      String
+  campaignId   String?
+  workflowRunId String?
+  guestId      String?
+  channel      MessageChannel
+  toAddress    String        // email / phone / wa-number snapshot
+  subject      String?
+  bodyPreview  String?
+  status       MessageStatus @default(QUEUED)
+  providerId   String?
+  error        String?
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  failedAt     DateTime?
+  createdAt    DateTime      @default(now())
+
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  guest        Guest?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  workflowRun  AutomationRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+
+  @@index([venueId, createdAt])
+  @@index([campaignId])
+  @@index([guestId, channel])
+}
+
+enum MessageChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+// ─── Marketing automation workflows ──────────────────────────────────────────
+
+model AutomationWorkflow {
+  id          String              @id @default(cuid())
+  venueId     String
+  name        String
+  description String?
+  trigger     AutomationTrigger
+  active      Boolean             @default(false)
+  conditions  Json?               // segment-style filters (e.g. { tier: ["VIP"], minVisits: 3 })
+  actions     Json                // [{ kind, params }]
+  delayMinutes Int                @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  createdBy   String?
+
+  venue       Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  runs        AutomationRun[]
+
+  @@index([venueId, trigger, active])
+}
+
+enum AutomationTrigger {
+  BOOKING_CREATED
+  BOOKING_COMPLETED
+  GUEST_BIRTHDAY
+  GUEST_INACTIVE
+  COUPON_NOT_USED
+  NPS_DETRACTOR
+  WIFI_LEAD_CREATED
+  ORDER_COMPLETED
+  CUSTOM
+}
+
+model AutomationRun {
+  id          String           @id @default(cuid())
+  workflowId  String
+  venueId     String
+  trigger     AutomationTrigger
+  status      AutomationRunStatus @default(QUEUED)
+  payload     Json?            // event payload at trigger time
+  result      Json?            // counters, errors per action
+  error       String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime         @default(now())
+
+  workflow    AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  messageLogs MessageLog[]
+
+  @@index([workflowId, createdAt])
+  @@index([venueId, createdAt])
+}
+
+enum AutomationRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  PARTIAL
 }

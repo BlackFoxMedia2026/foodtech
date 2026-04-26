@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Wifi,
   Ticket,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ const NAV = [
   { href: "/campaigns", label: "Campagne", icon: Megaphone },
   { href: "/coupons", label: "Coupon", icon: Ticket },
   { href: "/wifi", label: "Wi-Fi marketing", icon: Wifi },
+  { href: "/automations", label: "Automazioni", icon: Workflow },
   { href: "/payments", label: "Pagamenti", icon: CreditCard },
   { href: "/insights", label: "Analytics", icon: LineChart },
   { href: "/settings", label: "Impostazioni", icon: Settings },
