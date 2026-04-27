@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import { getActiveVenue } from "@/lib/tenant";
 import { GuestsTable } from "@/components/guests/guests-table";
 import { ExportButton } from "@/components/ui/export-button";
@@ -40,7 +42,15 @@ export default async function GuestsPage({
             {guests.length} risultati · segmento &quot;{activeDef.label}&quot;
           </p>
         </div>
-        <ExportButton kind="guests" />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/guests/insights"
+            className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-gilt-dark" /> Smart insights
+          </Link>
+          <ExportButton kind="guests" />
+        </div>
       </header>
 
       <SegmentsBar active={segment} counts={counts} query={searchParams.q} />
