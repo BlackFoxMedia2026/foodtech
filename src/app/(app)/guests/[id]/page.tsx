@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Ban, Cake, Mail, Phone, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, Ban, Cake, Clock, Mail, Phone, ShieldAlert, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,11 @@ export default async function GuestDetail({ params }: { params: { id: string } }
             </div>
           </div>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/guests/${g.id}/journey`}>
+            <Clock className="h-4 w-4" /> Storia ospite
+          </Link>
+        </Button>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.6fr]">
