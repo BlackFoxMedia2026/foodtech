@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Search, Plus } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { initials } from "@/lib/utils";
 import { VenueSwitcher } from "./venue-switcher";
 import { NotificationBell } from "./notification-bell";
+import { UserMenu } from "./user-menu";
 
 export function Topbar({
   user,
@@ -34,9 +33,7 @@ export function Topbar({
           </Link>
         </Button>
         <NotificationBell />
-        <Avatar className="h-9 w-9">
-          <AvatarFallback>{initials(user.name ?? user.email)}</AvatarFallback>
-        </Avatar>
+        <UserMenu user={user} />
       </div>
     </header>
   );

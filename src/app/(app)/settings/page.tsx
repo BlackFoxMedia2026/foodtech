@@ -1,9 +1,7 @@
 import { db } from "@/lib/db";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { initials } from "@/lib/utils";
+import { VenuesCard, type VenueRow } from "@/components/settings/venues-card";
 import { WidgetLinkCard } from "@/components/settings/widget-link-card";
 import { CalendarFeedCard } from "@/components/settings/calendar-feed-card";
 import { NotificationsStatusCard } from "@/components/settings/notifications-status-card";
@@ -24,14 +22,6 @@ import { isMessagingEnabled, whichMessagingProvider } from "@/lib/messaging";
 import { isAIEnabled, whichAIProvider } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
-
-const ROLE_LABELS = {
-  MANAGER: "Manager",
-  RECEPTION: "Reception",
-  WAITER: "Cameriere",
-  MARKETING: "Marketing",
-  READ_ONLY: "Sola lettura",
-} as const;
 
 export default async function SettingsPage() {
   const ctx = await getActiveVenue();
@@ -60,23 +50,23 @@ export default async function SettingsPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Locali del gruppo</CardTitle>
-            <CardDescription>{ctx.org.name} · piano {ctx.org.plan}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {venues.map((v) => (
-              <div key={v.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                <div>
-                  <p className="font-medium">{v.name}</p>
-                  <p className="text-xs text-muted-foreground">{v.city ?? ""} · {v.kind}</p>
-                </div>
-                {v.id === ctx.venueId && <Badge tone="gold">Attivo</Badge>}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <VenuesCard
+          initial={venues.map<VenueRow>((v) => ({
+            id: v.id,
+            name: v.name,
+            city: v.city,
+            address: v.address,
+            country: v.country,
+            phone: v.phone,
+            email: v.email,
+            kind: v.kind,
+            active: v.active,
+          }))}
+          activeVenueId={ctx.venueId}
+          canEdit={can(ctx.role, "manage_venue")}
+          orgName={ctx.org.name}
+          plan={ctx.org.plan}
+        />
 
         <TeamCard
           initial={members.map((m) => ({
