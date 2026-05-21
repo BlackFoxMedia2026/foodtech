@@ -127,15 +127,20 @@ function Header({
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Sala</p>
-        <h1 className="text-display text-3xl">Prenotazioni</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-tertiary">
+          Sala
+        </p>
+        <h1 className="text-display mt-1 text-[32px] font-medium leading-tight tracking-tight">
+          Prenotazioni
+        </h1>
+        <p className="mt-1 text-sm text-secondary">
           {subtitle ? `${subtitle} · ` : ""}
-          {totalBookings} prenotazioni · {totalCovers} coperti
+          <span className="text-numeric">{totalBookings}</span> prenotazioni ·{" "}
+          <span className="text-numeric">{totalCovers}</span> coperti
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex items-center rounded-md border bg-background p-1 text-xs">
+        <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-xs">
           <ViewTab href={`/bookings?day=${dayString}&view=list`} active={view === "list"}>
             Lista
           </ViewTab>
@@ -167,8 +172,8 @@ function ViewTab({
     <Link
       href={href}
       className={cn(
-        "rounded-sm px-3 py-1.5",
-        active ? "bg-carbon-800 text-sand-50" : "text-muted-foreground hover:bg-secondary",
+        "rounded-md px-3 py-1.5 font-medium transition-colors",
+        active ? "bg-secondary text-foreground" : "text-secondary hover:text-foreground",
       )}
     >
       {children}
