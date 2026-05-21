@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
+import { AreaNav } from "@/components/shell/area-nav";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { getActiveVenue } from "@/lib/tenant";
 
@@ -23,6 +24,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
           venues={venueList}
           activeVenueId={ctx.venueId}
         />
+        <AreaNav />
         <main className="mx-auto w-full max-w-[1280px] flex-1 px-6 py-8 lg:px-10">
           {children}
         </main>

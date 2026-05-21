@@ -1,12 +1,20 @@
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowRight,
   CalendarPlus,
   Cake,
   Crown,
+  Hourglass,
+  Info,
+  LayoutPanelLeft,
+  Plus,
+  Search,
   Sparkles,
+  Tv,
   TriangleAlert,
   Users,
+  Zap,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getActiveVenue } from "@/lib/tenant";
@@ -21,12 +29,13 @@ import { StatusPill, type BookingStatusKey } from "@/components/ui/status-pill";
 import { LiveClock } from "@/components/overview/live-clock";
 import { CapacityRing } from "@/components/overview/capacity-ring";
 import { NextArrival, type ArrivalRow } from "@/components/overview/next-arrival";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function OverviewPage() {
   const ctx = await getActiveVenue();
-  const [data, brief, tables, freeStats] = await Promise.all([
+  const [data, brief, tables, freeStats, waitlist] = await Promise.all([
     getOverview(ctx.venueId),
     generateDailyBrief(ctx.venueId),
     db.table.findMany({
@@ -38,6 +47,21 @@ export default async function OverviewPage() {
         venueId: ctx.venueId,
         startsAt: { gte: startOfDay(), lte: endOfDay() },
         status: { in: ["ARRIVED", "SEATED"] },
+      },
+    }),
+    db.waitlistEntry.findMany({
+      where: {
+        venueId: ctx.venueId,
+        status: { in: ["WAITING", "NOTIFIED", "OFFERED"] },
+      },
+      orderBy: { position: "asc" },
+      take: 3,
+      select: {
+        id: true,
+        guestName: true,
+        partySize: true,
+        expectedWaitMin: true,
+        position: true,
       },
     }),
   ]);
@@ -188,6 +212,34 @@ export default async function OverviewPage() {
         </Link>
       )}
 
+      {/* ── Quick actions ────────────────────────────── */}
+      <section className="space-y-2">
+        <SectionLabel>Azioni rapide</SectionLabel>
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <QuickAction
+            href="/bookings/new"
+            icon={<Plus className="h-4 w-4" />}
+            label="Nuova prenotazione"
+            tone="gold"
+          />
+          <QuickAction
+            href="/bookings?walkin=1"
+            icon={<Zap className="h-4 w-4" />}
+            label="Walk-in rapido"
+          />
+          <QuickAction
+            href="/guests"
+            icon={<Search className="h-4 w-4" />}
+            label="Cerca ospite"
+          />
+          <QuickAction
+            href="/now"
+            icon={<Tv className="h-4 w-4" />}
+            label="Sala live"
+          />
+        </div>
+      </section>
+
       {/* ── Prossimo arrivo + ospiti speciali ────────── */}
       <section className="grid gap-3 md:grid-cols-2">
         <div className="space-y-2">
@@ -203,6 +255,86 @@ export default async function OverviewPage() {
             allergies={allergies.length}
           />
         </div>
+      </section>
+
+      {/* ── Waitlist + Alert operativi ───────────────── */}
+      <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <Panel>
+          <PanelHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Hourglass className="h-4 w-4 text-tertiary" /> Lista d&apos;attesa
+              </span>
+            }
+            description={
+              waitlist.length === 0
+                ? "Nessuno in attesa"
+                : `${waitlist.length}+ ${waitlist.length === 1 ? "ospite" : "ospiti"} in coda`
+            }
+            action={
+              <Link
+                href="/waitlist"
+                className="inline-flex items-center gap-1 text-xs font-medium text-secondary transition hover:text-foreground"
+              >
+                Gestisci <ArrowRight className="h-3 w-3" />
+              </Link>
+            }
+          />
+          <PanelBody className="pt-0">
+            {waitlist.length === 0 ? (
+              <EmptyState
+                icon={Hourglass}
+                title="Lista d'attesa vuota"
+                description="Aggiungi un walk-in alla coda quando la sala è piena."
+              />
+            ) : (
+              <ul className="divide-y divide-border">
+                {waitlist.map((w) => (
+                  <li
+                    key={w.id}
+                    className="flex items-center gap-3 py-2.5 text-sm"
+                  >
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-secondary text-numeric text-xs font-medium">
+                      {w.position || "—"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{w.guestName}</p>
+                      <p className="text-xs text-tertiary">
+                        {w.partySize} pers · attesa ~{w.expectedWaitMin}m
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PanelBody>
+        </Panel>
+
+        <Panel>
+          <PanelHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-tertiary" /> Alert operativi
+              </span>
+            }
+            description="Cose da risolvere prima del servizio"
+          />
+          <PanelBody className="pt-0">
+            {data.alerts.length === 0 ? (
+              <EmptyState
+                icon={Sparkles}
+                title="Tutto sotto controllo"
+                description="Nessuna criticità per il servizio di oggi."
+              />
+            ) : (
+              <ul className="space-y-2">
+                {data.alerts.slice(0, 5).map((a, i) => (
+                  <AlertRow key={i} kind={a.kind} message={a.message} />
+                ))}
+              </ul>
+            )}
+          </PanelBody>
+        </Panel>
       </section>
 
       {/* ── Today timeline list ──────────────────────── */}
@@ -445,5 +577,63 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
         {value}
       </p>
     </div>
+  );
+}
+
+function QuickAction({
+  href,
+  icon,
+  label,
+  tone,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  tone?: "gold";
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-sm font-medium transition-colors",
+        tone === "gold"
+          ? "border-gilt/30 bg-gilt/10 text-gilt-dark hover:bg-gilt/15"
+          : "border-border bg-card text-foreground hover:border-border-strong",
+      )}
+    >
+      <span
+        className={cn(
+          "grid h-7 w-7 place-items-center rounded-lg",
+          tone === "gold" ? "bg-gilt/20" : "bg-[hsl(var(--surface-sunken))]",
+        )}
+      >
+        {icon}
+      </span>
+      <span className="truncate">{label}</span>
+    </Link>
+  );
+}
+
+function AlertRow({ kind, message }: { kind: string; message: string }) {
+  const Icon = kind === "danger" ? TriangleAlert : kind === "info" ? Sparkles : Info;
+  const tone =
+    kind === "danger"
+      ? "text-status-no-show bg-status-no-show-soft"
+      : kind === "info"
+        ? "text-gilt-dark bg-gilt/10"
+        : "text-status-pending bg-status-pending-soft";
+  const iconCls =
+    kind === "danger"
+      ? "text-status-no-show"
+      : kind === "info"
+        ? "text-gilt-dark"
+        : "text-status-pending";
+  return (
+    <li className="flex items-start gap-2.5 rounded-lg border border-border bg-card p-3">
+      <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full", tone)}>
+        <Icon className={cn("h-3.5 w-3.5", iconCls)} />
+      </span>
+      <p className="text-sm text-foreground leading-snug">{message}</p>
+    </li>
   );
 }
