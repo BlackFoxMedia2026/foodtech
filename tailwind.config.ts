@@ -7,7 +7,7 @@ const config: Config = {
     container: {
       center: true,
       padding: "1.5rem",
-      screens: { "2xl": "1440px" },
+      screens: { "2xl": "1280px" },
     },
     extend: {
       fontFamily: {
@@ -79,6 +79,28 @@ const config: Config = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        surface: {
+          raised: "hsl(var(--surface-raised))",
+          sunken: "hsl(var(--surface-sunken))",
+        },
+        status: {
+          confirmed: "hsl(var(--status-confirmed))",
+          "confirmed-soft": "hsl(var(--status-confirmed-soft))",
+          arrived: "hsl(var(--status-arrived))",
+          seated: "hsl(var(--status-seated))",
+          pending: "hsl(var(--status-pending))",
+          "pending-soft": "hsl(var(--status-pending-soft))",
+          "no-show": "hsl(var(--status-no-show))",
+          "no-show-soft": "hsl(var(--status-no-show-soft))",
+          cancelled: "hsl(var(--status-cancelled))",
+          vip: "hsl(var(--status-vip))",
+          "vip-soft": "hsl(var(--status-vip-soft))",
+        },
+      },
+      boxShadow: {
+        soft: "0 1px 0 0 rgb(0 0 0 / 0.02), 0 18px 40px -32px rgb(0 0 0 / 0.18)",
+        elevated:
+          "0 1px 0 0 rgb(0 0 0 / 0.03), 0 24px 56px -28px rgb(0 0 0 / 0.22)",
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
@@ -92,10 +114,15 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-in": {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 220ms ease-out",
         "slide-up": "slide-up 240ms ease-out",
+        "slide-in": "slide-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
       },
     },
   },

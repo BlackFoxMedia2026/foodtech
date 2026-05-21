@@ -4,48 +4,96 @@
 
 @layer base {
   :root {
-    --background: 36 33% 97%;
-    --foreground: 222 13% 12%;
+    /* Surface scale (warm-white) */
+    --background: 40 38% 97%;        /* #FBF9F5 */
+    --surface-raised: 0 0% 100%;     /* #FFFFFF */
+    --surface-sunken: 38 30% 94%;    /* #F4F0E8 */
+
+    /* Text scale */
+    --foreground: 222 13% 12%;       /* #15161A primary */
+    --foreground-secondary: 222 6% 44%;  /* #6B6E76 */
+    --foreground-tertiary: 222 6% 65%;   /* #A3A5AC */
+
+    /* Borders */
+    --border: 36 23% 90%;            /* #ECE9E1 soft */
+    --border-strong: 36 18% 83%;     /* #D8D3C5 */
+    --input: 36 23% 90%;
+    --ring: 38 48% 58%;
+
+    /* Component aliases */
     --card: 0 0% 100%;
     --card-foreground: 222 13% 12%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 13% 12%;
     --primary: 222 13% 12%;
-    --primary-foreground: 36 33% 97%;
-    --secondary: 36 30% 92%;
+    --primary-foreground: 40 38% 97%;
+    --secondary: 38 26% 93%;
     --secondary-foreground: 222 13% 12%;
-    --muted: 36 22% 93%;
-    --muted-foreground: 220 5% 40%;
+    --muted: 38 22% 94%;
+    --muted-foreground: 222 6% 44%;
     --accent: 38 48% 58%;
-    --accent-foreground: 36 33% 97%;
-    --destructive: 0 70% 45%;
+    --accent-foreground: 40 38% 97%;
+
+    /* Semantic status tokens */
+    --status-confirmed: 152 45% 34%;     /* #2E7D5B */
+    --status-confirmed-soft: 152 40% 92%;
+    --status-arrived: 152 45% 34%;
+    --status-seated: 156 56% 28%;        /* #1F6F4A */
+    --status-pending: 36 76% 39%;        /* #B07A18 */
+    --status-pending-soft: 36 76% 94%;
+    --status-no-show: 4 65% 49%;         /* #C0392B */
+    --status-no-show-soft: 4 60% 95%;
+    --status-cancelled: 222 6% 44%;
+    --status-vip: 223 65% 50%;           /* #2C5DCE */
+    --status-vip-soft: 223 60% 95%;
+
+    --destructive: 4 65% 49%;
     --destructive-foreground: 0 0% 100%;
-    --border: 36 18% 88%;
-    --input: 36 18% 88%;
-    --ring: 38 48% 58%;
-    --radius: 0.65rem;
+
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222 14% 8%;
-    --foreground: 36 33% 95%;
-    --card: 222 14% 11%;
-    --card-foreground: 36 33% 95%;
-    --popover: 222 14% 11%;
-    --popover-foreground: 36 33% 95%;
-    --primary: 36 33% 95%;
-    --primary-foreground: 222 14% 8%;
-    --secondary: 222 14% 16%;
-    --secondary-foreground: 36 33% 95%;
-    --muted: 222 14% 14%;
-    --muted-foreground: 220 8% 65%;
-    --accent: 38 48% 58%;
-    --accent-foreground: 222 14% 8%;
-    --destructive: 0 65% 50%;
-    --destructive-foreground: 0 0% 100%;
+    --background: 222 14% 7%;            /* #0F1013 */
+    --surface-raised: 222 14% 10%;
+    --surface-sunken: 222 14% 5%;
+
+    --foreground: 36 24% 94%;
+    --foreground-secondary: 222 6% 65%;
+    --foreground-tertiary: 222 6% 45%;
+
     --border: 222 14% 18%;
+    --border-strong: 222 14% 24%;
     --input: 222 14% 18%;
     --ring: 38 48% 58%;
+
+    --card: 222 14% 10%;
+    --card-foreground: 36 24% 94%;
+    --popover: 222 14% 11%;
+    --popover-foreground: 36 24% 94%;
+    --primary: 36 24% 94%;
+    --primary-foreground: 222 14% 7%;
+    --secondary: 222 14% 14%;
+    --secondary-foreground: 36 24% 94%;
+    --muted: 222 14% 13%;
+    --muted-foreground: 222 6% 65%;
+    --accent: 38 48% 58%;
+    --accent-foreground: 222 14% 7%;
+
+    --status-confirmed: 152 50% 50%;
+    --status-confirmed-soft: 152 30% 18%;
+    --status-arrived: 152 50% 50%;
+    --status-seated: 156 60% 42%;
+    --status-pending: 38 75% 60%;
+    --status-pending-soft: 38 40% 20%;
+    --status-no-show: 4 70% 60%;
+    --status-no-show-soft: 4 35% 20%;
+    --status-cancelled: 222 6% 60%;
+    --status-vip: 223 70% 65%;
+    --status-vip-soft: 223 35% 22%;
+
+    --destructive: 4 65% 55%;
+    --destructive-foreground: 0 0% 100%;
   }
 
   * {
@@ -53,7 +101,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01", "cv11", "tnum";
   }
   ::selection {
     background: hsl(var(--accent) / 0.35);
@@ -64,11 +112,29 @@
   .surface {
     @apply rounded-xl border border-border bg-card shadow-[0_1px_0_0_rgb(0_0_0_/_0.02),0_18px_40px_-32px_rgb(0_0_0_/_0.18)];
   }
+  .panel {
+    @apply rounded-xl border border-border bg-card;
+  }
+  .panel-sunken {
+    @apply rounded-xl bg-[hsl(var(--surface-sunken))];
+  }
   .text-display {
     @apply font-display tracking-tight;
+  }
+  .text-numeric {
+    font-variant-numeric: tabular-nums;
+  }
+  .text-secondary {
+    color: hsl(var(--foreground-secondary));
+  }
+  .text-tertiary {
+    color: hsl(var(--foreground-tertiary));
   }
   .badge-dot::before {
     content: "";
     @apply mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current;
+  }
+  .kbd {
+    @apply inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border bg-[hsl(var(--surface-sunken))] px-1 text-[10px] font-medium text-secondary;
   }
 }

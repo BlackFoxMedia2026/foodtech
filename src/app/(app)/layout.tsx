@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
+import { CommandPalette } from "@/components/shell/command-palette";
 import { getActiveVenue } from "@/lib/tenant";
 
 export default async function AppShell({ children }: { children: React.ReactNode }) {
@@ -12,8 +13,8 @@ export default async function AppShell({ children }: { children: React.ReactNode
   }));
 
   return (
-    <div className="grid min-h-screen grid-cols-[260px_1fr]">
-      <aside className="border-r border-border bg-sand-50/40">
+    <div className="grid min-h-screen grid-cols-[240px_1fr]">
+      <aside className="border-r border-border bg-[hsl(var(--surface-sunken))]/60">
         <Sidebar />
       </aside>
       <div className="flex min-h-screen flex-col">
@@ -22,8 +23,11 @@ export default async function AppShell({ children }: { children: React.ReactNode
           venues={venueList}
           activeVenueId={ctx.venueId}
         />
-        <main className="flex-1 px-6 py-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1280px] flex-1 px-6 py-8 lg:px-10">
+          {children}
+        </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Search, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { VenueSwitcher } from "./venue-switcher";
 import { NotificationBell } from "./notification-bell";
 import { UserMenu } from "./user-menu";
+import { CommandTrigger } from "./command-trigger";
 
 export function Topbar({
   user,
@@ -16,16 +16,13 @@ export function Topbar({
   activeVenueId: string;
 }) {
   return (
-    <header className="flex h-16 items-center justify-between gap-4 border-b border-border bg-background/80 px-6 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-border bg-background/85 px-6 backdrop-blur">
       <div className="flex items-center gap-3">
         <VenueSwitcher venues={venues} activeId={activeVenueId} />
-        <div className="relative hidden md:block">
-          <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Cerca ospite, prenotazione, tavolo…" className="h-9 w-[300px] pl-8" />
-        </div>
+        <CommandTrigger />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Button asChild size="sm" variant="gold" className="hidden sm:inline-flex">
           <Link href="/bookings/new">
             <Plus className="h-4 w-4" />
