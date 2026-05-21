@@ -6,14 +6,13 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
-  Clock,
   Crown,
   PhoneCall,
+  RotateCw,
   Sparkles,
   Users,
-  XCircle,
-  RotateCw,
   Utensils,
+  XCircle,
 } from "lucide-react";
 import { cn, formatTime } from "@/lib/utils";
 import { WalkInButton } from "@/components/now/walk-in-button";
@@ -44,13 +43,23 @@ type Booking = {
 
 type Table = { id: string; label: string; seats: number };
 
-const occasionLabel: Record<string, string> = {
-  BIRTHDAY: "🎂 Compleanno",
-  ANNIVERSARY: "💐 Anniversario",
-  BUSINESS: "💼 Lavoro",
-  DATE: "💞 Romantica",
-  CELEBRATION: "🥂 Celebrazione",
-  OTHER: "✨ Altro",
+const OCCASION_LABEL: Record<string, string> = {
+  BIRTHDAY: "Compleanno",
+  ANNIVERSARY: "Anniversario",
+  BUSINESS: "Lavoro",
+  DATE: "Romantica",
+  CELEBRATION: "Celebrazione",
+  OTHER: "Altro",
+};
+
+const STATUS_LABEL: Record<BookingStatus, string> = {
+  PENDING: "In attesa",
+  CONFIRMED: "Confermata",
+  ARRIVED: "Arrivato",
+  SEATED: "Al tavolo",
+  COMPLETED: "Completata",
+  NO_SHOW: "No-show",
+  CANCELLED: "Annullata",
 };
 
 export function NowBoard({
@@ -100,44 +109,67 @@ export function NowBoard({
     return { upcoming, onsite, later, closed };
   }, [bookings, now]);
 
-  const seatsBookedNow = onsiteSeats(buckets.onsite);
+  const seatsBookedNow = buckets.onsite.reduce((acc, b) => acc + b.partySize, 0);
   const occupancy = totalSeats > 0 ? Math.round((seatsBookedNow / totalSeats) * 100) : 0;
 
-  async function patch(id: string, patch: Partial<{ status: BookingStatus; tableId: string | null }>) {
+  async function patch(
+    id: string,
+    patchData: Partial<{ status: BookingStatus; tableId: string | null }>,
+  ) {
     setBookings((curr) =>
-      curr.map((b) => (b.id === id ? { ...b, ...patch, tableLabel: patch.tableId ? tables.find((t) => t.id === patch.tableId)?.label ?? null : b.tableLabel } : b)),
+      curr.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              ...patchData,
+              tableLabel: patchData.tableId
+                ? tables.find((t) => t.id === patchData.tableId)?.label ?? null
+                : b.tableLabel,
+            }
+          : b,
+      ),
     );
     const res = await fetch(`/api/bookings/${id}`, {
       method: "PATCH",
-      body: JSON.stringify(patch),
+      body: JSON.stringify(patchData),
       headers: { "content-type": "application/json" },
     });
-    if (!res.ok) {
-      startTransition(() => router.refresh());
-    }
+    if (!res.ok) startTransition(() => router.refresh());
   }
 
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-6 py-4">
         <div className="flex items-center gap-4">
-          <Link href="/overview" className="flex items-center gap-2 text-sm text-sand-50/70 hover:text-sand-50">
-            <ArrowLeft className="h-4 w-4" /> Torna in app
+          <Link
+            href="/overview"
+            className="inline-flex items-center gap-1.5 text-xs text-sand-50/60 transition-colors hover:text-sand-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> App
           </Link>
-          <div className="hidden sm:block h-6 w-px bg-white/15" />
-          <h1 className="text-display text-xl">
-            {venueName} <span className="text-sand-50/50">· vista sala</span>
-          </h1>
+          <div className="hidden h-5 w-px bg-white/15 sm:block" />
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-sand-50/45">
+              Vista sala
+            </p>
+            <h1 className="text-display text-lg font-medium leading-tight">{venueName}</h1>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <Stat label="Ora" value={now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} />
-          <Stat label="In sala" value={`${seatsBookedNow}/${totalSeats}`} accent />
-          <Stat label="Occupazione" value={`${occupancy}%`} accent={occupancy >= 70} />
+        <div className="flex flex-wrap items-center gap-2">
+          <LiveStat
+            label="Ora"
+            value={now.toLocaleTimeString("it-IT", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          />
+          <LiveStat label="In sala" value={`${seatsBookedNow}/${totalSeats}`} accent />
+          <LiveStat label="Occupazione" value={`${occupancy}%`} accent={occupancy >= 70} />
           <WalkInButton tables={tables} />
           <button
             onClick={() => startTransition(() => router.refresh())}
             disabled={pending}
-            className="rounded-md border border-white/15 px-3 py-2 text-xs hover:bg-white/5 inline-flex items-center gap-2"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/15 px-3 text-xs transition hover:bg-white/5"
           >
             <RotateCw className={cn("h-3.5 w-3.5", pending && "animate-spin")} /> Aggiorna
           </button>
@@ -155,14 +187,14 @@ export function NowBoard({
             <BookingCard booking={b} now={now} tables={tables} onPatch={patch}>
               {b.status === "PENDING" && (
                 <ActionButton tone="primary" onClick={() => patch(b.id, { status: "CONFIRMED" })}>
-                  <CheckCircle2 className="h-4 w-4" /> Conferma
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Conferma
                 </ActionButton>
               )}
               <ActionButton tone="primary" onClick={() => patch(b.id, { status: "ARRIVED" })}>
-                <CheckCircle2 className="h-4 w-4" /> Arrivato
+                <CheckCircle2 className="h-3.5 w-3.5" /> Arrivato
               </ActionButton>
               <ActionButton tone="ghost" onClick={() => patch(b.id, { status: "NO_SHOW" })}>
-                <XCircle className="h-4 w-4" /> No-show
+                <XCircle className="h-3.5 w-3.5" /> No-show
               </ActionButton>
             </BookingCard>
           )}
@@ -178,11 +210,11 @@ export function NowBoard({
             <BookingCard booking={b} now={now} tables={tables} onPatch={patch}>
               {b.status === "ARRIVED" && (
                 <ActionButton tone="primary" onClick={() => patch(b.id, { status: "SEATED" })}>
-                  <Utensils className="h-4 w-4" /> Seduto
+                  <Utensils className="h-3.5 w-3.5" /> Seduto
                 </ActionButton>
               )}
               <ActionButton tone="ghost" onClick={() => patch(b.id, { status: "COMPLETED" })}>
-                <CheckCircle2 className="h-4 w-4" /> Chiudi tavolo
+                <CheckCircle2 className="h-3.5 w-3.5" /> Chiudi
               </ActionButton>
             </BookingCard>
           )}
@@ -200,15 +232,22 @@ export function NowBoard({
 
       {buckets.closed.length > 0 && (
         <details className="border-t border-white/10 px-6 py-3 text-xs text-sand-50/60">
-          <summary className="cursor-pointer">Servizio già chiuso ({buckets.closed.length})</summary>
+          <summary className="cursor-pointer select-none">
+            Servizio già chiuso ({buckets.closed.length})
+          </summary>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {buckets.closed.map((b) => (
-              <div key={b.id} className="rounded-md border border-white/10 px-3 py-2">
-                <div className="flex justify-between">
-                  <span>{guestName(b)}</span>
-                  <span className="text-sand-50/50">{formatTime(b.startsAt)}</span>
+              <div
+                key={b.id}
+                className="rounded-md border border-white/10 px-3 py-2 text-[11px]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-medium">{guestName(b)}</span>
+                  <span className="text-sand-50/45 text-numeric">{formatTime(b.startsAt)}</span>
                 </div>
-                <span className="text-[10px] uppercase tracking-wider text-sand-50/40">{b.status}</span>
+                <span className="mt-0.5 inline-block text-[10px] uppercase tracking-wider text-sand-50/35">
+                  {STATUS_LABEL[b.status]}
+                </span>
               </div>
             ))}
           </div>
@@ -218,20 +257,33 @@ export function NowBoard({
   );
 }
 
-function onsiteSeats(items: Booking[]) {
-  return items.reduce((acc, b) => acc + b.partySize, 0);
-}
-
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function LiveStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
   return (
     <div
       className={cn(
-        "rounded-md border px-3 py-1.5",
-        accent ? "border-gilt/40 bg-gilt/10" : "border-white/15",
+        "rounded-lg border px-3 py-1.5 leading-tight",
+        accent ? "border-gilt/40 bg-gilt/10" : "border-white/15 bg-white/[0.02]",
       )}
     >
-      <p className="text-[10px] uppercase tracking-wider text-sand-50/50">{label}</p>
-      <p className={cn("text-base font-medium", accent && "text-gilt-light")}>{value}</p>
+      <p className="text-[9.5px] font-medium uppercase tracking-[0.14em] text-sand-50/45">
+        {label}
+      </p>
+      <p
+        className={cn(
+          "text-display text-numeric text-base font-medium",
+          accent && "text-gilt-light",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -258,17 +310,21 @@ function Column({
         ? "border-emerald-400/30 bg-emerald-400/5"
         : "border-white/15 bg-white/[0.02]";
   return (
-    <section className={cn("flex flex-col rounded-lg border", accent)}>
+    <section className={cn("flex flex-col rounded-xl border", accent)}>
       <header className="flex items-baseline justify-between border-b border-white/10 px-4 py-3">
         <div>
-          <h2 className="text-display text-base">{title}</h2>
-          <p className="text-[11px] uppercase tracking-wider text-sand-50/50">{subtitle}</p>
+          <h2 className="text-display text-base font-medium">{title}</h2>
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sand-50/45">
+            {subtitle}
+          </p>
         </div>
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-xs">{items.length}</span>
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10.5px] text-numeric">
+          {items.length}
+        </span>
       </header>
-      <div className="flex flex-col gap-3 overflow-y-auto p-3">
+      <div className="flex flex-col gap-2.5 overflow-y-auto p-3">
         {items.length === 0 ? (
-          <p className="rounded-md border border-dashed border-white/15 p-6 text-center text-sm text-sand-50/40">
+          <p className="rounded-md border border-dashed border-white/12 p-6 text-center text-xs text-sand-50/40">
             {empty}
           </p>
         ) : (
@@ -304,85 +360,112 @@ function BookingCard({
         : diffMin === 0
           ? "adesso"
           : `${-diffMin}m fa`;
-  const overdue = diffMin <= -10 && (booking.status === "PENDING" || booking.status === "CONFIRMED");
+  const overdue =
+    diffMin <= -10 && (booking.status === "PENDING" || booking.status === "CONFIRMED");
+  const isVip =
+    booking.guest?.loyaltyTier === "VIP" || booking.guest?.loyaltyTier === "AMBASSADOR";
 
   return (
     <article
       className={cn(
-        "rounded-lg border bg-carbon-800/60 p-4",
-        overdue ? "border-rose-400/50" : "border-white/10",
-        compact && "p-3",
+        "rounded-lg border bg-carbon-800/55 px-3.5 py-3 transition-colors",
+        overdue ? "border-rose-400/50 ring-1 ring-rose-400/20" : "border-white/8",
+        compact && "px-3 py-2.5",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sand-50">
-            <span className={cn("font-medium", compact ? "text-base" : "text-lg")}>
+          <p className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "truncate font-medium text-sand-50",
+                compact ? "text-sm" : "text-[15.5px]",
+              )}
+            >
               {guestName(booking)}
             </span>
-            {booking.guest?.loyaltyTier === "VIP" || booking.guest?.loyaltyTier === "AMBASSADOR" ? (
-              <Crown className="h-3.5 w-3.5 text-gilt-light" />
-            ) : null}
+            {isVip && <Crown className="h-3.5 w-3.5 shrink-0 text-gilt-light" />}
           </p>
           {booking.guest?.phone && !compact && (
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-sand-50/60">
+            <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-sand-50/55">
               <PhoneCall className="h-3 w-3" /> {booking.guest.phone}
             </p>
           )}
         </div>
         <div className="text-right">
-          <p className={cn("text-display", compact ? "text-lg" : "text-2xl")}>{formatTime(booking.startsAt)}</p>
-          <p className={cn("text-xs", overdue ? "text-rose-300" : "text-sand-50/50")}>{diffLabel}</p>
+          <p
+            className={cn(
+              "text-display text-numeric font-medium leading-none",
+              compact ? "text-base" : "text-2xl",
+            )}
+          >
+            {formatTime(booking.startsAt)}
+          </p>
+          <p
+            className={cn(
+              "mt-0.5 text-[10.5px] text-numeric",
+              overdue ? "text-rose-300" : "text-sand-50/45",
+            )}
+          >
+            {diffLabel}
+          </p>
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-sand-50/70">
+      <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-sand-50/65">
         <span className="inline-flex items-center gap-1">
           <Users className="h-3 w-3" /> {booking.partySize}
         </span>
         {booking.tableLabel ? (
-          <span className="rounded border border-white/15 px-1.5 py-0.5">Tavolo {booking.tableLabel}</span>
+          <span className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 text-numeric">
+            T {booking.tableLabel}
+          </span>
         ) : (
-          <span className="text-amber-300/80">tavolo da assegnare</span>
-        )}
-        {booking.occasion && <span>{occasionLabel[booking.occasion] ?? booking.occasion}</span>}
-        {booking.source === "WIDGET" && (
-          <span className="inline-flex items-center gap-1 text-sand-50/50">
-            <Sparkles className="h-3 w-3" /> widget
+          <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-amber-200">
+            tavolo libero
           </span>
         )}
-        {!compact && booking.notes && (
-          <span className="basis-full rounded border border-white/10 px-2 py-1 italic text-sand-50/60">
-            “{booking.notes}”
+        {booking.occasion && (
+          <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-sand-50/65">
+            {OCCASION_LABEL[booking.occasion] ?? booking.occasion}
+          </span>
+        )}
+        {booking.source === "WIDGET" && (
+          <span className="inline-flex items-center gap-1 text-sand-50/45">
+            <Sparkles className="h-3 w-3" /> widget
           </span>
         )}
       </div>
 
-      {!compact && (
-        <div className="mt-3 flex items-center gap-2">
-          {booking.status === "PENDING" || booking.status === "CONFIRMED" || booking.status === "ARRIVED" ? (
-            <select
-              value={booking.tableId ?? ""}
-              onChange={(e) => onPatch(booking.id, { tableId: e.target.value || null })}
-              className="rounded-md border border-white/15 bg-carbon-900/70 px-2 py-1 text-xs text-sand-50"
-            >
-              <option value="">— assegna tavolo —</option>
-              {tables.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label} · {t.seats}p
-                </option>
-              ))}
-            </select>
-          ) : null}
+      {!compact && booking.notes && (
+        <p className="mt-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[11.5px] italic text-sand-50/65">
+          “{booking.notes}”
+        </p>
+      )}
+
+      {!compact && (booking.status === "PENDING" || booking.status === "CONFIRMED" || booking.status === "ARRIVED") && (
+        <div className="mt-2.5">
+          <select
+            value={booking.tableId ?? ""}
+            onChange={(e) => onPatch(booking.id, { tableId: e.target.value || null })}
+            className="h-8 rounded-md border border-white/15 bg-carbon-900/70 px-2 text-[11.5px] text-sand-50 outline-none focus:border-gilt/40"
+          >
+            <option value="">— assegna tavolo —</option>
+            {tables.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label} · {t.seats}p
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
-      {children && <div className="mt-3 flex flex-wrap gap-2">{children}</div>}
+      {children && <div className="mt-2.5 flex flex-wrap gap-2">{children}</div>}
 
       {compact && (
-        <div className="mt-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-sand-50/40">
-          <Clock className="h-3 w-3" /> {booking.status}
-        </div>
+        <p className="mt-1.5 text-[10px] uppercase tracking-[0.14em] text-sand-50/40">
+          {STATUS_LABEL[booking.status]}
+        </p>
       )}
     </article>
   );
@@ -401,7 +484,7 @@ function ActionButton({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition",
+        "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition",
         tone === "primary"
           ? "bg-gilt text-carbon-900 hover:bg-gilt-light"
           : "border border-white/15 text-sand-50/80 hover:bg-white/5",
@@ -413,6 +496,7 @@ function ActionButton({
 }
 
 function guestName(b: Booking) {
-  if (!b.guest) return "Ospite";
-  return [b.guest.firstName, b.guest.lastName].filter(Boolean).join(" ") || b.guest.firstName;
+  if (!b.guest) return "Walk-in";
+  const name = [b.guest.firstName, b.guest.lastName].filter(Boolean).join(" ");
+  return name || b.guest.firstName;
 }
