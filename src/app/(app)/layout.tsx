@@ -13,7 +13,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
   }));
 
   return (
-    <div className="grid min-h-screen grid-cols-[240px_1fr]">
+    <div className="grid min-h-screen grid-cols-[64px_1fr]">
       <aside className="border-r border-border bg-[hsl(var(--surface-sunken))]/60">
         <Sidebar />
       </aside>

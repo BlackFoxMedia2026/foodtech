@@ -3,165 +3,125 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  CalendarDays,
   LayoutDashboard,
-  CalendarRange,
   LayoutPanelLeft,
-  Users,
-  Megaphone,
-  Sparkles,
-  CreditCard,
   LineChart,
+  Megaphone,
   Settings,
-  Tv,
-  Building2,
-  Hourglass,
-  BookOpen,
-  ShoppingBag,
-  Wifi,
-  Ticket,
-  Workflow,
-  MessagesSquare,
-  PhoneCall,
-  PiggyBank,
-  TrendingUp,
-  Network,
-  Gauge,
-  Gift,
-  ChefHat,
-  Star,
+  Sparkles,
+  Users,
+  type LucideIcon,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
-type NavGroup = { label: string; items: NavItem[] };
+type RailItem = { href: string; label: string; hint?: string; icon: LucideIcon };
 
-const GROUPS: NavGroup[] = [
-  {
-    label: "Oggi",
-    items: [
-      { href: "/overview", label: "Panoramica", icon: LayoutDashboard },
-      { href: "/now", label: "Sala live", icon: Tv },
-      { href: "/bookings", label: "Prenotazioni", icon: CalendarRange },
-      { href: "/waitlist", label: "Lista d'attesa", icon: Hourglass },
-      { href: "/kitchen", label: "Cucina", icon: ChefHat },
-    ],
-  },
-  {
-    label: "Ospiti",
-    items: [
-      { href: "/guests", label: "CRM", icon: Users },
-      { href: "/experiences", label: "Esperienze", icon: Sparkles },
-      { href: "/reviews", label: "Recensioni", icon: Star },
-    ],
-  },
-  {
-    label: "Gestione",
-    items: [
-      { href: "/floor", label: "Sala", icon: LayoutPanelLeft },
-      { href: "/menu", label: "Menu", icon: BookOpen },
-      { href: "/orders", label: "Asporto", icon: ShoppingBag },
-      { href: "/pos", label: "POS", icon: CreditCard },
-    ],
-  },
-  {
-    label: "Growth",
-    items: [
-      { href: "/campaigns", label: "Campagne", icon: Megaphone },
-      { href: "/automations", label: "Automazioni", icon: Workflow },
-      { href: "/coupons", label: "Coupon", icon: Ticket },
-      { href: "/gift-cards", label: "Gift card", icon: Gift },
-      { href: "/wifi", label: "Wi-Fi", icon: Wifi },
-      { href: "/chat", label: "Chatbot", icon: MessagesSquare },
-      { href: "/voice", label: "Assistente vocale", icon: PhoneCall },
-    ],
-  },
-  {
-    label: "Analytics",
-    items: [
-      { href: "/cockpit", label: "Cockpit", icon: Gauge },
-      { href: "/portfolio", label: "Portfolio", icon: Building2 },
-      { href: "/insights", label: "Performance", icon: LineChart },
-      { href: "/finance", label: "Economico", icon: PiggyBank },
-      { href: "/staff/performance", label: "Staff", icon: TrendingUp },
-      { href: "/payments", label: "Pagamenti", icon: CreditCard },
-      { href: "/connectors", label: "Channel manager", icon: Network },
-    ],
-  },
+// 6 destinazioni primarie. Tutto il resto vive in Cmd+K.
+const PRIMARY: RailItem[] = [
+  { href: "/overview", label: "Today", hint: "Service deck", icon: LayoutDashboard },
+  { href: "/bookings", label: "Service", hint: "Prenotazioni & sala", icon: CalendarDays },
+  { href: "/guests", label: "Guests", hint: "CRM ospiti", icon: Users },
+  { href: "/floor", label: "Floor", hint: "Mappa sala", icon: LayoutPanelLeft },
+  { href: "/campaigns", label: "Growth", hint: "Marketing & automazioni", icon: Megaphone },
+  { href: "/insights", label: "Analytics", hint: "Performance", icon: LineChart },
 ];
 
-const FOOTER_ITEM: NavItem = {
+const FOOTER: RailItem = {
   href: "/settings",
   label: "Impostazioni",
   icon: Settings,
 };
 
+// Mapping per riconoscere "active" anche su sottoroute (es. /automations attiva Growth)
+const SECTION_PREFIXES: Record<string, string[]> = {
+  "/overview": ["/overview", "/cockpit", "/portfolio"],
+  "/bookings": ["/bookings", "/now", "/waitlist", "/kitchen"],
+  "/guests": ["/guests", "/reviews", "/experiences"],
+  "/floor": ["/floor"],
+  "/campaigns": ["/campaigns", "/automations", "/coupons", "/gift-cards", "/wifi", "/chat", "/voice"],
+  "/insights": ["/insights", "/finance", "/staff", "/payments", "/connectors"],
+  "/settings": ["/settings"],
+};
+
 export function Sidebar() {
   const pathname = usePathname();
 
-  function isActive(href: string) {
-    return pathname === href || pathname.startsWith(`${href}/`);
+  function isActive(item: RailItem) {
+    const prefixes = SECTION_PREFIXES[item.href] ?? [item.href];
+    return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   }
 
   return (
-    <nav className="flex h-full flex-col gap-5 px-3 py-5">
-      <Link
-        href="/overview"
-        className="mb-1 flex items-center gap-2 rounded-md px-2 py-1 text-display text-base font-semibold tracking-tight"
-      >
-        <span className="grid h-7 w-7 place-items-center rounded-md bg-carbon-800 text-sand-50">
-          <span className="font-display text-sm">T</span>
-        </span>
-        Tavolo
-      </Link>
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+      <nav className="flex h-full flex-col items-center gap-2 px-2 py-4">
+        {/* Brand */}
+        <Link
+          href="/overview"
+          className="mb-2 grid h-10 w-10 place-items-center rounded-xl bg-carbon-800 text-sand-50 shadow-soft transition-transform hover:scale-[1.04]"
+          aria-label="Tavolo"
+        >
+          <span className="font-display text-base font-medium">T</span>
+        </Link>
 
-      <div className="flex-1 space-y-5 overflow-y-auto pr-1">
-        {GROUPS.map((group) => (
-          <div key={group.label}>
-            <p className="px-2 pb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-tertiary">
-              {group.label}
-            </p>
-            <ul className="space-y-0.5">
-              {group.items.map(({ href, label, icon: Icon }) => {
-                const active = isActive(href);
-                return (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      className={cn(
-                        "group flex items-center gap-3 rounded-md px-2 py-1.5 text-[13px] transition-colors",
-                        active
-                          ? "bg-secondary text-foreground"
-                          : "text-secondary hover:bg-secondary/60 hover:text-foreground",
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-4 w-4 shrink-0",
-                          active ? "text-foreground" : "text-tertiary",
-                        )}
-                      />
-                      <span className="truncate">{label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </div>
+        <span aria-hidden className="my-1 h-px w-6 bg-border" />
 
-      <Link
-        href={FOOTER_ITEM.href}
-        className={cn(
-          "flex items-center gap-3 rounded-md px-2 py-1.5 text-[13px] transition-colors",
-          isActive(FOOTER_ITEM.href)
-            ? "bg-secondary text-foreground"
-            : "text-secondary hover:bg-secondary/60 hover:text-foreground",
-        )}
-      >
-        <FOOTER_ITEM.icon className="h-4 w-4 text-tertiary" />
-        {FOOTER_ITEM.label}
-      </Link>
-    </nav>
+        <div className="flex flex-1 flex-col items-center gap-1">
+          {PRIMARY.map((item) => (
+            <RailLink key={item.href} item={item} active={isActive(item)} />
+          ))}
+        </div>
+
+        <span aria-hidden className="my-1 h-px w-6 bg-border" />
+
+        <RailLink item={FOOTER} active={isActive(FOOTER)} />
+      </nav>
+    </TooltipProvider>
+  );
+}
+
+function RailLink({ item, active }: { item: RailItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={item.href}
+          className={cn(
+            "group relative grid h-10 w-10 place-items-center rounded-xl transition-colors",
+            active
+              ? "bg-carbon-800 text-sand-50 shadow-soft"
+              : "text-tertiary hover:bg-secondary hover:text-foreground",
+          )}
+          aria-label={item.label}
+          aria-current={active ? "page" : undefined}
+        >
+          <Icon className="h-[18px] w-[18px]" />
+          {active && (
+            <span
+              aria-hidden
+              className="absolute -left-2 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gilt"
+            />
+          )}
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="right" align="center">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{item.label}</span>
+          {item.hint && <span className="text-sand-50/55">· {item.hint}</span>}
+          <span className="hidden text-sand-50/40 sm:inline">·</span>
+          <span className="hidden items-center gap-0.5 text-sand-50/40 sm:inline-flex">
+            <Sparkles className="h-2.5 w-2.5" />
+            Cmd+K
+          </span>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
