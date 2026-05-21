@@ -12,7 +12,7 @@ export function SegmentsBar({
   query?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       {SEGMENT_DEFS.map((s) => {
         const sp = new URLSearchParams();
         if (s.key !== "all") sp.set("segment", s.key);
@@ -25,15 +25,22 @@ export function SegmentsBar({
             href={href}
             title={s.description}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs transition",
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
               isActive
-                ? "border-gilt bg-gilt/10 text-gilt-dark"
-                : "border-border text-muted-foreground hover:bg-secondary",
+                ? "bg-foreground text-background"
+                : "bg-secondary/60 text-secondary hover:bg-secondary hover:text-foreground",
             )}
           >
             {s.label}
             {typeof counts[s.key] === "number" && (
-              <span className="ml-1.5 opacity-60">{counts[s.key]}</span>
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-[10.5px] text-numeric",
+                  isActive ? "bg-background/15" : "bg-background/60 text-tertiary",
+                )}
+              >
+                {counts[s.key]}
+              </span>
             )}
           </Link>
         );

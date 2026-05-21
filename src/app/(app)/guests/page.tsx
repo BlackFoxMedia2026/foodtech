@@ -36,16 +36,19 @@ export default async function GuestsPage({
     <div className="space-y-6 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">CRM</p>
-          <h1 className="text-display text-3xl">Ospiti</h1>
-          <p className="text-sm text-muted-foreground">
-            {guests.length} risultati · segmento &quot;{activeDef.label}&quot;
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-tertiary">CRM</p>
+          <h1 className="text-display mt-1 text-[32px] font-medium leading-tight tracking-tight">
+            Ospiti
+          </h1>
+          <p className="mt-1 text-sm text-secondary">
+            <span className="text-numeric">{guests.length}</span> risultati · segmento{" "}
+            <span className="text-foreground">{activeDef.label}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/guests/insights"
-            className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium transition-colors hover:border-border-strong"
           >
             <Sparkles className="h-3.5 w-3.5 text-gilt-dark" /> Smart insights
           </Link>
