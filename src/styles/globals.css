@@ -124,12 +124,6 @@
   .text-numeric {
     font-variant-numeric: tabular-nums;
   }
-  .text-secondary {
-    color: hsl(var(--foreground-secondary));
-  }
-  .text-tertiary {
-    color: hsl(var(--foreground-tertiary));
-  }
   .badge-dot::before {
     content: "";
     @apply mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current;

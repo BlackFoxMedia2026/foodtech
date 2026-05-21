@@ -16,6 +16,7 @@ const config: Config = {
       },
       colors: {
         border: "hsl(var(--border))",
+        "border-strong": "hsl(var(--border-strong))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -101,6 +102,10 @@ const config: Config = {
         soft: "0 1px 0 0 rgb(0 0 0 / 0.02), 0 18px 40px -32px rgb(0 0 0 / 0.18)",
         elevated:
           "0 1px 0 0 rgb(0 0 0 / 0.03), 0 24px 56px -28px rgb(0 0 0 / 0.22)",
+      },
+      textColor: {
+        secondary: "hsl(var(--foreground-secondary))",
+        tertiary: "hsl(var(--foreground-tertiary))",
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
