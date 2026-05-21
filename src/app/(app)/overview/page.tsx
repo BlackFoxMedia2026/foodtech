@@ -1,13 +1,16 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatCard } from "@/components/overview/stat-card";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, CalendarPlus, Info, Sparkles, TrendingUp, Users } from "lucide-react";
+import { Stat } from "@/components/ui/stat";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
 import { WeekTrend } from "@/components/overview/week-trend";
 import { TodayTimeline } from "@/components/overview/today-timeline";
-import { AIBrief } from "@/components/overview/ai-brief";
 import { getActiveVenue } from "@/lib/tenant";
 import { getOverview } from "@/server/insights";
 import { generateDailyBrief } from "@/lib/ai";
 import { formatCurrency } from "@/lib/utils";
-import { AlertTriangle, Sparkles, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -18,97 +21,155 @@ export default async function OverviewPage() {
     generateDailyBrief(ctx.venueId),
   ]);
 
-  const today = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+  const todayLabel = new Date().toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const firstName = ctx.session.user?.name?.split(" ")[0] ?? "ospite";
+  const topSuggestion = brief.suggestions.find((s) => s.kind !== "SUMMARY");
+  const occupancyPct = Math.min(100, Math.round((data.totalCovers / 90) * 100));
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-10 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">{ctx.venue.name}</p>
-          <h1 className="text-display text-3xl">Buona giornata, {ctx.session.user?.name?.split(" ")[0] ?? "ospite"}.</h1>
-          <p className="text-sm text-muted-foreground capitalize">{today}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-tertiary">
+            {ctx.venue.name} · <span className="capitalize">{todayLabel}</span>
+          </p>
+          <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+            Buongiorno, {firstName}.
+          </h1>
+          <p className="mt-1 text-sm text-secondary">
+            Ecco cosa sta succedendo oggi al tuo locale.
+          </p>
         </div>
+        <Button asChild variant="gold" size="default">
+          <Link href="/bookings/new">
+            <CalendarPlus className="h-4 w-4" /> Nuova prenotazione
+          </Link>
+        </Button>
       </header>
 
-      <AIBrief summary={brief.summary} suggestions={brief.suggestions} generatedBy={brief.generatedBy} />
+      {topSuggestion && (
+        <Link
+          href={topSuggestion.actionHref ?? "#"}
+          className="group flex items-start gap-4 rounded-xl border border-gilt/25 bg-gilt/[0.05] p-4 transition-colors hover:bg-gilt/[0.08]"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gilt/15 text-gilt-dark">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-gilt-dark">
+              Brief operativo
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-foreground">{brief.summary}</p>
+            <p className="mt-1 text-sm text-secondary">{topSuggestion.title}</p>
+          </div>
+          {topSuggestion.actionLabel && (
+            <span className="flex items-center gap-1 self-center text-xs font-medium text-gilt-dark opacity-0 transition-opacity group-hover:opacity-100">
+              {topSuggestion.actionLabel} <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </Link>
+      )}
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat
           label="Coperti previsti"
-          value={String(data.totalCovers)}
-          hint={`${data.todayBookings.length} prenotazioni attive`}
-          emphasize
+          value={data.totalCovers}
+          hint={`${data.todayBookings.length} prenotazioni`}
+          icon={Users}
+          emphasized
         />
-        <StatCard
+        <Stat
+          label="Occupazione"
+          value={`${occupancyPct}%`}
+          hint="Turno cena · 90 coperti"
+          icon={TrendingUp}
+        />
+        <Stat
           label="No-show stimati"
-          value={String(data.expectedNoShow)}
-          hint="Basato sullo storico ospiti"
+          value={data.expectedNoShow}
+          hint="Storico ospiti"
+          delta={
+            data.expectedNoShow > 0
+              ? { value: `${data.expectedNoShow}`, tone: "negative" }
+              : undefined
+          }
         />
-        <StatCard
+        <Stat
           label="Incassi stimati"
           value={formatCurrency(data.estimatedRevenueCents, ctx.venue.currency)}
           hint="Spesa media × coperti"
         />
-        <StatCard
-          label="Occupazione media"
-          value={`${Math.min(100, Math.round((data.totalCovers / 90) * 100))}%`}
-          hint="Capienza turno cena"
-        />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Andamento settimanale</CardTitle>
-              <CardDescription>Coperti e prenotazioni degli ultimi 7 giorni</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <WeekTrend data={data.trend} />
-          </CardContent>
-        </Card>
+      <section className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
+        <Panel>
+          <PanelHeader
+            title="Prenotazioni di oggi"
+            description="Aggiornate in tempo reale"
+            action={
+              <Link
+                href="/bookings"
+                className="inline-flex items-center gap-1 text-xs font-medium text-secondary transition hover:text-foreground"
+              >
+                Tutte <ArrowRight className="h-3 w-3" />
+              </Link>
+            }
+          />
+          <PanelBody className="pt-0">
+            <TodayTimeline bookings={data.todayBookings} />
+          </PanelBody>
+        </Panel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Alert operativi</CardTitle>
-            <CardDescription>Cose da tenere d&apos;occhio per il servizio</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <Panel className="flex flex-col">
+          <PanelHeader title="Alert" description="Cose da tenere d'occhio" />
+          <PanelBody className="pt-0">
             {data.alerts.length === 0 ? (
-              <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Tutto sotto controllo.
-              </p>
+              <EmptyState
+                icon={Sparkles}
+                title="Tutto sotto controllo"
+                description="Nessun alert per il servizio di oggi."
+              />
             ) : (
-              data.alerts.map((a, i) => {
-                const Icon = a.kind === "danger" ? AlertTriangle : a.kind === "info" ? Sparkles : Info;
-                const tone =
-                  a.kind === "danger"
-                    ? "border-rose-200 bg-rose-50 text-rose-700"
-                    : a.kind === "info"
-                      ? "border-gilt/30 bg-gilt/10 text-gilt-dark"
-                      : "border-amber-200 bg-amber-50 text-amber-700";
-                return (
-                  <div key={i} className={`flex items-start gap-3 rounded-md border p-3 text-sm ${tone}`}>
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-                    <p>{a.message}</p>
-                  </div>
-                );
-              })
+              <ul className="space-y-2">
+                {data.alerts.slice(0, 4).map((a, i) => (
+                  <AlertRow key={i} kind={a.kind} message={a.message} />
+                ))}
+              </ul>
             )}
-          </CardContent>
-        </Card>
+          </PanelBody>
+        </Panel>
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Prenotazioni di oggi</CardTitle>
-          <CardDescription>Timeline aggiornata in tempo reale</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TodayTimeline bookings={data.todayBookings} />
-        </CardContent>
-      </Card>
+      <Panel>
+        <PanelHeader
+          title="Andamento settimanale"
+          description="Coperti e prenotazioni · ultimi 7 giorni"
+        />
+        <PanelBody>
+          <WeekTrend data={data.trend} />
+        </PanelBody>
+      </Panel>
     </div>
+  );
+}
+
+function AlertRow({ kind, message }: { kind: string; message: string }) {
+  const Icon = kind === "danger" ? AlertTriangle : kind === "info" ? Sparkles : Info;
+  const tone =
+    kind === "danger"
+      ? "text-status-no-show"
+      : kind === "info"
+        ? "text-gilt-dark"
+        : "text-status-pending";
+  return (
+    <li className="flex items-start gap-2.5 rounded-lg border border-border bg-[hsl(var(--surface-sunken))]/40 p-3">
+      <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", tone)} />
+      <p className="text-sm text-foreground">{message}</p>
+    </li>
   );
 }
