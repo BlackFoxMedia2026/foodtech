@@ -9,10 +9,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-carbon-800 text-sand-50 hover:bg-carbon-700 shadow-sm",
-        gold: "bg-gilt text-carbon-900 hover:bg-gilt-light shadow-sm",
+          "bg-carbon-700 text-sand-50 hover:bg-carbon-600 shadow-sm",
+        gold: "bg-gilt text-carbon-900 hover:bg-gilt-light glow-gold",
         outline:
-          "border border-border bg-transparent text-foreground hover:bg-secondary",
+          "border border-border bg-card/40 text-foreground backdrop-blur hover:bg-secondary",
         ghost: "hover:bg-secondary text-foreground",
         subtle: "bg-secondary text-foreground hover:bg-muted",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",

@@ -14,11 +14,11 @@ export default async function AppShell({ children }: { children: React.ReactNode
   }));
 
   return (
-    <div className="grid min-h-screen grid-cols-[64px_1fr]">
-      <aside className="border-r border-border bg-[hsl(var(--surface-sunken))]/60">
+    <div className="dark relative grid min-h-screen grid-cols-[64px_1fr] bg-background text-foreground app-ambient">
+      <aside className="border-r border-white/[0.06] bg-[hsl(var(--surface-sunken))]/80 backdrop-blur">
         <Sidebar />
       </aside>
-      <div className="flex min-h-screen flex-col">
+      <div className="relative z-10 flex min-h-screen flex-col">
         <Topbar
           user={{ name: ctx.session.user?.name, email: ctx.session.user?.email }}
           venues={venueList}
