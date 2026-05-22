@@ -1,28 +1,37 @@
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Smile, Meh, Frown } from "lucide-react";
+import { ArrowLeft, MessageCircle, Smile, Meh, Frown, type LucideIcon } from "lucide-react";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { feedbackStats, listFeedback } from "@/server/surveys";
 import { reviewLinkClickStats, reputationStats } from "@/server/review-links";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatCard } from "@/components/overview/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Stat } from "@/components/ui/stat";
+import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import { ReviewLinksCard } from "@/components/reviews/review-links-card";
 import { formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const TONE = {
-  PROMOTER: "success",
-  PASSIVE: "warning",
-  DETRACTOR: "danger",
-} as const;
-
-const ICON = {
-  PROMOTER: Smile,
-  PASSIVE: Meh,
-  DETRACTOR: Frown,
-} as const;
+const SENTIMENT_META: Record<
+  "PROMOTER" | "PASSIVE" | "DETRACTOR",
+  { label: string; icon: LucideIcon; tone: string }
+> = {
+  PROMOTER: {
+    label: "Promotore",
+    icon: Smile,
+    tone: "text-status-confirmed bg-status-confirmed-soft",
+  },
+  PASSIVE: {
+    label: "Passivo",
+    icon: Meh,
+    tone: "text-status-pending bg-status-pending-soft",
+  },
+  DETRACTOR: {
+    label: "Detrattore",
+    icon: Frown,
+    tone: "text-status-no-show bg-status-no-show-soft",
+  },
+};
 
 export default async function FeedbackPage() {
   const ctx = await getActiveVenue();
@@ -34,70 +43,130 @@ export default async function FeedbackPage() {
   ]);
   const canEditLinks = can(ctx.role, "manage_venue");
 
+  const npsTone =
+    stats.nps >= 50 ? "success" : stats.nps >= 0 ? undefined : "danger";
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/insights">
-            <ArrowLeft className="h-4 w-4" /> Analytics
-          </Link>
-        </Button>
-      </div>
+      <Link
+        href="/insights"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-secondary transition hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Analytics
+      </Link>
 
       <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Feedback</p>
-        <h1 className="text-display text-3xl">Reputazione</h1>
-        <p className="text-sm text-muted-foreground">
-          {stats.total} risposte · NPS {stats.nps} · {reputation.totalClicks} click verso recensioni esterne
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+          Ospiti · Sondaggi & reputazione
+        </p>
+        <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+          Reputazione
+        </h1>
+        <p className="mt-1 text-sm text-secondary">
+          <span className="text-numeric text-foreground">{stats.total}</span> risposte ·{" "}
+          NPS <span className="text-numeric text-foreground">{stats.nps}</span> ·{" "}
+          <span className="text-numeric text-foreground">{reputation.totalClicks}</span> click verso recensioni esterne
         </p>
       </header>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <StatCard label="NPS" value={String(stats.nps)} emphasize />
-        <StatCard label="Punteggio medio" value={String(stats.avg)} />
-        <StatCard label="Promotori" value={String(stats.promoter)} />
-        <StatCard label="Click recensione" value={String(reputation.totalClicks)} hint={`${reputation.clicks30d} ultimi 30gg`} />
+        <Stat
+          label="Net Promoter Score"
+          value={stats.nps}
+          hint={
+            stats.nps >= 50
+              ? "ottimo"
+              : stats.nps >= 0
+                ? "stabile"
+                : "critico"
+          }
+          emphasized
+          delta={
+            npsTone === "success"
+              ? { value: "+", tone: "positive" }
+              : npsTone === "danger"
+                ? { value: "−", tone: "negative" }
+                : undefined
+          }
+        />
+        <Stat label="Punteggio medio" value={stats.avg} hint="su 10" />
+        <Stat
+          label="Promotori"
+          value={stats.promoter}
+          hint={`vs ${stats.detractor} detrattori`}
+        />
+        <Stat
+          label="Click recensione"
+          value={reputation.totalClicks}
+          hint={`${reputation.clicks30d} ultimi 30gg`}
+        />
       </section>
 
-      <ReviewLinksCard initial={links.map((l) => ({ ...l, label: l.label, clicks: l.clicks }))} canEdit={canEditLinks} />
+      <ReviewLinksCard
+        initial={links.map((l) => ({ ...l, label: l.label, clicks: l.clicks }))}
+        canEdit={canEditLinks}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" /> Ultime risposte
-          </CardTitle>
-          <CardDescription>
-            Inviate automaticamente ~4h dopo la chiusura della prenotazione.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Panel>
+        <PanelHeader
+          title={
+            <span className="inline-flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-tertiary" /> Ultime risposte
+            </span>
+          }
+          description="Inviate automaticamente ~4h dopo la chiusura della prenotazione."
+        />
+        <PanelBody className="pt-0">
           {items.length === 0 ? (
-            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Nessun feedback ricevuto. Quando una prenotazione passa a COMPLETED, parte un sondaggio
-              all&apos;ospite con email registrata.
-            </p>
+            <EmptyStateRich
+              icon={MessageCircle}
+              title="Nessun feedback ricevuto"
+              description="Quando una prenotazione passa a COMPLETED parte un sondaggio all'ospite con email registrata. Le risposte appariranno qui."
+              hint="Il flusso di invio funziona se Resend è configurato e l'ospite ha un'email."
+            />
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-border">
               {items.map((r) => {
-                const Icon = ICON[r.sentiment];
+                const meta = SENTIMENT_META[r.sentiment];
+                const Icon = meta.icon;
                 return (
                   <li key={r.id} className="flex flex-col gap-2 py-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-display text-2xl leading-none">{r.npsScore}</span>
-                        <Badge tone={TONE[r.sentiment]}>{r.sentiment}</Badge>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={cn(
+                            "grid h-9 w-9 shrink-0 place-items-center rounded-full",
+                            meta.tone,
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="text-display text-numeric text-2xl font-medium leading-none">
+                            {r.npsScore}
+                            <span className="ml-1 text-xs text-tertiary text-numeric">/10</span>
+                          </p>
+                          <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-tertiary">
+                            {meta.label}
+                          </p>
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</span>
+                      <span className="text-[11px] text-tertiary text-numeric">
+                        {formatDateTime(r.createdAt)}
+                      </span>
                     </div>
-                    {r.comment && <p className="rounded-md bg-secondary px-3 py-2 italic text-foreground/90">&ldquo;{r.comment}&rdquo;</p>}
+                    {r.comment && (
+                      <p className="rounded-lg bg-[hsl(var(--surface-sunken))]/50 px-3 py-2.5 text-sm italic text-foreground/90">
+                        &ldquo;{r.comment}&rdquo;
+                      </p>
+                    )}
                   </li>
                 );
               })}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }
