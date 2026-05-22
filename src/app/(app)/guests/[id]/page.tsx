@@ -5,13 +5,17 @@ import {
   ArrowRight,
   Ban,
   Cake,
+  CheckCircle2,
   Clock,
   Heart,
   Mail,
+  MessageSquare,
   Phone,
   Plus,
   ShieldAlert,
   Sparkles,
+  Ticket,
+  XCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -22,17 +26,52 @@ import { LoyaltyBlockActions } from "@/components/guests/loyalty-block-actions";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { getGuest } from "@/server/guests";
 import { loyaltyHistory } from "@/server/loyalty";
+import { db } from "@/lib/db";
 import { formatCurrency, formatDate, formatDateTime, initials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-export default async function GuestDetail({ params }: { params: { id: string } }) {
+type Tab = "panoramica" | "marketing" | "loyalty";
+
+export default async function GuestDetail({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { tab?: string };
+}) {
   const ctx = await getActiveVenue();
   const g = await getGuest(ctx.venueId, params.id);
   if (!g) notFound();
   const canSeePrivate = can(ctx.role, "view_private");
   const canEditMarketing = can(ctx.role, "edit_marketing");
   const canManageBookings = can(ctx.role, "manage_bookings");
-  const txns = await loyaltyHistory(g.id, 8);
+
+  const tab: Tab =
+    searchParams.tab === "marketing"
+      ? "marketing"
+      : searchParams.tab === "loyalty"
+        ? "loyalty"
+        : "panoramica";
+
+  const txns = await loyaltyHistory(g.id, tab === "loyalty" ? 50 : 8);
+
+  const [messages, redemptions] =
+    tab === "marketing"
+      ? await Promise.all([
+          db.messageLog.findMany({
+            where: { guestId: g.id, venueId: ctx.venueId },
+            orderBy: { createdAt: "desc" },
+            take: 30,
+            include: { campaign: { select: { name: true } } },
+          }),
+          db.couponRedemption.findMany({
+            where: { guestId: g.id, venueId: ctx.venueId },
+            orderBy: { redeemedAt: "desc" },
+            take: 30,
+            include: { coupon: { select: { code: true, name: true } } },
+          }),
+        ])
+      : [[], []];
 
   const name = `${g.firstName} ${g.lastName ?? ""}`.trim();
   const totalSpendCents = Math.round(Number(g.totalSpend) * 100);
@@ -168,6 +207,20 @@ export default async function GuestDetail({ params }: { params: { id: string } }
         />
       </section>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-border">
+        <TabLink href={`/guests/${g.id}`} active={tab === "panoramica"}>
+          Panoramica
+        </TabLink>
+        <TabLink href={`/guests/${g.id}?tab=marketing`} active={tab === "marketing"}>
+          Marketing
+        </TabLink>
+        <TabLink href={`/guests/${g.id}?tab=loyalty`} active={tab === "loyalty"}>
+          Loyalty
+        </TabLink>
+      </div>
+
+      {tab === "panoramica" && (
       <section className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
         <div className="space-y-6">
           {/* Next booking */}
@@ -391,7 +444,186 @@ export default async function GuestDetail({ params }: { params: { id: string } }
           </PanelBody>
         </Panel>
       </section>
+      )}
+
+      {tab === "marketing" && (
+        <section className="grid gap-6 lg:grid-cols-2">
+          <Panel>
+            <PanelHeader
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-tertiary" /> Campagne ricevute
+                </span>
+              }
+              description={`${messages.length} messaggi negli ultimi mesi`}
+            />
+            <PanelBody className="pt-0">
+              {messages.length === 0 ? (
+                <EmptyState
+                  icon={MessageSquare}
+                  title="Nessun messaggio inviato"
+                  description="Quando questo ospite riceverà campagne email/SMS/WhatsApp le vedrai qui."
+                />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {messages.map((m) => (
+                    <li key={m.id} className="py-2.5 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate font-medium">
+                          {m.campaign?.name ?? m.subject ?? "Messaggio automatico"}
+                        </p>
+                        <MessageStatusBadge status={m.status} />
+                      </div>
+                      <p className="mt-0.5 text-xs text-tertiary">
+                        {m.channel} · {formatDateTime(m.createdAt)}
+                      </p>
+                      {m.bodyPreview && (
+                        <p className="mt-1 line-clamp-2 text-xs text-secondary">
+                          {m.bodyPreview}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </PanelBody>
+          </Panel>
+
+          <Panel>
+            <PanelHeader
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-tertiary" /> Coupon riscattati
+                </span>
+              }
+              description={`${redemptions.length} riscossioni totali`}
+            />
+            <PanelBody className="pt-0">
+              {redemptions.length === 0 ? (
+                <EmptyState
+                  icon={Ticket}
+                  title="Nessun coupon usato"
+                  description="Quando questo ospite riscatterà un coupon (sconto, omaggio, evento) lo vedrai qui."
+                />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {redemptions.map((r) => (
+                    <li key={r.id} className="py-2.5 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate font-medium">
+                          {r.coupon?.name ?? r.coupon?.code ?? "Coupon"}
+                        </p>
+                        {r.amountCents != null && (
+                          <span className="text-numeric text-status-confirmed font-medium text-xs">
+                            -{formatCurrency(r.amountCents, ctx.venue.currency)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-tertiary">
+                        {r.coupon?.code && (
+                          <span className="font-mono">{r.coupon.code} · </span>
+                        )}
+                        {formatDateTime(r.redeemedAt)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </PanelBody>
+          </Panel>
+        </section>
+      )}
+
+      {tab === "loyalty" && (
+        <Panel>
+          <PanelHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-gilt-dark" /> Storico loyalty
+              </span>
+            }
+            description={`${g.loyaltyPoints} punti attuali · ${txns.length} movimenti`}
+          />
+          <PanelBody className="pt-0">
+            {txns.length === 0 ? (
+              <EmptyState
+                icon={Sparkles}
+                title="Nessun movimento loyalty"
+                description="I punti vengono accreditati a ordine completato o tramite operazione manuale."
+              />
+            ) : (
+              <ul className="divide-y divide-border">
+                {txns.map((t) => (
+                  <li
+                    key={t.id}
+                    className="flex items-center justify-between py-2.5 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium">{t.reason ?? t.kind}</p>
+                      <p className="text-[11px] text-tertiary">
+                        {formatDateTime(t.createdAt)}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-numeric font-medium",
+                        t.points > 0
+                          ? "text-status-confirmed"
+                          : t.points < 0
+                            ? "text-status-no-show"
+                            : "text-tertiary",
+                      )}
+                    >
+                      {t.points > 0 ? "+" : ""}
+                      {t.points} pt
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PanelBody>
+        </Panel>
+      )}
     </div>
+  );
+}
+
+function TabLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+        active
+          ? "border-foreground text-foreground"
+          : "border-transparent text-secondary hover:text-foreground",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MessageStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; tone: string; icon: React.ReactNode }> = {
+    SENT: { label: "Inviato", tone: "text-status-confirmed bg-status-confirmed-soft", icon: <CheckCircle2 className="h-3 w-3" /> },
+    DELIVERED: { label: "Consegnato", tone: "text-status-confirmed bg-status-confirmed-soft", icon: <CheckCircle2 className="h-3 w-3" /> },
+    QUEUED: { label: "In coda", tone: "text-secondary bg-secondary", icon: <Clock className="h-3 w-3" /> },
+    FAILED: { label: "Errore", tone: "text-status-no-show bg-status-no-show-soft", icon: <XCircle className="h-3 w-3" /> },
+  };
+  const m = map[status] ?? { label: status, tone: "text-secondary bg-secondary", icon: null };
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium", m.tone)}>
+      {m.icon} {m.label}
+    </span>
   );
 }
 
