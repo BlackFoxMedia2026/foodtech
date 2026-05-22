@@ -11,17 +11,12 @@ import {
 import { can, getActiveVenue } from "@/lib/tenant";
 import { listWifiLeads, wifiStats } from "@/server/wifi";
 import { getWifiSetup } from "@/server/wifi-setup";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { StatCard } from "@/components/overview/stat-card";
-import { Badge } from "@/components/ui/badge";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Stat } from "@/components/ui/stat";
+import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import { whichWifiProvider } from "@/lib/wifi-provider";
 import { formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -40,17 +35,21 @@ export default async function WifiPage() {
     <div className="space-y-6 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Marketing</p>
-          <h1 className="text-display text-3xl">Wi-Fi marketing</h1>
-          <p className="text-sm text-muted-foreground">
-            Cattura ospiti dalla rete del locale e arricchiscili nel CRM.
+          <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+            Growth · Lead generation
+          </p>
+          <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+            Wi-Fi marketing
+          </h1>
+          <p className="mt-1 text-sm text-secondary">
+            Cattura ospiti dalla rete del locale, arricchisci il CRM, manda coupon di benvenuto.
           </p>
         </div>
         <div className="flex items-center gap-2">
           {canEdit && (
             <Link
               href="/wifi/setup"
-              className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-secondary"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-secondary transition-colors hover:border-border-strong hover:text-foreground"
             >
               <Settings2 className="h-3.5 w-3.5" />
               {setupDone ? "Modifica setup" : "Configura ora"}
@@ -59,7 +58,7 @@ export default async function WifiPage() {
           <Link
             href={`/wifi/${ctx.venue.slug}`}
             target="_blank"
-            className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-secondary"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-secondary transition-colors hover:border-border-strong hover:text-foreground"
           >
             Anteprima portale <ExternalLink className="h-3 w-3" />
           </Link>
@@ -67,18 +66,20 @@ export default async function WifiPage() {
       </header>
 
       {!setupDone && canEdit && (
-        <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <Settings2 className="mt-0.5 h-4 w-4" />
+        <div className="flex items-start gap-3 rounded-2xl border border-status-pending/30 bg-status-pending-soft/40 px-4 py-3 text-sm">
+          <Settings2 className="mt-0.5 h-4 w-4 text-status-pending" />
           <div className="flex-1">
-            <p className="font-medium">Il portale Wi-Fi non è ancora configurato.</p>
-            <p className="text-xs">
-              Bastano 5 step: brand, consenso GDPR, coupon di benvenuto, QR &amp; router, test.
-              Senza setup il portale funziona ma con valori di default.
+            <p className="font-medium text-status-pending">
+              Portale Wi-Fi non ancora configurato
+            </p>
+            <p className="mt-0.5 text-xs text-status-pending/85">
+              5 step: brand, consenso GDPR, coupon di benvenuto, QR &amp; router, test. Senza
+              setup il portale funziona ma con valori di default.
             </p>
           </div>
           <Link
             href="/wifi/setup"
-            className="inline-flex items-center gap-1 rounded-md bg-amber-900 px-3 py-1.5 text-xs font-medium text-amber-50 hover:bg-amber-800"
+            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-status-pending px-3 py-1.5 text-xs font-medium text-background hover:opacity-90"
           >
             Avvia wizard
           </Link>
@@ -86,67 +87,92 @@ export default async function WifiPage() {
       )}
 
       {setupDone && setup?.autoCouponEnabled && (
-        <div className="flex items-start gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
+        <div className="flex items-start gap-3 rounded-2xl border border-status-confirmed/30 bg-status-confirmed-soft/40 px-4 py-3 text-xs text-status-confirmed">
           <CheckCircle2 className="mt-0.5 h-4 w-4" />
           <span>
             Setup completato il {formatDateTime(setup.setupAt!)}. Coupon di benvenuto:{" "}
-            <strong>{setup.autoCouponPercent}%</strong> per {setup.autoCouponDays} giorni, attivo.
+            <strong>{setup.autoCouponPercent}%</strong> per {setup.autoCouponDays} giorni · attivo.
           </span>
         </div>
       )}
 
       <section className="grid gap-3 md:grid-cols-4">
-        <StatCard label="Lead totali" value={String(stats.totalLeads)} emphasize />
-        <StatCard label="Nuovi 30gg" value={String(stats.leads30d)} />
-        <StatCard label="Sessioni 30gg" value={String(stats.sessions30d)} />
-        <StatCard label="Opt-in marketing" value={`${stats.marketingOptInRate}%`} />
+        <Stat label="Lead totali" value={stats.totalLeads} hint="dall'inizio" emphasized />
+        <Stat label="Nuovi 30gg" value={stats.leads30d} hint="acquisizioni recenti" />
+        <Stat label="Sessioni 30gg" value={stats.sessions30d} hint="connessioni Wi-Fi" />
+        <Stat
+          label="Opt-in marketing"
+          value={`${stats.marketingOptInRate}%`}
+          hint="conversione consenso"
+          delta={
+            stats.marketingOptInRate >= 60
+              ? { value: "ottimo", tone: "positive" }
+              : stats.marketingOptInRate >= 30
+                ? undefined
+                : { value: "basso", tone: "negative" }
+          }
+        />
       </section>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-4 w-4" /> Provider hotspot
-              </CardTitle>
-              <CardDescription>
-                {provider === "noop"
-                  ? "Provider non configurato: il portale registra il lead nel CRM ma non sblocca la rete a livello hardware."
-                  : "Provider HTTP attivo: ad ogni connessione viene chiamato il webhook configurato."}
-              </CardDescription>
-            </div>
-            <Badge tone={provider === "noop" ? "neutral" : "gold"}>{provider}</Badge>
-          </div>
-        </CardHeader>
+      <Panel>
+        <PanelHeader
+          title={
+            <span className="inline-flex items-center gap-2">
+              <Wifi className="h-4 w-4 text-tertiary" /> Provider hotspot
+            </span>
+          }
+          description={
+            provider === "noop"
+              ? "Provider non configurato. Il portale registra il lead nel CRM ma non sblocca la rete a livello hardware."
+              : "Provider HTTP attivo. A ogni connessione viene chiamato il webhook configurato per sbloccare la rete."
+          }
+          action={
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10.5px] font-medium",
+                provider === "noop"
+                  ? "bg-secondary text-secondary"
+                  : "bg-gilt/15 text-gilt-light",
+              )}
+            >
+              {provider}
+            </span>
+          }
+        />
         {provider === "noop" && (
-          <CardContent className="text-xs text-muted-foreground">
-            Per integrare il router/hotspot reale imposta le env{" "}
-            <code className="rounded bg-secondary px-1">WIFI_HOOK_URL</code> e
-            <code className="ml-1 rounded bg-secondary px-1">WIFI_HOOK_SECRET</code>. Il webhook
-            riceverà <code className="rounded bg-secondary px-1">{`{ leadId, venueSlug, ipAddress, userAgent }`}</code>{" "}
-            e potrà sbloccare la rete tramite l&apos;API del tuo controller (Cisco Meraki, Ubiquiti,
-            Aruba, OpenWrt, …).
-          </CardContent>
+          <PanelBody className="pt-0 text-xs text-tertiary">
+            Per integrare il router reale imposta le env{" "}
+            <code className="rounded bg-secondary px-1.5 py-0.5 font-mono">WIFI_HOOK_URL</code> e
+            <code className="ml-1 rounded bg-secondary px-1.5 py-0.5 font-mono">WIFI_HOOK_SECRET</code>.
+            Il webhook riceverà{" "}
+            <code className="rounded bg-secondary px-1.5 py-0.5 font-mono">
+              {"{ leadId, venueSlug, ipAddress, userAgent }"}
+            </code>{" "}
+            e potrà sbloccare la rete tramite controller (Cisco Meraki, Ubiquiti, Aruba, OpenWrt…).
+          </PanelBody>
         )}
-      </Card>
+      </Panel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ultimi lead</CardTitle>
-          <CardDescription>Ordinati dal più recente</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Panel>
+        <PanelHeader title="Ultimi lead" description="Ordinati dal più recente" />
+        <PanelBody className="pt-0">
           {leads.length === 0 ? (
-            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Ancora nessun lead. Condividi la URL del portale o stampala come QR sulla tua porta.
-            </p>
+            <EmptyStateRich
+              icon={Wifi}
+              title="Ancora nessun lead"
+              description="Condividi la URL del portale o stampala come QR sulla porta del locale per iniziare a raccogliere lead."
+              hint="Ogni nuovo ospite collegato diventa un guest nel CRM con consenso tracciato."
+            />
           ) : (
-            <ul className="divide-y text-sm">
+            <ul className="divide-y divide-border text-sm">
               {leads.map((l) => (
-                <li key={l.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <li
+                  key={l.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
                   <div>
                     <p className="font-medium">{l.name}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="mt-0.5 text-xs text-tertiary">
                       {l.email && (
                         <span className="mr-3 inline-flex items-center gap-1">
                           <Mail className="h-3 w-3" /> {l.email}
@@ -165,13 +191,23 @@ export default async function WifiPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {l.consentMarketing && <Badge tone="gold">opt-in</Badge>}
-                    {l.source && <Badge tone="neutral">{l.source}</Badge>}
-                    <span className="text-xs text-muted-foreground">{formatDateTime(l.createdAt)}</span>
+                    {l.consentMarketing && (
+                      <span className="inline-flex items-center rounded-full bg-gilt/15 px-2.5 py-0.5 text-[10.5px] font-medium text-gilt-light">
+                        opt-in
+                      </span>
+                    )}
+                    {l.source && (
+                      <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-[10.5px] font-medium text-secondary">
+                        {l.source}
+                      </span>
+                    )}
+                    <span className="text-xs text-tertiary text-numeric">
+                      {formatDateTime(l.createdAt)}
+                    </span>
                     {l.guestId && (
                       <Link
                         href={`/guests/${l.guestId}`}
-                        className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                        className="text-xs font-medium text-secondary transition hover:text-foreground"
                       >
                         Apri scheda
                       </Link>
@@ -181,8 +217,8 @@ export default async function WifiPage() {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

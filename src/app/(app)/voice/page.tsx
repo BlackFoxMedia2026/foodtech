@@ -7,27 +7,22 @@ import {
   voiceStats,
 } from "@/server/voice";
 import { isVoiceEnabled } from "@/lib/voice-provider";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { StatCard } from "@/components/overview/stat-card";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Stat } from "@/components/ui/stat";
+import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import { VoiceActions } from "@/components/voice/voice-actions";
 import { formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const CALL_TONE: Record<string, "success" | "warning" | "danger" | "neutral" | "info"> = {
-  COMPLETED: "success",
-  IN_PROGRESS: "info",
-  RINGING: "neutral",
-  MISSED: "warning",
-  FAILED: "danger",
-  QUEUED: "neutral",
+const CALL_META: Record<string, { label: string; tone: string }> = {
+  COMPLETED: { label: "Completata", tone: "bg-status-confirmed-soft text-status-confirmed" },
+  IN_PROGRESS: { label: "In corso", tone: "bg-status-vip-soft text-status-vip" },
+  RINGING: { label: "Squilla", tone: "bg-secondary text-secondary" },
+  MISSED: { label: "Persa", tone: "bg-status-pending-soft text-status-pending" },
+  FAILED: { label: "Errore", tone: "bg-status-no-show-soft text-status-no-show" },
+  QUEUED: { label: "In coda", tone: "bg-secondary text-secondary" },
 };
 
 export default async function VoiceAdminPage() {
@@ -43,84 +38,104 @@ export default async function VoiceAdminPage() {
     voiceStats(ctx.venueId),
   ]);
   const enabled = isVoiceEnabled();
-
   const webhookUrl = `${baseUrl}/api/voice/${ctx.venue.slug}`;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Conversational</p>
-        <h1 className="text-display text-3xl">Assistente vocale</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+          Growth · Conversational
+        </p>
+        <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+          Assistente vocale
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-secondary">
           Trascrizioni delle telefonate, bozze di prenotazione da approvare e callback automatici
           per le chiamate perse.
         </p>
       </header>
 
       {!enabled && (
-        <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
-          Provider voce non configurato: stiamo registrando in modalità simulata. Aggiungi{" "}
-          <code className="rounded bg-sky-100 px-1">TWILIO_FROM_VOICE</code> (oltre alle credenziali
-          Twilio) per attivare i callback reali.
-        </p>
+        <div className="rounded-2xl border border-status-vip/30 bg-status-vip-soft/40 px-4 py-3 text-sm text-status-vip">
+          <p className="font-medium">Provider voce non configurato (modalità simulata)</p>
+          <p className="mt-0.5 text-xs">
+            Aggiungi{" "}
+            <code className="rounded bg-status-vip/15 px-1.5 py-0.5 font-mono">TWILIO_FROM_VOICE</code>{" "}
+            (e le credenziali Twilio) per attivare i callback reali.
+          </p>
+        </div>
       )}
 
       <section className="grid gap-3 md:grid-cols-4">
-        <StatCard label="Chiamate 30gg" value={String(stats.calls)} emphasize />
-        <StatCard label="Perse 30gg" value={String(stats.missed)} />
-        <StatCard label="Bozze in attesa" value={String(stats.drafts)} />
-        <StatCard label="Convertite" value={String(stats.converted)} />
+        <Stat label="Chiamate 30gg" value={stats.calls} hint="totali ricevute" emphasized />
+        <Stat
+          label="Perse 30gg"
+          value={stats.missed}
+          hint={stats.missed > 0 ? "richiede callback" : "tutte risposte"}
+          delta={
+            stats.missed > 0
+              ? { value: "follow-up", tone: "negative" }
+              : { value: "ok", tone: "positive" }
+          }
+        />
+        <Stat label="Bozze in attesa" value={stats.drafts} hint="da approvare" />
+        <Stat label="Convertite" value={stats.converted} hint="in prenotazione" />
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Webhook provider</CardTitle>
-          <CardDescription>
-            Configura il tuo provider voice (Twilio Studio, Vapi, Retell…) perché POSTi le
-            trascrizioni qui:
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <pre className="overflow-x-auto rounded-md bg-secondary px-3 py-2 text-xs">
+      <Panel>
+        <PanelHeader
+          title="Webhook provider"
+          description="Configura il tuo provider voce (Twilio Studio, Vapi, Retell...) perché POST le trascrizioni qui."
+        />
+        <PanelBody className="pt-0">
+          <pre className="overflow-x-auto rounded-lg bg-[hsl(var(--surface-sunken))]/50 px-3.5 py-3 font-mono text-xs text-secondary">
             {webhookUrl}
           </pre>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Header opzionale: <code>x-voice-secret</code> uguale a{" "}
-            <code>VOICE_WEBHOOK_SECRET</code>.
+          <p className="mt-2 text-xs text-tertiary">
+            Header opzionale:{" "}
+            <code className="rounded bg-secondary px-1.5 py-0.5 font-mono">x-voice-secret</code>{" "}
+            uguale a{" "}
+            <code className="rounded bg-secondary px-1.5 py-0.5 font-mono">VOICE_WEBHOOK_SECRET</code>.
           </p>
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Bozze in attesa</CardTitle>
-            <CardDescription>
-              L&apos;assistente estrae i dati dalla trascrizione: tu approvi, e diventa una prenotazione.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Panel>
+          <PanelHeader
+            title="Bozze in attesa"
+            description="L'assistente estrae i dati dalla trascrizione: tu approvi e diventa prenotazione."
+          />
+          <PanelBody className="pt-0">
             {drafts.length === 0 ? (
-              <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                Nessuna bozza in attesa.
-              </p>
+              <EmptyStateRich
+                size="compact"
+                icon={Phone}
+                title="Nessuna bozza"
+                description="Le bozze compaiono qui quando il webhook riceve una trascrizione."
+              />
             ) : (
-              <ul className="divide-y text-sm">
+              <ul className="divide-y divide-border text-sm">
                 {drafts.map((d) => (
                   <li
                     key={d.id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                    className="flex flex-wrap items-center justify-between gap-3 py-3"
                   >
                     <div className="min-w-0">
                       <p className="font-medium">
                         {d.callerName ?? "Sconosciuto"}
-                        {d.phone ? ` · ${d.phone}` : ""}
+                        {d.phone && (
+                          <span className="ml-2 text-tertiary">{d.phone}</span>
+                        )}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {d.partySize ?? "?"} pax · {d.preferredDate ?? "—"} {d.preferredTime ?? ""}
+                      <p className="text-xs text-tertiary">
+                        {d.partySize ?? "?"} pax · {d.preferredDate ?? "—"}{" "}
+                        {d.preferredTime ?? ""}
                       </p>
                       {d.notes && (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">{d.notes}</p>
+                        <p className="line-clamp-2 text-xs text-tertiary italic">
+                          {d.notes}
+                        </p>
                       )}
                     </div>
                     {canManage && <VoiceActions kind="draft" id={d.id} />}
@@ -128,33 +143,36 @@ export default async function VoiceAdminPage() {
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
+          </PanelBody>
+        </Panel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Chiamate perse</CardTitle>
-            <CardDescription>
-              Premi &ldquo;Richiama&rdquo; per inviare un callback al provider configurato.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Panel>
+          <PanelHeader
+            title="Chiamate perse"
+            description="Premi Richiama per inviare un callback al provider configurato."
+          />
+          <PanelBody className="pt-0">
             {missed.length === 0 ? (
-              <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                Nessuna chiamata persa pendente.
-              </p>
+              <EmptyStateRich
+                size="compact"
+                icon={PhoneMissed}
+                title="Nessuna chiamata persa"
+                description="Tutto sotto controllo."
+              />
             ) : (
-              <ul className="divide-y text-sm">
+              <ul className="divide-y divide-border text-sm">
                 {missed.map((m) => (
                   <li
                     key={m.id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                    className="flex flex-wrap items-center justify-between gap-3 py-3"
                   >
-                    <div className="flex items-center gap-2">
-                      <PhoneMissed className="h-4 w-4 text-amber-600" />
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-status-pending-soft text-status-pending">
+                        <PhoneMissed className="h-4 w-4" />
+                      </span>
                       <div>
                         <p className="font-medium">{m.fromNumber}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-tertiary">
                           {m.attempts} tentativi · {formatDateTime(m.createdAt)}
                         </p>
                       </div>
@@ -164,50 +182,71 @@ export default async function VoiceAdminPage() {
                 ))}
               </ul>
             )}
-          </CardContent>
-        </Card>
+          </PanelBody>
+        </Panel>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Registro chiamate</CardTitle>
-          <CardDescription>Ultime 30 chiamate con stato, durata e trascrizione.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Panel>
+        <PanelHeader
+          title="Registro chiamate"
+          description="Ultime 30 chiamate con stato, durata e trascrizione."
+        />
+        <PanelBody className="pt-0">
           {calls.length === 0 ? (
-            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Nessuna chiamata registrata.
-            </p>
+            <EmptyStateRich
+              size="compact"
+              icon={Phone}
+              title="Nessuna chiamata registrata"
+              description="Le chiamate compaiono qui quando il webhook riceve eventi."
+            />
           ) : (
-            <ul className="divide-y text-sm">
-              {calls.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-start justify-between gap-2 py-2">
-                  <div className="flex items-start gap-2">
-                    {c.direction === "INBOUND" ? (
-                      <PhoneIncoming className="mt-1 h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Phone className="mt-1 h-4 w-4 text-muted-foreground" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-medium">{c.fromNumber}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {c.intent ?? "—"} · {c.durationSec ? `${c.durationSec}s · ` : ""}
-                        {formatDateTime(c.createdAt)}
-                      </p>
-                      {c.transcript && (
-                        <p className="line-clamp-2 max-w-prose text-xs text-muted-foreground">
-                          {c.transcript}
+            <ul className="divide-y divide-border text-sm">
+              {calls.map((c) => {
+                const meta = CALL_META[c.status] ?? {
+                  label: c.status,
+                  tone: "bg-secondary text-secondary",
+                };
+                return (
+                  <li
+                    key={c.id}
+                    className="flex flex-wrap items-start justify-between gap-3 py-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[hsl(var(--surface-sunken))] text-tertiary">
+                        {c.direction === "INBOUND" ? (
+                          <PhoneIncoming className="h-4 w-4" />
+                        ) : (
+                          <Phone className="h-4 w-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-medium">{c.fromNumber}</p>
+                        <p className="text-xs text-tertiary">
+                          {c.intent ?? "—"} · {c.durationSec ? `${c.durationSec}s · ` : ""}
+                          {formatDateTime(c.createdAt)}
                         </p>
-                      )}
+                        {c.transcript && (
+                          <p className="line-clamp-2 max-w-prose text-xs italic text-tertiary">
+                            {c.transcript}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <Badge tone={CALL_TONE[c.status] ?? "neutral"}>{c.status}</Badge>
-                </li>
-              ))}
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10.5px] font-medium",
+                        meta.tone,
+                      )}
+                    >
+                      {meta.label}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }
