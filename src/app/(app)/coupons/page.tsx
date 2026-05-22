@@ -2,11 +2,12 @@ import Link from "next/link";
 import { ExternalLink, Tag } from "lucide-react";
 import { getActiveVenue, can } from "@/lib/tenant";
 import { listCoupons, couponStats } from "@/server/coupons";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { StatCard } from "@/components/overview/stat-card";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Stat } from "@/components/ui/stat";
+import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import { CouponDialog } from "@/components/coupons/coupon-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,12 @@ const CATEGORY_LABEL = {
   STAFF: "Staff",
 } as const;
 
-const STATUS_TONE = {
-  ACTIVE: "success",
-  PAUSED: "warning",
-  EXPIRED: "neutral",
-  ARCHIVED: "neutral",
-} as const;
+const STATUS_META: Record<string, { label: string; tone: string }> = {
+  ACTIVE: { label: "Attivo", tone: "bg-status-confirmed-soft text-status-confirmed" },
+  PAUSED: { label: "In pausa", tone: "bg-status-pending-soft text-status-pending" },
+  EXPIRED: { label: "Scaduto", tone: "bg-secondary text-secondary" },
+  ARCHIVED: { label: "Archiviato", tone: "bg-secondary text-secondary" },
+};
 
 export default async function CouponsPage() {
   const ctx = await getActiveVenue();
@@ -47,37 +48,46 @@ export default async function CouponsPage() {
     <div className="space-y-6 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Marketing</p>
-          <h1 className="text-display text-3xl">Coupon & promozioni</h1>
-          <p className="text-sm text-muted-foreground">
-            Crea codici per compleanni, win-back, eventi. Valida al ritiro/checkout.
+          <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+            Vendite · Promozioni
+          </p>
+          <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+            Coupon &amp; promozioni
+          </h1>
+          <p className="mt-1 text-sm text-secondary">
+            Crea codici per compleanni, win-back ed eventi. Valida al ritiro o al checkout.
           </p>
         </div>
         {canEdit && <CouponDialog currency={ctx.venue.currency} />}
       </header>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <StatCard label="Coupon totali" value={String(stats.total)} />
-        <StatCard label="Attivi" value={String(stats.active)} emphasize />
-        <StatCard label="Riscatti" value={String(stats.redeemed)} />
-        <StatCard
+        <Stat label="Coupon totali" value={stats.total} hint="archivio completo" />
+        <Stat label="Attivi" value={stats.active} hint="utilizzabili oggi" emphasized />
+        <Stat label="Riscatti" value={stats.redeemed} hint="dall'inizio" />
+        <Stat
           label="Sconti riscattati"
           value={formatCurrency(stats.valueCentsRedeemed, ctx.venue.currency)}
+          hint="valore reale erogato"
         />
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tutti i coupon</CardTitle>
-          <CardDescription>Click su &ldquo;Apri pubblico&rdquo; per condividere il link.</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Panel>
+        <PanelHeader
+          title="Tutti i coupon"
+          description="Click su 'Apri pubblico' per copiare il link da condividere via SMS, email o QR."
+        />
+        <PanelBody className="pt-0">
           {items.length === 0 ? (
-            <p className="rounded-md border border-dashed p-12 text-center text-sm text-muted-foreground">
-              Ancora nessun coupon. Crea il primo per iniziare.
-            </p>
+            <EmptyStateRich
+              icon={Tag}
+              title="Nessun coupon creato"
+              description="Crea il primo coupon per attivare campagne di win-back, compleanni, eventi e nuovi clienti."
+              primary={canEdit ? <CouponDialog currency={ctx.venue.currency} /> : undefined}
+              hint="I coupon si collegano automaticamente alle automazioni Growth."
+            />
           ) : (
-            <ul className="divide-y text-sm">
+            <ul className="divide-y divide-border">
               {items.map((c) => {
                 const valueLabel =
                   c.kind === "PERCENT"
@@ -90,32 +100,48 @@ export default async function CouponsPage() {
                 const usage = c.maxRedemptions
                   ? `${c.redemptionCount}/${c.maxRedemptions}`
                   : `${c.redemptionCount} riscatti`;
+                const meta = STATUS_META[c.status] ?? {
+                  label: c.status,
+                  tone: "bg-secondary text-secondary",
+                };
                 return (
-                  <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <li
+                    key={c.id}
+                    className="flex flex-wrap items-center justify-between gap-3 py-3"
+                  >
                     <div className="flex min-w-0 items-start gap-3">
-                      <span className="grid h-9 w-9 place-items-center rounded-md bg-gilt/10 text-gilt-dark">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gilt/15 text-gilt-light">
                         <Tag className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
-                        <p className="font-medium">
-                          {c.name}{" "}
-                          <span className="ml-2 font-mono text-xs text-muted-foreground">
+                        <p className="flex flex-wrap items-center gap-2 font-medium">
+                          {c.name}
+                          <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-secondary">
                             {c.code}
                           </span>
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-tertiary">
                           {KIND_LABEL[c.kind]} · {CATEGORY_LABEL[c.category]} · {usage}
                           {c.validUntil ? ` · scade ${formatDate(c.validUntil)}` : ""}
                         </p>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-display text-lg text-gilt-dark">{valueLabel}</span>
-                      <Badge tone={STATUS_TONE[c.status]}>{c.status}</Badge>
+                      <span className="text-display text-numeric text-xl font-medium text-gilt-light">
+                        {valueLabel}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10.5px] font-medium",
+                          meta.tone,
+                        )}
+                      >
+                        {meta.label}
+                      </span>
                       <Link
                         href={`/coupon/${c.code}`}
                         target="_blank"
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-secondary transition-colors hover:border-border-strong hover:text-foreground"
                       >
                         Apri pubblico <ExternalLink className="h-3 w-3" />
                       </Link>
@@ -145,8 +171,8 @@ export default async function CouponsPage() {
               })}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

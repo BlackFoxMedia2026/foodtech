@@ -1,10 +1,12 @@
+import { CreditCard } from "lucide-react";
 import { db } from "@/lib/db";
 import { can, getActiveVenue } from "@/lib/tenant";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatCard } from "@/components/overview/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Stat } from "@/components/ui/stat";
+import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import { ExportButton } from "@/components/ui/export-button";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +18,15 @@ const KIND_LABEL = {
   PACKAGE: "Pacchetto",
 } as const;
 
-const STATUS_TONE = {
-  PENDING: "warning",
-  SUCCEEDED: "success",
-  FAILED: "danger",
-  REFUNDED: "neutral",
-} as const;
+const STATUS_META: Record<
+  string,
+  { label: string; tone: string }
+> = {
+  PENDING: { label: "In attesa", tone: "bg-status-pending-soft text-status-pending" },
+  SUCCEEDED: { label: "Completato", tone: "bg-status-confirmed-soft text-status-confirmed" },
+  FAILED: { label: "Errore", tone: "bg-status-no-show-soft text-status-no-show" },
+  REFUNDED: { label: "Rimborsato", tone: "bg-secondary text-secondary" },
+};
 
 export default async function PaymentsPage() {
   const ctx = await getActiveVenue();
@@ -39,58 +44,129 @@ export default async function PaymentsPage() {
     .filter((p) => p.status === "REFUNDED")
     .reduce((s, p) => s + p.amountCents, 0);
   const pending = items.filter((p) => p.status === "PENDING").length;
+  const failed = items.filter((p) => p.status === "FAILED").length;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Finanze</p>
-          <h1 className="text-display text-3xl">Pagamenti</h1>
+          <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+            Vendite · Movimenti finanziari
+          </p>
+          <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+            Pagamenti
+          </h1>
+          <p className="mt-1 text-sm text-secondary">
+            Caparre, preautorizzazioni, ticket eventi e rimborsi in un unico registro.
+          </p>
         </div>
         {can(ctx.role, "view_revenue") && <ExportButton kind="payments" />}
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Incassato" value={formatCurrency(total, ctx.venue.currency)} emphasize />
-        <StatCard label="Rimborsato" value={formatCurrency(refunded, ctx.venue.currency)} />
-        <StatCard label="In attesa" value={String(pending)} />
+      <section className="grid gap-3 md:grid-cols-4">
+        <Stat
+          label="Incassato"
+          value={formatCurrency(total, ctx.venue.currency)}
+          hint="ultimi 100 movimenti SUCCEEDED"
+          emphasized
+        />
+        <Stat
+          label="Rimborsato"
+          value={formatCurrency(refunded, ctx.venue.currency)}
+          hint={refunded > 0 ? "controlla la motivazione" : "nessun rimborso"}
+        />
+        <Stat
+          label="In attesa"
+          value={pending}
+          hint={pending > 0 ? "richiede follow-up" : "tutto chiuso"}
+          delta={
+            pending > 0 ? { value: "follow-up", tone: "negative" } : undefined
+          }
+        />
+        <Stat
+          label="Falliti"
+          value={failed}
+          hint={failed > 0 ? "verifica configurazione" : "nessun errore"}
+          delta={
+            failed > 0
+              ? { value: "errore", tone: "negative" }
+              : undefined
+          }
+        />
       </section>
 
-      <Card>
-        <CardHeader><CardTitle>Movimenti recenti</CardTitle></CardHeader>
-        <CardContent>
+      <Panel>
+        <PanelHeader
+          title={
+            <span className="inline-flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-tertiary" /> Movimenti recenti
+            </span>
+          }
+          description={`${items.length} movimenti · ordine dal più recente`}
+        />
+        <PanelBody className="pt-0">
           {items.length === 0 ? (
-            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Nessun pagamento registrato.
-            </p>
+            <EmptyStateRich
+              icon={CreditCard}
+              title="Nessun pagamento registrato"
+              description="I pagamenti compaiono qui automaticamente quando configuri Stripe e gli ospiti pagano caparre, ticket eventi o preautorizzazioni."
+              hint="Imposta STRIPE_SECRET_KEY in env per attivare i pagamenti reali."
+            />
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left">Data</th>
-                  <th className="px-3 py-2 text-left">Tipo</th>
-                  <th className="px-3 py-2 text-left">Ospite</th>
-                  <th className="px-3 py-2 text-right">Importo</th>
-                  <th className="px-3 py-2 text-left">Stato</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {items.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-3 py-2">{formatDateTime(p.createdAt)}</td>
-                    <td className="px-3 py-2">{KIND_LABEL[p.kind]}</td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {p.guest ? `${p.guest.firstName} ${p.guest.lastName ?? ""}` : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium">{formatCurrency(p.amountCents, p.currency)}</td>
-                    <td className="px-3 py-2"><Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge></td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-[hsl(var(--surface-sunken))]/60 text-[10.5px] font-medium uppercase tracking-[0.14em] text-tertiary">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Data</th>
+                    <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                    <th className="px-4 py-3 text-left font-medium">Ospite</th>
+                    <th className="px-4 py-3 text-right font-medium">Importo</th>
+                    <th className="px-4 py-3 text-left font-medium">Stato</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {items.map((p) => {
+                    const meta = STATUS_META[p.status] ?? {
+                      label: p.status,
+                      tone: "bg-secondary text-secondary",
+                    };
+                    return (
+                      <tr key={p.id} className="transition-colors hover:bg-secondary/40">
+                        <td className="px-4 py-3 text-numeric text-tertiary">
+                          {formatDateTime(p.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          {KIND_LABEL[p.kind]}
+                        </td>
+                        <td className="px-4 py-3 text-secondary">
+                          {p.guest
+                            ? `${p.guest.firstName} ${p.guest.lastName ?? ""}`.trim()
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-display text-numeric text-base font-medium tabular-nums">
+                            {formatCurrency(p.amountCents, p.currency)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+                              meta.tone,
+                            )}
+                          >
+                            {meta.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

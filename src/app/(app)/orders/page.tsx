@@ -17,18 +17,23 @@ export default async function OrdersPage() {
     <div className="space-y-6 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Cucina</p>
-          <h1 className="text-display text-3xl">Asporto & Delivery</h1>
-          <p className="text-sm text-muted-foreground">
-            {open} ordini aperti · {today} totali oggi
+          <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+            Vendite · Cucina
+          </p>
+          <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+            Asporto &amp; Delivery
+          </h1>
+          <p className="mt-1 text-sm text-secondary">
+            <span className="text-numeric text-foreground">{open}</span> ordini aperti ·{" "}
+            <span className="text-numeric text-foreground">{today}</span> totali oggi
           </p>
         </div>
         <Link
           href={`/order/${ctx.venue.slug}`}
           target="_blank"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-secondary transition-colors hover:border-border-strong hover:text-foreground"
         >
-          Apri menu ordini pubblico <ExternalLink className="h-3 w-3" />
+          Apri menu ordini pubblico <ExternalLink className="h-3.5 w-3.5" />
         </Link>
       </header>
 
