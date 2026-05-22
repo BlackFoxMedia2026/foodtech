@@ -59,6 +59,8 @@ export default async function OverviewPage() {
       where: {
         venueId: ctx.venueId,
         status: { in: ["WAITING", "NOTIFIED", "OFFERED"] },
+        // Solo entry recenti (entro 4h): scarta seed/demo stantii
+        createdAt: { gte: new Date(Date.now() - 4 * 60 * 60_000) },
       },
       orderBy: { position: "asc" },
       take: 5,
@@ -178,6 +180,7 @@ export default async function OverviewPage() {
           ) / waitlist.length,
         )
       : 0;
+  const avgWaitLabel = formatWait(avgWaitMin);
 
   // Service status
   const serviceStatus =
@@ -239,7 +242,7 @@ export default async function OverviewPage() {
       key: "waitlist",
       label: "In coda",
       value: String(waitlist.length),
-      hint: waitlist.length > 0 ? `${avgWaitMin}m attesa media` : "lista vuota",
+      hint: waitlist.length > 0 ? `${avgWaitLabel} attesa media` : "lista vuota",
       icon: Hourglass,
       href: "/waitlist",
       tone: waitlist.length > 0 ? "warning" : "neutral",
@@ -466,7 +469,7 @@ export default async function OverviewPage() {
                                 overdue ? "text-status-no-show" : "text-foreground",
                               )}
                             >
-                              {minutesIn}m
+                              {formatWait(minutesIn)}
                             </p>
                             <p className="text-numeric mt-0.5 text-[10.5px] text-tertiary">
                               su {w.expectedWaitMin}m
@@ -625,6 +628,17 @@ export default async function OverviewPage() {
       </Link>
     </div>
   );
+}
+
+function formatWait(min: number): string {
+  if (min < 0) return "0m";
+  if (min < 60) return `${min}m`;
+  if (min < 24 * 60) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m === 0 ? `${h}h` : `${h}h${m.toString().padStart(2, "0")}`;
+  }
+  return ">24h";
 }
 
 function buildPredictive(hour: number, _vips: number, _waitlist: number): PredictiveSlot[] {
