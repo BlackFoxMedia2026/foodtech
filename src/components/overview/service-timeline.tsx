@@ -36,13 +36,21 @@ function diffLabel(min: number) {
   return m === 0 ? `tra ${h}h` : `tra ${h}h ${m}m`;
 }
 
-export function ServiceTimeline({ rows }: { rows: TimelineRow[] }) {
+export function ServiceTimeline({
+  rows,
+  variant = "light",
+}: {
+  rows: TimelineRow[];
+  variant?: "light" | "dark";
+}) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  const dark = variant === "dark";
 
   if (rows.length === 0) {
     return (
@@ -55,17 +63,18 @@ export function ServiceTimeline({ rows }: { rows: TimelineRow[] }) {
           </Button>
         }
         secondary={
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant={dark ? "outline" : "outline"} size="sm">
             <Link href="/bookings?walkin=1">Walk-in rapido</Link>
           </Button>
         }
         hint="Tutto ciò che entra in agenda da widget, telefono o app comparirà qui in tempo reale."
+        className={dark ? "border-white/10 bg-white/[0.02] text-sand-50" : ""}
       />
     );
   }
 
   return (
-    <ul className="divide-y divide-border">
+    <ul className={cn("divide-y", dark ? "divide-white/8" : "divide-border")}>
       {rows.map((b) => {
         const min = diffMinutes(b.startsAt, now);
         const imminent = min >= -5 && min <= 15;
@@ -76,53 +85,123 @@ export function ServiceTimeline({ rows }: { rows: TimelineRow[] }) {
             <Link
               href={`/bookings/${b.id}`}
               className={cn(
-                "-mx-2 flex items-center gap-3 rounded-md px-2 py-2.5 transition-colors hover:bg-secondary/40",
-                overdue && "bg-status-no-show-soft/30",
+                "flex items-center gap-4 px-1 py-3.5 transition-colors -mx-1 rounded-md",
+                dark
+                  ? "hover:bg-white/[0.04]"
+                  : "hover:bg-secondary/40",
+                overdue && (dark ? "bg-rose-500/10" : "bg-status-no-show-soft/30"),
               )}
             >
-              <div className="w-14 shrink-0 text-right">
-                <p className="text-display text-numeric text-[15px] font-medium leading-none">
+              {/* Time column - LARGER */}
+              <div className="w-20 shrink-0">
+                <p
+                  className={cn(
+                    "text-display text-numeric text-2xl font-medium leading-none tabular-nums",
+                    dark ? "text-sand-50" : "text-foreground",
+                  )}
+                >
                   {formatTime(b.startsAt)}
                 </p>
                 <p
                   className={cn(
-                    "mt-0.5 text-[10px] text-numeric",
+                    "mt-1 text-[11px] text-numeric font-medium",
                     overdue
-                      ? "text-status-no-show font-medium"
+                      ? "text-rose-400"
                       : imminent
-                        ? "text-status-confirmed font-medium"
-                        : "text-tertiary",
+                        ? dark
+                          ? "text-emerald-300"
+                          : "text-status-confirmed"
+                        : dark
+                          ? "text-sand-50/45"
+                          : "text-tertiary",
                   )}
                 >
                   {diffLabel(min)}
                 </p>
               </div>
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-[10.5px]">
+
+              {/* Vertical separator line */}
+              <div
+                className={cn(
+                  "h-12 w-px shrink-0",
+                  dark ? "bg-white/10" : "bg-border",
+                )}
+              />
+
+              {/* Avatar - LARGER */}
+              <Avatar className="h-11 w-11 shrink-0">
+                <AvatarFallback
+                  className={cn(
+                    "text-xs",
+                    dark && "bg-white/8 text-sand-50",
+                  )}
+                >
                   {initials(b.guestName)}
                 </AvatarFallback>
               </Avatar>
+
+              {/* Main info - LARGER text */}
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                <p
+                  className={cn(
+                    "flex items-center gap-2 truncate text-[15px] font-medium",
+                    dark ? "text-sand-50" : "text-foreground",
+                  )}
+                >
                   {b.guestName}
-                  {b.isVip && <Crown className="h-3 w-3 shrink-0 text-gilt-dark" />}
+                  {b.isVip && (
+                    <Crown
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0",
+                        dark ? "text-gilt-light" : "text-gilt-dark",
+                      )}
+                    />
+                  )}
                   {imminent && (
-                    <span className="relative inline-flex h-1.5 w-1.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-confirmed opacity-60" />
-                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-confirmed" />
+                    <span className="relative inline-flex h-2 w-2">
+                      <span
+                        className={cn(
+                          "absolute inline-flex h-full w-full animate-ping rounded-full opacity-60",
+                          dark ? "bg-emerald-400" : "bg-status-confirmed",
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "relative inline-flex h-2 w-2 rounded-full",
+                          dark ? "bg-emerald-400" : "bg-status-confirmed",
+                        )}
+                      />
                     </span>
                   )}
                 </p>
-                <p className="truncate text-xs text-tertiary">
+                <p
+                  className={cn(
+                    "mt-0.5 truncate text-[12.5px]",
+                    dark ? "text-sand-50/55" : "text-tertiary",
+                  )}
+                >
                   {b.tableLabel ? `Tavolo ${b.tableLabel}` : "Tavolo da assegnare"}
                   {b.notes ? ` · ${b.notes}` : ""}
                 </p>
               </div>
-              <span className="hidden items-center gap-1 text-xs text-numeric text-secondary sm:inline-flex">
-                <Users className="h-3.5 w-3.5 text-tertiary" />
-                {b.partySize}
-              </span>
-              <StatusPill status={b.status} />
+
+              {/* Party size + status */}
+              <div className="flex shrink-0 items-center gap-3">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm text-numeric font-medium",
+                    dark
+                      ? "border-white/15 text-sand-50/85"
+                      : "border-border text-foreground",
+                  )}
+                >
+                  <Users
+                    className={cn("h-3.5 w-3.5", dark ? "text-sand-50/45" : "text-tertiary")}
+                  />
+                  {b.partySize}
+                </span>
+                <StatusPill status={b.status} />
+              </div>
             </Link>
           </li>
         );
