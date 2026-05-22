@@ -25,9 +25,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
           activeVenueId={ctx.venueId}
         />
         <AreaNav />
-        <main className="mx-auto w-full max-w-[1280px] flex-1 px-6 py-8 lg:px-10">
-          {children}
-        </main>
+        <main className="flex-1 px-5 py-6 lg:px-8 xl:px-10">{children}</main>
       </div>
       <CommandPalette />
     </div>

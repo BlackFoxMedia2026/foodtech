@@ -13,7 +13,7 @@ export function AreaNav() {
 
   return (
     <div className="sticky top-14 z-20 border-b border-border bg-background/85 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-[1280px] items-center gap-2 overflow-x-auto px-6 py-2 lg:px-10">
+      <div className="flex items-center gap-2 overflow-x-auto px-5 py-2 lg:px-8 xl:px-10">
         <span className="shrink-0 pr-2 text-[10.5px] font-medium uppercase tracking-[0.16em] text-tertiary">
           {area.label}
         </span>
