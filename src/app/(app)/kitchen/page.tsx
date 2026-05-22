@@ -1,7 +1,8 @@
 import { ChefHat } from "lucide-react";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { kitchenTickets, summariseTickets } from "@/server/kitchen";
-import { StatCard } from "@/components/overview/stat-card";
+import { Stat } from "@/components/ui/stat";
+import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import { KitchenBoard } from "@/components/kitchen/kitchen-board";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +11,11 @@ export default async function KitchenPage() {
   const ctx = await getActiveVenue();
   if (!can(ctx.role, "manage_bookings")) {
     return (
-      <div className="rounded-md border p-8 text-sm text-muted-foreground">
-        Accesso riservato allo staff di servizio.
-      </div>
+      <EmptyStateRich
+        icon={ChefHat}
+        title="Accesso riservato"
+        description="La cucina è accessibile solo allo staff di servizio (Manager, Reception, Cameriere)."
+      />
     );
   }
   const tickets = await kitchenTickets(ctx.venueId);
@@ -22,21 +25,26 @@ export default async function KitchenPage() {
     <div className="space-y-6 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">Servizio</p>
-          <h1 className="text-display text-3xl flex items-center gap-2">
-            <ChefHat className="h-7 w-7" /> Cucina
+          <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+            Oggi · Servizio cucina
+          </p>
+          <h1 className="text-display mt-1 flex items-center gap-3 text-[34px] font-medium leading-tight tracking-tight">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gilt/15 text-gilt-light">
+              <ChefHat className="h-5 w-5" />
+            </span>
+            Cucina
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Pre-order della sala + ordini asporto/delivery in un&apos;unica board.
+          <p className="mt-1 text-sm text-secondary">
+            Pre-order della sala + ordini asporto/delivery in un&apos;unica board live.
           </p>
         </div>
       </header>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <StatCard label="Ticket attivi" value={String(summary.total)} emphasize />
-        <StatCard label="Pre-order sala" value={String(summary.bySource.PREORDER)} />
-        <StatCard label="Asporto / delivery" value={String(summary.bySource.ORDER)} />
-        <StatCard
+        <Stat label="Ticket attivi" value={summary.total} hint="da gestire" emphasized />
+        <Stat label="Pre-order sala" value={summary.bySource.PREORDER} hint="ordini al tavolo" />
+        <Stat label="Asporto & delivery" value={summary.bySource.ORDER} hint="da consegnare" />
+        <Stat
           label="Prossimo"
           value={
             summary.earliestAt
@@ -46,6 +54,7 @@ export default async function KitchenPage() {
                 })
               : "—"
           }
+          hint={summary.earliestAt ? "scadenza ravvicinata" : "nessuna scadenza"}
         />
       </section>
 

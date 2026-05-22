@@ -20,10 +20,14 @@ export default async function WaitlistPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Sala</p>
-        <h1 className="text-display text-3xl">Lista d&apos;attesa</h1>
-        <p className="text-sm text-muted-foreground">
-          {active.length} in attesa · {closed.filter((c) => c.status === "SEATED").length} accolti oggi
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+          Oggi · Operazioni sala
+        </p>
+        <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+          Lista d&apos;attesa
+        </h1>
+        <p className="mt-1 text-sm text-secondary">
+          Walk-in e overbooking in tempo reale: notifica, offri, accomoda con un click.
         </p>
       </header>
       <WaitlistBoard
