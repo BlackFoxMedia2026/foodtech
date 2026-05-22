@@ -1,10 +1,10 @@
 import {
-  LayoutDashboard,
+  Activity,
   Users,
-  ShoppingBag,
-  Megaphone,
-  LineChart,
-  SlidersHorizontal,
+  Receipt,
+  Rocket,
+  BarChart3,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,7 +24,7 @@ export const AREAS: Area[] = [
   {
     key: "oggi",
     label: "Oggi",
-    icon: LayoutDashboard,
+    icon: Activity,
     primary: "/overview",
     items: [
       { href: "/overview", label: "Panoramica" },
@@ -49,7 +49,7 @@ export const AREAS: Area[] = [
   {
     key: "vendite",
     label: "Vendite",
-    icon: ShoppingBag,
+    icon: Receipt,
     primary: "/orders",
     items: [
       { href: "/orders", label: "Asporto & Delivery" },
@@ -63,7 +63,7 @@ export const AREAS: Area[] = [
   {
     key: "growth",
     label: "Growth",
-    icon: Megaphone,
+    icon: Rocket,
     primary: "/campaigns",
     items: [
       { href: "/campaigns", label: "Campagne" },
@@ -76,7 +76,7 @@ export const AREAS: Area[] = [
   {
     key: "analytics",
     label: "Analytics",
-    icon: LineChart,
+    icon: BarChart3,
     primary: "/insights",
     items: [
       { href: "/insights", label: "Performance" },
@@ -89,7 +89,7 @@ export const AREAS: Area[] = [
   {
     key: "setup",
     label: "Setup",
-    icon: SlidersHorizontal,
+    icon: Settings,
     primary: "/settings",
     items: [
       { href: "/settings", label: "Impostazioni" },

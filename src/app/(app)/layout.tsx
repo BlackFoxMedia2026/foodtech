@@ -14,7 +14,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
   }));
 
   return (
-    <div className="dark relative grid min-h-screen grid-cols-[64px_1fr] bg-background text-foreground app-ambient">
+    <div className="dark relative grid min-h-screen grid-cols-[224px_1fr] bg-background text-foreground app-ambient">
       <aside className="border-r border-white/[0.06] bg-[hsl(var(--surface-sunken))]/80 backdrop-blur">
         <Sidebar />
       </aside>
