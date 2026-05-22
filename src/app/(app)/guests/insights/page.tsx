@@ -7,21 +7,20 @@ import {
   Repeat,
   ShieldAlert,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { getActiveVenue } from "@/lib/tenant";
 import { getSegmentInsights, type GuestSummary } from "@/server/guest-insights";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Stat } from "@/components/ui/stat";
+import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+  LoyaltyPill,
+  type LoyaltyKey,
+} from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
-import { StatCard } from "@/components/overview/stat-card";
-import { LoyaltyPill } from "@/components/guests/loyalty-pill";
 import { formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -49,136 +48,172 @@ export default async function GuestInsightsPage() {
     <div className="space-y-6 animate-fade-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">CRM</p>
-          <h1 className="flex items-center gap-2 text-display text-3xl">
-            <Sparkles className="h-7 w-7 text-gilt-dark" /> Smart insights
+          <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+            Ospiti · Marketing proattivo
+          </p>
+          <h1 className="text-display mt-1 flex items-center gap-3 text-[34px] font-medium leading-tight tracking-tight">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gilt/15 text-gilt-light">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            Smart insights
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Marketing proattivo: chi compie gli anni a breve, chi non torna da troppo,
-            chi arriva oggi che merita un&apos;attenzione speciale.
+          <p className="mt-1 max-w-2xl text-sm text-secondary">
+            Chi compie gli anni a breve, chi non torna da troppo, chi arriva oggi che
+            merita un&apos;attenzione speciale.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
-          <Link href="/guests">← Torna agli ospiti</Link>
+          <Link href="/guests">← CRM ospiti</Link>
         </Button>
       </header>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <StatCard
+        <Stat
           label="Compleanni oggi"
-          value={String(insights.birthdaysToday.length)}
-          emphasize
+          value={insights.birthdaysToday.length}
+          hint={
+            insights.birthdaysToday.length > 0
+              ? "celebra appena arrivano"
+              : "nessuno oggi"
+          }
+          emphasized
         />
-        <StatCard
+        <Stat
           label="Compleanni 7gg"
-          value={String(insights.birthdaysWeek.length)}
+          value={insights.birthdaysWeek.length}
+          hint="prepara un coupon"
         />
-        <StatCard label="VIP oggi" value={String(insights.vipsArrivingToday.length)} />
-        <StatCard label="A rischio" value={String(insights.atRisk.length)} />
+        <Stat
+          label="VIP oggi"
+          value={insights.vipsArrivingToday.length}
+          hint={
+            insights.vipsArrivingToday.length > 0
+              ? "briefa la sala"
+              : "nessun VIP"
+          }
+        />
+        <Stat
+          label="A rischio"
+          value={insights.atRisk.length}
+          hint={
+            insights.atRisk.length > 0 ? "manda un win-back" : "tutti in linea"
+          }
+          delta={
+            insights.atRisk.length > 5
+              ? { value: "alto", tone: "negative" }
+              : insights.atRisk.length > 0
+                ? { value: "qualche", tone: "neutral" }
+                : { value: "ok", tone: "positive" }
+          }
+        />
       </section>
 
       <Section
         title="Compleanni di oggi"
-        description="Ricorda allo staff. Sing happy birthday e magari un calice offerto."
+        description="Ricorda allo staff. Canta happy birthday e magari un calice offerto."
         icon={Cake}
         items={insights.birthdaysToday}
-        empty="Nessun compleanno oggi."
-        renderRight={(g) => (
-          <Badge tone="gold" className="inline-flex items-center gap-1">
+        emptyTitle="Nessun compleanno oggi"
+        emptyHint="Domani forse — controlla il prossimo blocco."
+        renderRight={() => (
+          <span className="inline-flex items-center gap-1 rounded-full bg-gilt/15 px-2.5 py-0.5 text-[10.5px] font-medium text-gilt-light">
             <Cake className="h-3 w-3" /> oggi
-          </Badge>
+          </span>
         )}
       />
 
       <Section
         title="Compleanni nei prossimi 7 giorni"
-        description="Anticipa l&apos;invio di un coupon di benvenuto."
+        description="Anticipa l'invio di un coupon di benvenuto via WhatsApp o email."
         icon={Cake}
         items={insights.birthdaysWeek}
-        empty="Nessun compleanno in vista la prossima settimana."
+        emptyTitle="Nessun compleanno questa settimana"
         renderRight={(g) => {
           const d = nextBirthdayInDays(g.birthday);
           return (
-            <Badge tone="neutral">
+            <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-[10.5px] font-medium">
               {d === 1 ? "domani" : `tra ${d} giorni`}
-            </Badge>
+            </span>
           );
         }}
       />
 
       {insights.vipsArrivingToday.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Crown className="h-4 w-4 text-gilt-dark" /> VIP / Ambassador in arrivo oggi
-            </CardTitle>
-            <CardDescription>
-              Briefa la sala: chi sono, a che ora, allergie, occasione.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="divide-y text-sm">
+        <Panel>
+          <PanelHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <Crown className="h-4 w-4 text-gilt-light" /> VIP & Ambassador oggi
+              </span>
+            }
+            description="Briefa la sala: chi sono, a che ora, allergie, occasione."
+          />
+          <PanelBody className="pt-0">
+            <ul className="divide-y divide-border">
               {insights.vipsArrivingToday.map((v) => (
                 <li
                   key={v.bookingId}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-display text-base">
+                    <span className="text-display text-numeric w-16 text-base font-medium leading-none tabular-nums">
                       {v.startsAt.toLocaleTimeString("it-IT", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </span>
                     <div>
-                      <p className="font-medium">
+                      <p className="flex items-center gap-1.5 font-medium">
                         {v.guest.firstName}
                         {v.guest.lastName ? ` ${v.guest.lastName}` : ""}
+                        <Crown className="h-3 w-3 text-gilt-light" />
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-tertiary">
                         {v.partySize} pax · {v.occasion ?? "—"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <LoyaltyPill tier={v.guest.loyaltyTier as never} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <LoyaltyPill loyalty={v.guest.loyaltyTier as LoyaltyKey} />
                     {v.guest.allergies && (
-                      <Badge tone="danger">⚠️ {v.guest.allergies}</Badge>
+                      <span className="inline-flex items-center rounded-full bg-status-no-show-soft px-2.5 py-0.5 text-[10.5px] font-medium text-status-no-show">
+                        ⚠ {v.guest.allergies}
+                      </span>
                     )}
-                    <Button asChild variant="ghost" size="sm">
+                    <Button asChild variant="outline" size="sm">
                       <Link href={`/bookings/${v.bookingId}`}>Apri</Link>
                     </Button>
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="subtle" size="sm">
                       <Link href={`/guests/${v.guest.id}`}>Scheda</Link>
                     </Button>
                   </div>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+          </PanelBody>
+        </Panel>
       )}
 
       {insights.todaysAllergies.length > 0 && (
-        <Card className="border-rose-200 bg-rose-50/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-rose-700" /> Allergie da ricordare oggi
-            </CardTitle>
-            <CardDescription>
-              Briefing pre-servizio per la cucina. Fai due check.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
+        <Panel className="border-status-no-show/30 bg-status-no-show-soft/40">
+          <PanelHeader
+            title={
+              <span className="inline-flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-status-no-show" /> Allergie oggi
+              </span>
+            }
+            description="Briefing pre-servizio per la cucina. Fai due check."
+          />
+          <PanelBody className="pt-0">
+            <ul className="space-y-2">
               {insights.todaysAllergies.map((a) => (
                 <li
                   key={a.bookingId}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-sm"
                 >
                   <div>
                     <p className="font-medium">{a.guestName}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-tertiary">
                       {a.startsAt.toLocaleTimeString("it-IT", {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -186,26 +221,27 @@ export default async function GuestInsightsPage() {
                       · {a.partySize} pax
                     </p>
                   </div>
-                  <Badge tone="danger" className="max-w-md text-xs">
+                  <span className="inline-flex items-center rounded-full bg-status-no-show-soft px-2.5 py-0.5 text-[10.5px] font-medium text-status-no-show">
                     {a.allergies}
-                  </Badge>
+                  </span>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+          </PanelBody>
+        </Panel>
       )}
 
       <Section
-        title="Ospiti a rischio"
-        description="Optin marketing attivo + nessuna visita da 60+ giorni. Manda un win-back."
+        title="Ospiti a rischio abbandono"
+        description="Opt-in marketing attivo + nessuna visita da 60+ giorni. Manda un win-back."
         icon={AlertTriangle}
         items={insights.atRisk}
-        empty="Nessun ospite a rischio: complimenti."
+        emptyTitle="Nessun ospite a rischio"
+        emptyHint="Complimenti — la retention è in forma."
         renderRight={(g) => {
           const d = daysSince(g.lastVisitAt);
           return (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-numeric text-xs text-status-pending font-medium">
               {d ? `${d}gg fa` : "—"}
             </span>
           );
@@ -217,11 +253,11 @@ export default async function GuestInsightsPage() {
         description="2+ visite negli ultimi 30 giorni. Ringraziali con un piccolo gesto."
         icon={Repeat}
         items={insights.recentReturning}
-        empty="Nessun ospite ricorrente al momento."
+        emptyTitle="Nessun ospite ricorrente"
         renderRight={(g) => (
-          <Badge tone="success">
-            <Flame className="mr-1 inline h-3 w-3" /> {g.totalVisits} visite
-          </Badge>
+          <span className="inline-flex items-center gap-1 rounded-full bg-status-confirmed-soft px-2.5 py-0.5 text-[10.5px] font-medium text-status-confirmed">
+            <Flame className="h-3 w-3" /> {g.totalVisits} visite
+          </span>
         )}
       />
     </div>
@@ -233,38 +269,45 @@ function Section({
   description,
   icon: Icon,
   items,
-  empty,
+  emptyTitle,
+  emptyHint,
   renderRight,
 }: {
   title: string;
   description: string;
-  icon: typeof Cake;
+  icon: LucideIcon;
   items: GuestSummary[];
-  empty: string;
+  emptyTitle: string;
+  emptyHint?: string;
   renderRight: (g: GuestSummary) => React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-gilt-dark" /> {title}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Panel>
+      <PanelHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Icon className="h-4 w-4 text-tertiary" /> {title}
+          </span>
+        }
+        description={description}
+      />
+      <PanelBody className="pt-0">
         {items.length === 0 ? (
-          <p className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
-            {empty}
-          </p>
+          <EmptyStateRich
+            size="compact"
+            icon={Icon}
+            title={emptyTitle}
+            description={emptyHint}
+          />
         ) : (
-          <ul className="divide-y text-sm">
+          <ul className="divide-y divide-border">
             {items.map((g) => (
               <li
                 key={g.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-2"
+                className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-secondary text-xs font-medium uppercase">
+                  <span className="text-display grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-xs font-medium uppercase">
                     {g.firstName.slice(0, 1)}
                     {g.lastName?.slice(0, 1) ?? ""}
                   </span>
@@ -273,15 +316,17 @@ function Section({
                       {g.firstName}
                       {g.lastName ? ` ${g.lastName}` : ""}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className={cn("mt-0.5 text-xs text-tertiary")}>
                       {g.email ?? g.phone ?? "nessun contatto"}
                       {g.birthday ? ` · 🎂 ${formatDate(g.birthday)}` : ""}
-                      {g.lastVisitAt ? ` · ultima visita ${formatDate(g.lastVisitAt)}` : ""}
+                      {g.lastVisitAt
+                        ? ` · ultima visita ${formatDate(g.lastVisitAt)}`
+                        : ""}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <LoyaltyPill tier={g.loyaltyTier as never} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <LoyaltyPill loyalty={g.loyaltyTier as LoyaltyKey} />
                   {renderRight(g)}
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/guests/${g.id}`}>Scheda</Link>
@@ -291,7 +336,7 @@ function Section({
             ))}
           </ul>
         )}
-      </CardContent>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }
