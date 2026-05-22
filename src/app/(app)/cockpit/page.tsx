@@ -6,21 +6,14 @@ import {
   MessagesSquare,
   Network,
   PhoneCall,
-  PiggyBank,
   Sparkles,
   Workflow,
+  type LucideIcon,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getActiveVenue, can } from "@/lib/tenant";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { StatCard } from "@/components/overview/stat-card";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Stat } from "@/components/ui/stat";
 import { financeOverview } from "@/server/finance";
 import { feedbackStats } from "@/server/surveys";
 import { messageLogStats } from "@/server/messages";
@@ -30,6 +23,7 @@ import { voiceStats } from "@/server/voice";
 import { wifiStats } from "@/server/wifi";
 import { reputationStats } from "@/server/review-links";
 import { formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -90,14 +84,16 @@ export default async function CockpitPage() {
     { total: 0, sent: 0, failed: 0, skipped: 0 },
   );
 
-  const tiles: Array<{
+  type Tile = {
     title: string;
     href: string;
-    icon: typeof CalendarRange;
+    icon: LucideIcon;
     description: string;
     metrics: { label: string; value: string | number; emphasize?: boolean }[];
     show: boolean;
-  }> = [
+  };
+
+  const tiles: Tile[] = [
     {
       title: "Sala & prenotazioni",
       href: "/bookings",
@@ -176,7 +172,7 @@ export default async function CockpitPage() {
       description: "Lead da captive portal e ritorni.",
       metrics: [
         { label: "Lead 30gg", value: wifi.leads30d, emphasize: true },
-        { label: "Marketing opt-in", value: `${wifi.marketingOptInRate}%` },
+        { label: "Opt-in", value: `${wifi.marketingOptInRate}%` },
         { label: "Ritorni", value: wifi.returningLeads },
       ],
       show: can(ctx.role, "edit_marketing"),
@@ -199,99 +195,134 @@ export default async function CockpitPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">{ctx.venue.name}</p>
-        <h1 className="text-display text-3xl">Cockpit</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.22em] text-tertiary">
+          {ctx.venue.name} · Executive cockpit
+        </p>
+        <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
+          Cockpit
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-secondary">
           KPI aggregati su 30 giorni dai moduli operativi: prenotazioni, marketing, conversational, channel.
         </p>
       </header>
 
       {finance && (
         <section className="grid gap-3 md:grid-cols-4">
-          <StatCard
+          <Stat
             label="Ricavi 30gg"
             value={formatCurrency(finance.totalRevenueCents, ctx.venue.currency)}
-            emphasize
+            hint="incassi tracciati"
+            emphasized
           />
-          <StatCard
+          <Stat
             label="Margine lordo"
-            value={`${formatCurrency(finance.grossMarginCents, ctx.venue.currency)} · ${finance.marginRate}%`}
+            value={formatCurrency(finance.grossMarginCents, ctx.venue.currency)}
+            hint={`${finance.marginRate}% del fatturato`}
           />
-          <StatCard label="Food cost %" value={`${finance.foodCostRate}%`} />
-          <StatCard label="Costo lavoro %" value={`${finance.laborCostRate}%`} />
+          <Stat
+            label="Food cost"
+            value={`${finance.foodCostRate}%`}
+            hint={
+              finance.foodCostRate < 32
+                ? "sotto controllo"
+                : "monitora menu"
+            }
+          />
+          <Stat
+            label="Costo lavoro"
+            value={`${finance.laborCostRate}%`}
+            hint={
+              finance.laborCostRate < 28
+                ? "buono"
+                : "verifica turni"
+            }
+          />
         </section>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {visibleTiles.map((tile) => (
-          <Card key={tile.href}>
-            <CardHeader>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-9 w-9 place-items-center rounded-md bg-gilt/10 text-gilt-dark">
-                    <tile.icon className="h-4 w-4" />
+        {visibleTiles.map((tile) => {
+          const Icon = tile.icon;
+          return (
+            <Panel key={tile.href}>
+              <PanelHeader
+                title={
+                  <span className="inline-flex items-center gap-2.5">
+                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-gilt/15 text-gilt-light">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    {tile.title}
                   </span>
-                  <div>
-                    <CardTitle className="text-base">{tile.title}</CardTitle>
-                    <CardDescription>{tile.description}</CardDescription>
-                  </div>
-                </div>
-                <Link
-                  href={tile.href}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Apri <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-2">
-                {tile.metrics.map((m) => (
-                  <div
-                    key={m.label}
-                    className={
-                      m.emphasize
-                        ? "rounded-md bg-secondary p-2 text-center"
-                        : "p-2 text-center"
-                    }
+                }
+                description={tile.description}
+                action={
+                  <Link
+                    href={tile.href}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-secondary transition hover:text-foreground"
                   >
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {m.label}
-                    </p>
-                    <p className={m.emphasize ? "text-display text-xl" : "text-base font-medium"}>
-                      {m.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                    Apri <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                }
+              />
+              <PanelBody className="pt-0">
+                <div className="grid grid-cols-3 gap-2">
+                  {tile.metrics.map((m) => (
+                    <div
+                      key={m.label}
+                      className={cn(
+                        "rounded-lg px-2 py-2 text-center",
+                        m.emphasize
+                          ? "bg-[hsl(var(--surface-sunken))]/60"
+                          : "",
+                      )}
+                    >
+                      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-tertiary">
+                        {m.label}
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-1 text-display text-numeric leading-none tabular-nums",
+                          m.emphasize ? "text-xl font-medium" : "text-base font-medium",
+                        )}
+                      >
+                        {m.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </PanelBody>
+            </Panel>
+          );
+        })}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Composizione canali messaggi (30gg)</CardTitle>
-          <CardDescription>
-            Stato per canale dal MessageLog: utile per individuare provider non configurati o in errore.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Panel>
+        <PanelHeader
+          title="Composizione canali messaggi (30gg)"
+          description="Stato per canale dal MessageLog: utile per individuare provider non configurati o in errore."
+        />
+        <PanelBody className="pt-0">
           {msgStats.length === 0 ? (
-            <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+            <p className="text-sm text-tertiary">
               Nessun messaggio inviato negli ultimi 30 giorni.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2 text-xs">
+            <div className="flex flex-wrap gap-1.5">
               {msgStats.map((s, i) => (
-                <Badge key={`${s.channel}-${s.status}-${i}`} tone="neutral">
-                  {s.channel} · {s.status}: {s.count}
-                </Badge>
+                <span
+                  key={`${s.channel}-${s.status}-${i}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-border bg-[hsl(var(--surface-sunken))]/40 px-2.5 py-0.5 text-[10.5px] font-medium"
+                >
+                  <span className="text-tertiary">{s.channel}</span>
+                  <span className="text-tertiary">·</span>
+                  <span>{s.status}</span>
+                  <span className="text-numeric text-tertiary">{s.count}</span>
+                </span>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }
