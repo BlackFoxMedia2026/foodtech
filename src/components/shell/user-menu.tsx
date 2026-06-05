@@ -2,7 +2,7 @@
 
 import { signOut } from "next-auth/react";
 import Link from "next/link";
-import { LogOut, Settings, UserCircle2 } from "lucide-react";
+import { LayoutGrid, LogOut, Settings, UserCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -41,6 +41,11 @@ export function UserMenu({
           )}
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/reception" className="flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4" /> Reception Mode
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" /> Impostazioni
