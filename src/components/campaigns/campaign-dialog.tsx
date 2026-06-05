@@ -19,6 +19,7 @@ import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useConfirm } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/toast";
 
 type LoyaltyTier = "NEW" | "REGULAR" | "VIP" | "AMBASSADOR";
 type Channel = "EMAIL" | "SMS" | "WHATSAPP";
@@ -54,6 +55,7 @@ export function CampaignDialog({
 }) {
   const router = useRouter();
   const confirmFn = useConfirm();
+  const { toast } = useToast();
   const editing = Boolean(initial?.id);
   const sent = initial?.status === "SENT";
   const [open, setOpen] = useState(false);
@@ -123,6 +125,11 @@ export function CampaignDialog({
     if (!res.ok) {
       setSubmitting(false);
       const b = await res.json().catch(() => ({}));
+      if (b?.error === "plan_limit_reached") {
+        toast.error("Plan limit reached", b.message);
+        setError(b.message ?? "Plan limit reached.");
+        return;
+      }
       setError(b?.error === "invalid_input" ? "Controlla i campi." : "Salvataggio non riuscito.");
       return;
     }

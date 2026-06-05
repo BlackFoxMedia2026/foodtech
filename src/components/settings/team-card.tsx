@@ -178,6 +178,7 @@ export function TeamCard({
 
 function AddDialog({ onCreated }: { onCreated: (m: Member) => void }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,6 +218,11 @@ function AddDialog({ onCreated }: { onCreated: (m: Member) => void }) {
             setBusy(false);
             if (!res.ok) {
               const j = await res.json().catch(() => ({}));
+              if (j?.error === "plan_limit_reached") {
+                toast.error("Plan limit reached", j.message);
+                setError(j.message ?? "Plan limit reached.");
+                return;
+              }
               setError(
                 j?.error === "already_member"
                   ? "Questo utente è già membro del locale."

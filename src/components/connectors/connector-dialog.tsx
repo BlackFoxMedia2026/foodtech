@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/toast";
 
 type Kind = "THEFORK" | "GOOGLE_RESERVE" | "BOOKING_COM" | "OPENTABLE" | "CUSTOM";
 type Status = "DRAFT" | "ACTIVE" | "PAUSED" | "ERROR";
@@ -47,6 +48,7 @@ function genSecret() {
 export function ConnectorDialog({ initial }: { initial?: Initial }) {
   const router = useRouter();
   const confirmFn = useConfirm();
+  const { toast } = useToast();
   const editing = Boolean(initial?.id);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -75,6 +77,11 @@ export function ConnectorDialog({ initial }: { initial?: Initial }) {
     setBusy(false);
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
+      if (b?.error === "plan_limit_reached") {
+        toast.error("Plan limit reached", b.message);
+        setError(b.message ?? "Plan limit reached.");
+        return;
+      }
       setError(b?.error === "invalid_input" ? "Controlla i campi." : "Salvataggio non riuscito.");
       return;
     }

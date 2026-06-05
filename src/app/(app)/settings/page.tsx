@@ -13,6 +13,8 @@ import { TeamCard } from "@/components/settings/team-card";
 import { TableQrCard } from "@/components/settings/table-qr-card";
 import { BrandingCard } from "@/components/settings/branding-card";
 import { ApiTokensCard } from "@/components/settings/api-tokens-card";
+import { SubscriptionCard } from "@/components/settings/subscription-card";
+import { getPlanLimits, type PlanName } from "@/lib/plan-limits";
 import { getVenueBrandById } from "@/server/branding";
 import { listShifts } from "@/server/shifts";
 import { listTemplates } from "@/server/templates";
@@ -25,7 +27,17 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const ctx = await getActiveVenue();
-  const [venues, members, shifts, templates, tables, brand] = await Promise.all([
+  const since30d = new Date(Date.now() - 30 * 86400_000);
+  const [
+    venues,
+    members,
+    shifts,
+    templates,
+    tables,
+    brand,
+    activeAutomations,
+    campaignsLast30d,
+  ] = await Promise.all([
     db.venue.findMany({ where: { orgId: ctx.orgId }, orderBy: { name: "asc" } }),
     db.venueMembership.findMany({
       where: { venueId: ctx.venueId },
@@ -39,8 +51,29 @@ export default async function SettingsPage() {
       select: { id: true, label: true, seats: true },
     }),
     getVenueBrandById(ctx.venueId),
+    db.automationWorkflow.count({ where: { venueId: ctx.venueId, active: true } }),
+    db.campaign.count({ where: { venueId: ctx.venueId, createdAt: { gte: since30d } } }),
   ]);
   const canEditMarketing = can(ctx.role, "edit_marketing");
+
+  const plan = ctx.org.plan as PlanName;
+  const limits = getPlanLimits(plan);
+  const usage = [
+    { label: "Venues", used: venues.length, max: limits.maxVenues, hint: "Per organizzazione" },
+    { label: "Staff", used: members.length, max: limits.maxStaffPerVenue, hint: "Locale corrente" },
+    {
+      label: "Automazioni",
+      used: activeAutomations,
+      max: limits.maxActiveAutomations,
+      hint: "Attive",
+    },
+    {
+      label: "Campagne 30gg",
+      used: campaignsLast30d,
+      max: limits.maxCampaignsPerMonth,
+      hint: "Create negli ultimi 30 giorni",
+    },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -48,6 +81,8 @@ export default async function SettingsPage() {
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Configurazione</p>
         <h1 className="text-display text-3xl">Impostazioni</h1>
       </header>
+
+      <SubscriptionCard plan={plan} usage={usage} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <VenuesCard

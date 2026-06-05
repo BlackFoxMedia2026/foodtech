@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
 
 export type VenueRow = {
   id: string;
@@ -86,6 +87,7 @@ export function VenuesCard({
   plan: string;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [list, setList] = useState<VenueRow[]>(initial);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<VenueRow | null>(null);
@@ -140,6 +142,12 @@ export function VenuesCard({
     });
     setBusy(false);
     if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (body?.error === "plan_limit_reached") {
+        toast.error("Plan limit reached", body.message);
+        setError(body.message ?? "Plan limit reached.");
+        return;
+      }
       setError("Impossibile salvare. Verifica i dati.");
       return;
     }

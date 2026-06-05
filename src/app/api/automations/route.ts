@@ -27,9 +27,13 @@ export async function POST(req: Request) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "invalid_input", issues: err.issues }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "invalid" },
-      { status: 400 },
-    );
+    const message = err instanceof Error ? err.message : "invalid";
+    if (err instanceof Error && err.name === "PlanLimitError") {
+      return NextResponse.json(
+        { error: "plan_limit_reached", message },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

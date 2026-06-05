@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/toast";
 
 type Trigger =
   | "BOOKING_CREATED"
@@ -94,6 +95,7 @@ const ACTION_LABEL: Record<ActionKind, string> = {
 export function WorkflowDialog({ initial }: { initial?: Initial }) {
   const router = useRouter();
   const confirmFn = useConfirm();
+  const { toast } = useToast();
   const editing = Boolean(initial?.id);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -169,6 +171,11 @@ export function WorkflowDialog({ initial }: { initial?: Initial }) {
     setBusy(false);
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
+      if (b?.error === "plan_limit_reached") {
+        toast.error("Plan limit reached", b.message);
+        setError(b.message ?? "Plan limit reached.");
+        return;
+      }
       setError(b?.error === "invalid_input" ? "Controlla i campi." : "Salvataggio non riuscito.");
       return;
     }

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useConfirm } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/toast";
 
 const SCOPES = [
   { value: "bookings:read", label: "Prenotazioni · lettura" },
@@ -38,6 +39,7 @@ type Token = {
 
 export function ApiTokensCard() {
   const confirmFn = useConfirm();
+  const { toast } = useToast();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -79,6 +81,11 @@ export function ApiTokensCard() {
     setBusy(false);
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
+      if (b?.error === "plan_limit_reached") {
+        toast.error("Plan limit reached", b.message);
+        setError(b.message ?? "Plan limit reached.");
+        return;
+      }
       setError(b?.error === "invalid_input" ? "Controlla i campi." : "Creazione non riuscita.");
       return;
     }

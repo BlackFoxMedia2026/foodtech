@@ -3,6 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { db } from "@/lib/db";
+import { assertCanInviteStaff } from "@/server/plan-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,16 @@ export async function POST(req: Request) {
     body = Body.parse(await req.json());
   } catch {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+  }
+
+  try {
+    await assertCanInviteStaff(ctx.venueId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "plan_limit_reached";
+    return NextResponse.json(
+      { error: "plan_limit_reached", message },
+      { status: 400 },
+    );
   }
 
   let user = await db.user.findUnique({ where: { email: body.email } });

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { dispatchMessage, hasConsent } from "@/server/messages";
 import { captureError } from "@/lib/observability";
 import { notify } from "@/server/notifications";
+import { assertCanCreateAutomation } from "@/server/plan-guard";
 
 export const TRIGGERS = [
   "BOOKING_CREATED",
@@ -92,6 +93,9 @@ export async function listWorkflows(venueId: string) {
 
 export async function createWorkflow(venueId: string, raw: unknown, createdBy: string | null) {
   const data = WorkflowInput.parse(raw);
+  // Only enforce the cap when the new workflow is being created already-active;
+  // drafts can be saved freely until the user flips the switch.
+  if (data.active) await assertCanCreateAutomation(venueId);
   return db.automationWorkflow.create({
     data: {
       venueId,
@@ -111,6 +115,10 @@ export async function updateWorkflow(venueId: string, id: string, raw: unknown) 
   const existing = await db.automationWorkflow.findFirst({ where: { id, venueId } });
   if (!existing) throw new Error("not_found");
   const data = WorkflowInput.partial().parse(raw);
+  // Re-enforce the cap when flipping from inactive → active.
+  if (data.active === true && !existing.active) {
+    await assertCanCreateAutomation(venueId);
+  }
   return db.automationWorkflow.update({
     where: { id },
     data: {

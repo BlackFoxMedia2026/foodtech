@@ -12,6 +12,7 @@ import { createBooking } from "@/server/bookings";
 import { fireTrigger } from "@/server/automations";
 import { captureError } from "@/lib/observability";
 import { notify } from "@/server/notifications";
+import { assertCanCreateConnector } from "@/server/plan-guard";
 
 const KINDS = [
   "THEFORK",
@@ -57,6 +58,7 @@ export async function listConnectorEvents(venueId: string, limit = 50) {
 
 export async function createConnector(venueId: string, raw: unknown) {
   const data = ConnectorInput.parse(raw);
+  await assertCanCreateConnector(venueId);
   return db.connector.create({
     data: {
       venueId,

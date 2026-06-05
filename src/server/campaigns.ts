@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { dispatchMessage } from "@/server/messages";
+import { assertCanSendCampaign } from "@/server/plan-guard";
 
 export const SegmentInput = z.object({
   marketingOptInOnly: z.boolean().default(true),
@@ -33,6 +34,8 @@ export async function listCampaigns(venueId: string) {
 
 export async function createCampaign(venueId: string, raw: unknown) {
   const data = CampaignInput.parse(raw);
+  // Cap counts creations over the trailing 30 days.
+  await assertCanSendCampaign(venueId);
   return db.campaign.create({
     data: {
       venueId,
