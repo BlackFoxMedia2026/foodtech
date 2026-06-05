@@ -31,7 +31,7 @@ export default async function BookingsPage({
 
   const tables = await db.table.findMany({
     where: { venueId: ctx.venueId, active: true },
-    select: { id: true, label: true, seats: true },
+    select: { id: true, label: true, seats: true, combinable: true },
     orderBy: { label: "asc" },
   });
 

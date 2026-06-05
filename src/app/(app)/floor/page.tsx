@@ -47,26 +47,38 @@ export default async function FloorPage({
         startsAt: { gte: startOfDay(now), lte: endOfDay(now) },
         status: { in: ["CONFIRMED", "PENDING", "ARRIVED", "SEATED"] },
       },
-      include: { guest: { select: { firstName: true, lastName: true } } },
+      include: {
+        guest: { select: { firstName: true, lastName: true } },
+      },
       orderBy: { startsAt: "asc" },
     }),
   ]);
 
   const totalSeats = tables.reduce((s, t) => s + t.seats, 0);
 
-  // Map status per table from active bookings (priorita': seated > arrived > reserved)
+  // Map status per table from active bookings (priorita': seated > arrived > reserved).
+  // Per le booking con tavoli combinati (es. T5+T6+T7 per gruppo da 18) mappiamo
+  // tutti i tavoli del gruppo alla stessa booking primaria: il click su uno
+  // qualsiasi porta alla stessa scheda, e visivamente avranno lo stesso bordo.
+  const priority: Record<string, number> = {
+    SEATED: 4,
+    ARRIVED: 3,
+    CONFIRMED: 2,
+    PENDING: 1,
+  };
   const bookingByTable = new Map<string, (typeof activeBookings)[number]>();
+  const combinedGroupByTable = new Map<string, string>(); // tableId → groupKey (= booking.id)
   for (const b of activeBookings) {
     if (!b.tableId) continue;
-    const existing = bookingByTable.get(b.tableId);
-    const priority: Record<string, number> = {
-      SEATED: 4,
-      ARRIVED: 3,
-      CONFIRMED: 2,
-      PENDING: 1,
-    };
-    if (!existing || priority[b.status] > priority[existing.status]) {
-      bookingByTable.set(b.tableId, b);
+    const tableIds = [b.tableId, ...(b.combinedTableIds ?? [])];
+    for (const tid of tableIds) {
+      const existing = bookingByTable.get(tid);
+      if (!existing || priority[b.status] > priority[existing.status]) {
+        bookingByTable.set(tid, b);
+      }
+    }
+    if ((b.combinedTableIds ?? []).length > 0) {
+      for (const tid of tableIds) combinedGroupByTable.set(tid, b.id);
     }
   }
 
@@ -111,6 +123,7 @@ export default async function FloorPage({
       bookingId,
       startsAt,
       partySize,
+      combinedGroup: combinedGroupByTable.get(t.id) ?? null,
     };
   });
 

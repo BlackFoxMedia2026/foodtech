@@ -85,6 +85,30 @@ export default async function BookingDetail({ params }: { params: { id: string }
     },
   });
   if (!item) notFound();
+
+  // Combine tables: carica i tavoli aggiuntivi nello stesso ordine
+  // dichiarato in `combinedTableIds` per renderizzarli come chip ordinati.
+  const combinedTables =
+    item.combinedTableIds.length > 0
+      ? await db.table
+          .findMany({
+            where: {
+              id: { in: item.combinedTableIds },
+              venueId: ctx.venueId,
+            },
+            select: { id: true, label: true, seats: true },
+          })
+          .then((rows) =>
+            item.combinedTableIds
+              .map((id) => rows.find((r) => r.id === id))
+              .filter((r): r is { id: string; label: string; seats: number } =>
+                Boolean(r),
+              ),
+          )
+      : [];
+  const totalSeatsCombined =
+    (item.table?.seats ?? 0) +
+    combinedTables.reduce((s, t) => s + t.seats, 0);
   const canSeePrivate = can(ctx.role, "view_private");
 
   const tables = await db.table.findMany({
@@ -214,12 +238,42 @@ export default async function BookingDetail({ params }: { params: { id: string }
               label="Durata"
               value={`${item.durationMin} min`}
             />
-            <InfoTile
-              icon={<Tag className="h-4 w-4 text-tertiary" />}
-              label="Tavolo"
-              value={item.table?.label ?? "Da assegnare"}
-              tone={item.table ? undefined : "warning"}
-            />
+            {combinedTables.length > 0 ? (
+              <div
+                className="panel-sunken px-3 py-2.5"
+                title={`${totalSeatsCombined} posti totali per gruppo da ${item.partySize}`}
+              >
+                <div className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.14em] text-tertiary">
+                  <Tag className="h-4 w-4 text-tertiary" /> Tavoli combinati
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  <span className="rounded-full bg-gilt/20 px-2 py-0.5 text-[12px] font-medium text-gilt-light">
+                    {item.table?.label ?? "—"}
+                  </span>
+                  {combinedTables.map((t) => (
+                    <span
+                      key={t.id}
+                      className="inline-flex items-center gap-1 text-[12px] font-medium text-gilt-light"
+                    >
+                      <span className="text-tertiary">+</span>
+                      <span className="rounded-full bg-gilt/20 px-2 py-0.5">
+                        {t.label}
+                      </span>
+                    </span>
+                  ))}
+                  <span className="ml-1 text-[11px] text-tertiary text-numeric">
+                    {totalSeatsCombined} posti
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <InfoTile
+                icon={<Tag className="h-4 w-4 text-tertiary" />}
+                label="Tavolo"
+                value={item.table?.label ?? "Da assegnare"}
+                tone={item.table ? undefined : "warning"}
+              />
+            )}
             <InfoTile
               icon={<Sparkles className="h-4 w-4 text-tertiary" />}
               label="Occasione"

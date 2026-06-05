@@ -23,6 +23,12 @@ type LiveTable = {
   bookingId: string | null;
   startsAt: string | null;
   partySize: number | null;
+  /**
+   * Id della booking primaria di un gruppo "combined": se valorizzato,
+   * questo tavolo fa parte di un gruppo di tavoli uniti (es. 18 pax su T5+T6+T7)
+   * e viene evidenziato con il bordo gilt. Click → booking primaria.
+   */
+  combinedGroup?: string | null;
 };
 
 export function FloorLive({
@@ -96,12 +102,14 @@ function LiveTableTile({ table }: { table: LiveTable }) {
     }
   }, [table.status]);
 
+  const isCombined = Boolean(table.combinedGroup);
   const content = (
     <div
       className={cn(
         "absolute flex flex-col items-center justify-center gap-0.5 border px-2 py-1 text-center transition-colors",
         tone.bg,
-        tone.border,
+        // Tavoli combinati: bordo gilt più marcato per segnalare il gruppo
+        isCombined ? "border-2 border-gilt" : tone.border,
         tone.text,
         isRound ? "rounded-full" : "rounded-lg",
       )}
