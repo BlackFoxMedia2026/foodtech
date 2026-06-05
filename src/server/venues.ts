@@ -1,5 +1,14 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { assertCanCreateVenue } from "@/server/plan-guard";
+import { logAudit, sanitizeDiff } from "@/server/audit";
+
+export type VenueAuditActor = {
+  actorId?: string | null;
+  actorEmail?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+};
 
 export const VenueInput = z.object({
   name: z.string().min(1).max(120),
@@ -46,8 +55,10 @@ export async function createVenue(opts: {
   orgId: string;
   userId: string;
   raw: unknown;
+  actor?: VenueAuditActor;
 }) {
   const data = VenueInput.parse(opts.raw);
+  await assertCanCreateVenue(opts.orgId);
   const slug = await uniqueSlug(opts.orgId, data.name);
 
   const venue = await db.venue.create({
@@ -71,6 +82,25 @@ export async function createVenue(opts: {
     data: { userId: opts.userId, venueId: venue.id, role: "MANAGER" },
   });
 
+  // Evento org-level: il venue appena creato non è ancora "attivo" — il log
+  // resta visibile anche se più tardi il venue viene cancellato (FK su orgId).
+  await logAudit({
+    orgId: opts.orgId,
+    venueId: venue.id,
+    actorId: opts.actor?.actorId ?? opts.userId,
+    actorEmail: opts.actor?.actorEmail ?? null,
+    action: "venue.create",
+    entityType: "Venue",
+    entityId: venue.id,
+    diff: {
+      name: { old: null, new: venue.name },
+      slug: { old: null, new: venue.slug },
+      kind: { old: null, new: venue.kind },
+    },
+    ip: opts.actor?.ip ?? null,
+    userAgent: opts.actor?.userAgent ?? null,
+  });
+
   return venue;
 }
 
@@ -78,6 +108,7 @@ export async function updateVenue(opts: {
   orgId: string;
   venueId: string;
   raw: unknown;
+  actor?: VenueAuditActor;
 }) {
   const data = VenueInput.partial().parse(opts.raw);
   const existing = await db.venue.findFirst({
@@ -90,7 +121,7 @@ export async function updateVenue(opts: {
       ? await uniqueSlug(opts.orgId, data.name, opts.venueId)
       : undefined;
 
-  return db.venue.update({
+  const updated = await db.venue.update({
     where: { id: opts.venueId },
     data: {
       name: data.name ?? undefined,
@@ -106,9 +137,34 @@ export async function updateVenue(opts: {
       active: data.active ?? undefined,
     },
   });
+
+  const diff = sanitizeDiff(
+    existing as unknown as Record<string, unknown>,
+    updated as unknown as Record<string, unknown>,
+  );
+  if (Object.keys(diff).length > 0) {
+    await logAudit({
+      orgId: opts.orgId,
+      venueId: opts.venueId,
+      actorId: opts.actor?.actorId ?? null,
+      actorEmail: opts.actor?.actorEmail ?? null,
+      action: "venue.update",
+      entityType: "Venue",
+      entityId: opts.venueId,
+      diff,
+      ip: opts.actor?.ip ?? null,
+      userAgent: opts.actor?.userAgent ?? null,
+    });
+  }
+
+  return updated;
 }
 
-export async function deleteVenue(opts: { orgId: string; venueId: string }) {
+export async function deleteVenue(opts: {
+  orgId: string;
+  venueId: string;
+  actor?: VenueAuditActor;
+}) {
   const existing = await db.venue.findFirst({
     where: { id: opts.venueId, orgId: opts.orgId },
   });
@@ -118,5 +174,22 @@ export async function deleteVenue(opts: { orgId: string; venueId: string }) {
   if (remaining <= 1) throw new Error("last_venue");
 
   await db.venue.delete({ where: { id: opts.venueId } });
+  // Venue cancellato → venueId nel log a null per evitare riferimenti orfani.
+  // L'evento resta agganciato all'org.
+  await logAudit({
+    orgId: opts.orgId,
+    venueId: null,
+    actorId: opts.actor?.actorId ?? null,
+    actorEmail: opts.actor?.actorEmail ?? null,
+    action: "venue.delete",
+    entityType: "Venue",
+    entityId: opts.venueId,
+    diff: {
+      name: { old: existing.name, new: null },
+      slug: { old: existing.slug, new: null },
+    },
+    ip: opts.actor?.ip ?? null,
+    userAgent: opts.actor?.userAgent ?? null,
+  });
   return { ok: true };
 }

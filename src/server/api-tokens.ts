@@ -1,6 +1,14 @@
 import { z } from "zod";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
+import { logAudit } from "@/server/audit";
+import { assertCanCreateApiToken } from "@/server/plan-guard";
+
+type AuditActor = {
+  actorEmail?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+};
 
 // External API tokens. We split each token into two parts:
 //   - prefix:  short, unique, stored in cleartext (e.g. "tav_AB12CD34")
@@ -53,8 +61,10 @@ export async function createApiToken(
   venueId: string,
   raw: unknown,
   createdBy: string | null,
+  actor: AuditActor = {},
 ): Promise<CreatedToken> {
   const data = ApiTokenInput.parse(raw);
+  await assertCanCreateApiToken(venueId);
   const prefix = `${PREFIX_PREFIX}${randomAlphanum(8)}`;
   const secret = randomAlphanum(32);
   const hashed = hashSecret(secret);
@@ -72,6 +82,33 @@ export async function createApiToken(
       createdBy,
     },
   });
+
+  // Risolviamo orgId via Venue per evitare ulteriori signature breaking changes.
+  const venue = await db.venue.findUnique({
+    where: { id: venueId },
+    select: { orgId: true },
+  });
+  if (venue) {
+    await logAudit({
+      orgId: venue.orgId,
+      venueId,
+      actorId: createdBy,
+      actorEmail: actor.actorEmail ?? null,
+      action: "api_token.create",
+      entityType: "ApiToken",
+      entityId: created.id,
+      // Solo prefix + metadati: il secret NON deve mai finire in audit log.
+      diff: {
+        name: { old: null, new: data.name },
+        prefix: { old: null, new: prefix },
+        scopes: { old: null, new: data.scopes },
+        expiresAt: { old: null, new: expiresAt },
+      },
+      ip: actor.ip ?? null,
+      userAgent: actor.userAgent ?? null,
+    });
+  }
+
   return {
     id: created.id,
     prefix: created.prefix,
@@ -98,14 +135,37 @@ export async function listApiTokens(venueId: string) {
   });
 }
 
-export async function revokeApiToken(venueId: string, id: string) {
-  const existing = await db.apiToken.findFirst({ where: { id, venueId } });
+export async function revokeApiToken(
+  venueId: string,
+  id: string,
+  actor: AuditActor & { actorId?: string | null } = {},
+) {
+  const existing = await db.apiToken.findFirst({
+    where: { id, venueId },
+    include: { venue: { select: { orgId: true } } },
+  });
   if (!existing) throw new Error("not_found");
   if (existing.revokedAt) return existing;
-  return db.apiToken.update({
+  const updated = await db.apiToken.update({
     where: { id },
     data: { revokedAt: new Date() },
   });
+  await logAudit({
+    orgId: existing.venue.orgId,
+    venueId,
+    actorId: actor.actorId ?? null,
+    actorEmail: actor.actorEmail ?? null,
+    action: "api_token.revoke",
+    entityType: "ApiToken",
+    entityId: id,
+    diff: {
+      prefix: { old: existing.prefix, new: existing.prefix },
+      revokedAt: { old: null, new: updated.revokedAt },
+    },
+    ip: actor.ip ?? null,
+    userAgent: actor.userAgent ?? null,
+  });
+  return updated;
 }
 
 export type AuthedToken = {

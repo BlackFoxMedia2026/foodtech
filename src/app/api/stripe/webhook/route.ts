@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templates";
 import type Stripe from "stripe";
+import { logAudit } from "@/server/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,9 @@ export async function POST(req: Request) {
       case "checkout.session.expired":
       case "checkout.session.async_payment_failed":
         await onCheckoutFailed(event.data.object as Stripe.Checkout.Session);
+        break;
+      case "charge.refunded":
+        await onChargeRefunded(event.data.object as Stripe.Charge);
         break;
       default:
         break;
@@ -172,6 +176,68 @@ async function onCheckoutFailed(session: Stripe.Checkout.Session) {
   await db.booking.update({
     where: { id: bookingId },
     data: { depositStatus: "FAILED" },
+  });
+}
+
+/**
+ * Stripe emette `charge.refunded` quando un refund (totale o parziale) viene
+ * effettuato dal Dashboard o via API. Risaliamo dal charge → payment_intent →
+ * Payment row (matched by stripePaymentId == checkout session id) per ottenere
+ * orgId/venueId. Loghiamo amountRefunded e reason in audit per GDPR/SOX.
+ */
+async function onChargeRefunded(charge: Stripe.Charge) {
+  const refunded = charge.amount_refunded ?? 0;
+  if (refunded <= 0) return;
+
+  // Cerchiamo il Payment via paymentIntent.id (campo nostro) o via charge.id.
+  // I checkout di Tavolo persistono `stripePaymentId = session.id`, ma alcuni
+  // record legacy potrebbero usare il paymentIntent: cerchiamo entrambi.
+  const intentId =
+    typeof charge.payment_intent === "string"
+      ? charge.payment_intent
+      : charge.payment_intent?.id ?? null;
+
+  const payment = await db.payment.findFirst({
+    where: {
+      OR: [
+        intentId ? { stripePaymentId: intentId } : undefined,
+        { stripePaymentId: charge.id },
+      ].filter(Boolean) as { stripePaymentId: string }[],
+    },
+    include: { venue: { select: { id: true, orgId: true } } },
+  });
+  if (!payment) {
+    console.warn("[stripe:webhook] payment_not_found for refund", charge.id);
+    return;
+  }
+
+  // Lo schema attuale ha solo `REFUNDED` (no partial). Marchiamo come
+  // REFUNDED + `refundedAt` quando il refund copre l'intero importo;
+  // per refund parziali lasciamo lo stato attuale ma logghiamo comunque
+  // l'evento di audit con l'importo refunded.
+  if (refunded >= (payment.amountCents ?? 0)) {
+    await db.payment
+      .update({
+        where: { id: payment.id },
+        data: { status: "REFUNDED", refundedAt: new Date() },
+      })
+      .catch(() => undefined);
+  }
+
+  await logAudit({
+    orgId: payment.venue.orgId,
+    venueId: payment.venue.id,
+    actorId: null, // refund originato da Stripe Dashboard/webhook — niente actor user
+    actorEmail: null,
+    action: "payment.refund",
+    entityType: "Payment",
+    entityId: payment.id,
+    diff: {
+      amountCents: { old: payment.amountCents, new: payment.amountCents },
+      amountRefundedCents: { old: 0, new: refunded },
+      stripeChargeId: { old: null, new: charge.id },
+      reason: { old: null, new: charge.refunds?.data?.[0]?.reason ?? null },
+    },
   });
 }
 

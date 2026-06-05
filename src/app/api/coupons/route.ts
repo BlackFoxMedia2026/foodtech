@@ -18,7 +18,12 @@ export async function POST(req: Request) {
   }
   try {
     const body = await req.json();
-    const created = await createCoupon(ctx.venueId, body);
+    const created = await createCoupon(ctx.venueId, body, {
+      actorId: ctx.userId,
+      actorEmail: (ctx.session?.user as { email?: string | null } | undefined)?.email ?? null,
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: req.headers.get("user-agent") ?? null,
+    });
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {

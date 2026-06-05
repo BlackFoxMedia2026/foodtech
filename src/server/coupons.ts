@@ -1,6 +1,22 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { logAudit, sanitizeDiff } from "@/server/audit";
+
+export type CouponAuditActor = {
+  actorId?: string | null;
+  actorEmail?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+};
+
+async function venueOrg(venueId: string) {
+  const v = await db.venue.findUnique({
+    where: { id: venueId },
+    select: { orgId: true },
+  });
+  return v?.orgId ?? null;
+}
 
 const KIND = z.enum(["PERCENT", "FIXED", "FREE_ITEM", "MENU_OFFER"]);
 const CATEGORY = z.enum([
@@ -65,7 +81,11 @@ export async function getCouponByCode(code: string) {
   });
 }
 
-export async function createCoupon(venueId: string, raw: unknown) {
+export async function createCoupon(
+  venueId: string,
+  raw: unknown,
+  actor: CouponAuditActor = {},
+) {
   const data = CouponInput.parse(raw);
   let code = (data.code ?? autoCode()).toUpperCase();
   // Avoid collisions
@@ -77,7 +97,7 @@ export async function createCoupon(venueId: string, raw: unknown) {
   if (data.kind === "PERCENT" && (data.value < 0 || data.value > 100)) {
     throw new Error("invalid_percent");
   }
-  return db.coupon.create({
+  const created = await db.coupon.create({
     data: {
       venueId,
       code,
@@ -96,13 +116,42 @@ export async function createCoupon(venueId: string, raw: unknown) {
       segment: (data.segment ?? undefined) as Prisma.InputJsonValue | undefined,
     },
   });
+
+  const orgId = await venueOrg(venueId);
+  if (orgId) {
+    await logAudit({
+      orgId,
+      venueId,
+      actorId: actor.actorId ?? null,
+      actorEmail: actor.actorEmail ?? null,
+      action: "coupon.create",
+      entityType: "Coupon",
+      entityId: created.id,
+      diff: {
+        code: { old: null, new: created.code },
+        name: { old: null, new: created.name },
+        kind: { old: null, new: created.kind },
+        value: { old: null, new: created.value },
+        status: { old: null, new: created.status },
+      },
+      ip: actor.ip ?? null,
+      userAgent: actor.userAgent ?? null,
+    });
+  }
+
+  return created;
 }
 
-export async function updateCoupon(venueId: string, id: string, raw: unknown) {
+export async function updateCoupon(
+  venueId: string,
+  id: string,
+  raw: unknown,
+  actor: CouponAuditActor = {},
+) {
   const existing = await db.coupon.findFirst({ where: { id, venueId } });
   if (!existing) throw new Error("not_found");
   const data = CouponInput.partial().parse(raw);
-  return db.coupon.update({
+  const updated = await db.coupon.update({
     where: { id },
     data: {
       name: data.name ?? undefined,
@@ -124,12 +173,59 @@ export async function updateCoupon(venueId: string, id: string, raw: unknown) {
           : ((data.segment ?? undefined) as Prisma.InputJsonValue | undefined),
     },
   });
+
+  const orgId = await venueOrg(venueId);
+  if (orgId) {
+    const diff = sanitizeDiff(
+      existing as unknown as Record<string, unknown>,
+      updated as unknown as Record<string, unknown>,
+    );
+    if (Object.keys(diff).length > 0) {
+      await logAudit({
+        orgId,
+        venueId,
+        actorId: actor.actorId ?? null,
+        actorEmail: actor.actorEmail ?? null,
+        action: "coupon.update",
+        entityType: "Coupon",
+        entityId: id,
+        diff,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      });
+    }
+  }
+
+  return updated;
 }
 
-export async function deleteCoupon(venueId: string, id: string) {
+export async function deleteCoupon(
+  venueId: string,
+  id: string,
+  actor: CouponAuditActor = {},
+) {
   const existing = await db.coupon.findFirst({ where: { id, venueId } });
   if (!existing) throw new Error("not_found");
   await db.coupon.delete({ where: { id } });
+
+  const orgId = await venueOrg(venueId);
+  if (orgId) {
+    await logAudit({
+      orgId,
+      venueId,
+      actorId: actor.actorId ?? null,
+      actorEmail: actor.actorEmail ?? null,
+      action: "coupon.delete",
+      entityType: "Coupon",
+      entityId: id,
+      diff: {
+        code: { old: existing.code, new: null },
+        name: { old: existing.name, new: null },
+      },
+      ip: actor.ip ?? null,
+      userAgent: actor.userAgent ?? null,
+    });
+  }
 }
 
 export type ValidationResult =

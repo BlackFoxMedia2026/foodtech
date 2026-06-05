@@ -21,15 +21,23 @@ export async function POST(req: Request) {
   }
   try {
     const body = await req.json();
-    const created = await createApiToken(ctx.venueId, body, ctx.userId);
+    const created = await createApiToken(ctx.venueId, body, ctx.userId, {
+      actorEmail: (ctx.session?.user as { email?: string | null } | undefined)?.email ?? null,
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: req.headers.get("user-agent") ?? null,
+    });
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "invalid_input", issues: err.issues }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "invalid" },
-      { status: 400 },
-    );
+    const message = err instanceof Error ? err.message : "invalid";
+    if (err instanceof Error && err.name === "PlanLimitError") {
+      return NextResponse.json(
+        { error: "plan_limit_reached", message },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

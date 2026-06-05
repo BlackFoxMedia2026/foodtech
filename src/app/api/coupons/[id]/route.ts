@@ -10,7 +10,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!can(ctx.role, "edit_marketing")) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   try {
     const body = await req.json();
-    const updated = await updateCoupon(ctx.venueId, params.id, body);
+    const updated = await updateCoupon(ctx.venueId, params.id, body, {
+      actorId: ctx.userId,
+      actorEmail: (ctx.session?.user as { email?: string | null } | undefined)?.email ?? null,
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: req.headers.get("user-agent") ?? null,
+    });
     return NextResponse.json(updated);
   } catch (err) {
     if (err instanceof ZodError) {
@@ -21,11 +26,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const ctx = await getActiveVenue();
   if (!can(ctx.role, "edit_marketing")) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   try {
-    await deleteCoupon(ctx.venueId, params.id);
+    await deleteCoupon(ctx.venueId, params.id, {
+      actorId: ctx.userId,
+      actorEmail: (ctx.session?.user as { email?: string | null } | undefined)?.email ?? null,
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: req.headers.get("user-agent") ?? null,
+    });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

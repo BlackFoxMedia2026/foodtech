@@ -9,12 +9,27 @@ export async function POST(req: Request) {
   }
   try {
     const body = await req.json();
-    const created = await createVenue({ orgId: ctx.orgId, userId: ctx.userId, raw: body });
+    const created = await createVenue({
+      orgId: ctx.orgId,
+      userId: ctx.userId,
+      raw: body,
+      actor: {
+        actorId: ctx.userId,
+        actorEmail:
+          (ctx.session?.user as { email?: string | null } | undefined)?.email ?? null,
+        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+        userAgent: req.headers.get("user-agent") ?? null,
+      },
+    });
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "invalid" },
-      { status: 400 },
-    );
+    const message = err instanceof Error ? err.message : "invalid";
+    if (err instanceof Error && err.name === "PlanLimitError") {
+      return NextResponse.json(
+        { error: "plan_limit_reached", message },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

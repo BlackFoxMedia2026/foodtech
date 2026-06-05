@@ -43,6 +43,29 @@ model Organization {
   createdAt DateTime        @default(now())
   venues    Venue[]
   members   OrgMembership[]
+  auditLogs AuditLog[]
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  venueId    String? // null per eventi org-level (es. venue created)
+  orgId      String
+  actorId    String? // userId che ha fatto l'azione, null se sistema
+  actorEmail String? // snapshot (utente potrebbe essere cancellato dopo)
+  action     String   @db.VarChar(64) // es. "guest.anonymize", "payment.refund"
+  entityType String   @db.VarChar(32) // es. "Guest", "Payment", "Membership"
+  entityId   String? // ID della risorsa toccata
+  diff       Json? // delta old->new (sanitized)
+  ip         String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([venueId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
 }
 
 enum Plan {
@@ -624,6 +647,7 @@ model Order {
   items OrderItem[]
 
   @@index([venueId, status, scheduledAt])
+  @@index([venueId, createdAt])
 }
 
 enum OrderKind {
@@ -912,6 +936,7 @@ model CouponRedemption {
 
   @@index([venueId, redeemedAt])
   @@index([couponId])
+  @@index([guestId, redeemedAt])
 }
 
 // ─── Review funnel ────────────────────────────────────────────────────────────

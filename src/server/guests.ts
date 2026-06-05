@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
+import { logAudit } from "@/server/audit";
 
 export const GuestInput = z.object({
   firstName: z.string().min(1),
@@ -138,12 +139,17 @@ export async function anonymizeGuest(
   venueId: string,
   id: string,
   actorId: string,
+  opts: { actorEmail?: string | null; ip?: string | null; userAgent?: string | null } = {},
 ) {
-  const existing = await db.guest.findFirst({ where: { id, venueId } });
+  const existing = await db.guest.findFirst({
+    where: { id, venueId },
+    include: { venue: { select: { orgId: true } } },
+  });
   if (!existing) throw new Error("not_found");
   if (existing.anonymizedAt) throw new Error("already_anonymized");
 
-  return db.guest.update({
+  const previousName = `${existing.firstName ?? ""} ${existing.lastName ?? ""}`.trim();
+  const updated = await db.guest.update({
     where: { id },
     data: {
       firstName: "Ospite anonimizzato",
@@ -160,4 +166,25 @@ export async function anonymizeGuest(
       anonymizedBy: actorId,
     },
   });
+
+  await logAudit({
+    orgId: existing.venue.orgId,
+    venueId,
+    actorId,
+    actorEmail: opts.actorEmail ?? null,
+    action: "guest.anonymize",
+    entityType: "Guest",
+    entityId: id,
+    diff: {
+      firstName: { old: previousName || existing.firstName, new: "Ospite anonimizzato" },
+      // Non logghiamo i valori PII originali (email/phone): l'evento basta
+      // per accountability senza riesumare i dati cancellati.
+      email: { old: existing.email ? "[redacted]" : null, new: null },
+      phone: { old: existing.phone ? "[redacted]" : null, new: null },
+    },
+    ip: opts.ip ?? null,
+    userAgent: opts.userAgent ?? null,
+  });
+
+  return updated;
 }
