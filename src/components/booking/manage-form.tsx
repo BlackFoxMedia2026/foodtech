@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { t, type Locale } from "@/lib/i18n";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Booking = {
   reference: string;
@@ -54,6 +55,7 @@ export function BookingManageForm({
   locale: Locale;
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const tr = (key: string, vars?: Record<string, string | number>) =>
     t(locale, key as never, vars);
   const closed =
@@ -98,7 +100,12 @@ export function BookingManageForm({
   }
 
   async function onCancel() {
-    if (!confirm(tr("manage.confirmCancel"))) return;
+    const ok = await confirmFn({
+      title: tr("manage.confirmCancel"),
+      variant: "destructive",
+      confirmLabel: tr("manage.cancel"),
+    });
+    if (!ok) return;
     setBusy("cancel");
     setError(null);
     setMessage(null);

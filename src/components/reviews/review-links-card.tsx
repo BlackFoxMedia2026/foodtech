@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Platform =
   | "GOOGLE"
@@ -65,6 +66,7 @@ export function ReviewLinksCard({
   const [list, setList] = useState<Link[]>(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const router = useRouter();
+  const confirmFn = useConfirm();
 
   async function patch(id: string, body: Record<string, unknown>) {
     setBusy(id);
@@ -81,7 +83,13 @@ export function ReviewLinksCard({
   }
 
   async function remove(id: string) {
-    if (!confirm("Eliminare il link?")) return;
+    const ok = await confirmFn({
+      title: "Eliminare il link?",
+      description: "L'operazione è irreversibile.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setBusy(id);
     await fetch(`/api/review-links/${id}`, { method: "DELETE" });
     setBusy(null);

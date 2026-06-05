@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Kind = "SQUARE" | "LIGHTSPEED" | "SUMUP" | "IZETTLE" | "TOAST" | "CUSTOM";
 type Status = "DRAFT" | "ACTIVE" | "PAUSED" | "ERROR";
@@ -46,6 +47,7 @@ function genSecret() {
 
 export function POSConnectorDialog({ initial }: { initial?: Initial }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const editing = Boolean(initial?.id);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -83,7 +85,13 @@ export function POSConnectorDialog({ initial }: { initial?: Initial }) {
 
   async function onDelete() {
     if (!editing) return;
-    if (!confirm(`Rimuovere il POS "${KIND_LABEL[initial!.kind!]}"?`)) return;
+    const ok = await confirmFn({
+      title: `Rimuovere il POS "${KIND_LABEL[initial!.kind!]}"?`,
+      description: "L'integrazione verrà disconnessa.",
+      variant: "destructive",
+      confirmLabel: "Rimuovi",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(`/api/pos/${initial!.id}`, { method: "DELETE" });
     setBusy(false);

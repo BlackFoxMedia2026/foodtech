@@ -25,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatDateTime } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Block = {
   id: string;
@@ -39,12 +40,18 @@ type Table = { id: string; label: string; seats: number };
 
 export function TableBlocksCard({ initial, tables }: { initial: Block[]; tables: Table[] }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const [list, setList] = useState<Block[]>(initial);
   const [busy, setBusy] = useState(false);
   const [, startTransition] = useTransition();
 
   async function remove(id: string) {
-    if (!confirm("Sbloccare il tavolo?")) return;
+    const ok = await confirmFn({
+      title: "Sbloccare il tavolo?",
+      description: "Il tavolo tornerà disponibile per assegnazione.",
+      confirmLabel: "Sblocca",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(`/api/blocks/${id}`, { method: "DELETE" });
     setBusy(false);

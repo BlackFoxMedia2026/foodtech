@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Initial = {
   id?: string;
@@ -53,6 +54,7 @@ export function ExperienceDialog({
   triggerSize?: "default" | "sm";
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +108,13 @@ export function ExperienceDialog({
 
   async function onDelete() {
     if (!editing) return;
-    if (!confirm(`Eliminare "${initial!.title}"?`)) return;
+    const ok = await confirmFn({
+      title: `Eliminare "${initial!.title}"?`,
+      description: "L'esperienza verrà rimossa definitivamente.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setSubmitting(true);
     const res = await fetch(`/api/experiences/${initial!.id}`, { method: "DELETE" });
     setSubmitting(false);

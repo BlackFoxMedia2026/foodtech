@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Channel = "EMAIL" | "SMS" | "WHATSAPP";
 type Category =
@@ -116,6 +117,7 @@ function TemplateDialog({
   onDeleted?: (id: string) => void;
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const editing = Boolean(initial?.id);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -151,7 +153,13 @@ function TemplateDialog({
 
   async function onDelete() {
     if (!editing) return;
-    if (!confirm(`Eliminare "${initial!.name}"?`)) return;
+    const ok = await confirmFn({
+      title: `Eliminare "${initial!.name}"?`,
+      description: "Il template verrà rimosso definitivamente.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(`/api/templates/${initial!.id}`, { method: "DELETE" });
     setBusy(false);

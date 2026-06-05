@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 
 const CATEGORIES = [
   ["FOOD", "Food cost"],
@@ -29,6 +30,7 @@ const CATEGORIES = [
 
 export function CostDialog({ currency }: { currency: string }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -54,7 +56,7 @@ export function CostDialog({ currency }: { currency: string }) {
       setOpen(false);
       router.refresh();
     } else {
-      alert("Salvataggio non riuscito.");
+      toast.error("Salvataggio non riuscito.");
     }
   }
 

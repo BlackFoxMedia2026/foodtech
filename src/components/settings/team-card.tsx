@@ -25,6 +25,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { initials } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/toast";
 
 type Role = "MANAGER" | "RECEPTION" | "WAITER" | "MARKETING" | "READ_ONLY";
 
@@ -61,6 +63,8 @@ export function TeamCard({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
+  const { toast } = useToast();
   const [list, setList] = useState<Member[]>(initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -78,12 +82,18 @@ export function TeamCard({
       startTransition(() => router.refresh());
     } else {
       const j = await res.json().catch(() => ({}));
-      alert(j?.error === "cant_edit_self" ? "Non puoi modificare il tuo ruolo." : "Operazione non riuscita.");
+      toast.error(j?.error === "cant_edit_self" ? "Non puoi modificare il tuo ruolo." : "Operazione non riuscita.");
     }
   }
 
   async function remove(id: string) {
-    if (!confirm("Rimuovere il membro dal locale?")) return;
+    const ok = await confirmFn({
+      title: "Rimuovere il membro dal locale?",
+      description: "Perderà l'accesso al venue.",
+      variant: "destructive",
+      confirmLabel: "Rimuovi",
+    });
+    if (!ok) return;
     setBusy(id);
     const res = await fetch(`/api/team/${id}`, { method: "DELETE" });
     setBusy(null);
@@ -92,7 +102,7 @@ export function TeamCard({
       startTransition(() => router.refresh());
     } else {
       const j = await res.json().catch(() => ({}));
-      alert(j?.error === "cant_remove_self" ? "Non puoi rimuovere te stesso." : "Operazione non riuscita.");
+      toast.error(j?.error === "cant_remove_self" ? "Non puoi rimuovere te stesso." : "Operazione non riuscita.");
     }
   }
 

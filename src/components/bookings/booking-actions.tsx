@@ -32,6 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/toast";
 
 type Status = "PENDING" | "CONFIRMED" | "ARRIVED" | "SEATED" | "COMPLETED" | "NO_SHOW" | "CANCELLED";
 
@@ -60,6 +62,8 @@ export function BookingActions({
   canSeePrivate: boolean;
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [, startTransition] = useTransition();
 
@@ -72,16 +76,22 @@ export function BookingActions({
     });
     setBusy(false);
     if (res.ok) startTransition(() => router.refresh());
-    else alert("Operazione non riuscita.");
+    else toast.error("Operazione non riuscita.");
   }
 
   async function remove() {
-    if (!confirm("Eliminare la prenotazione? L'azione è irreversibile.")) return;
+    const ok = await confirmFn({
+      title: "Eliminare la prenotazione?",
+      description: "L'azione è irreversibile.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setBusy(true);
     const res = await fetch(`/api/bookings/${booking.id}`, { method: "DELETE" });
     setBusy(false);
     if (res.ok) router.push("/bookings");
-    else alert("Eliminazione non riuscita.");
+    else toast.error("Eliminazione non riuscita.");
   }
 
   async function autoAssign() {
@@ -91,13 +101,15 @@ export function BookingActions({
     if (res.ok) {
       const j = await res.json();
       const labels = j?.suggestion?.labels?.join(" + ") ?? "tavolo";
-      alert(`Assegnato: ${labels}`);
+      toast.success(`Assegnato: ${labels}`);
       startTransition(() => router.refresh());
     } else {
       const j = await res.json().catch(() => ({}));
-      alert(j?.error === "no_table_available"
-        ? "Nessun tavolo disponibile per questa fascia oraria."
-        : "Operazione non riuscita.");
+      toast.error(
+        j?.error === "no_table_available"
+          ? "Nessun tavolo disponibile per questa fascia oraria."
+          : "Operazione non riuscita.",
+      );
     }
   }
 

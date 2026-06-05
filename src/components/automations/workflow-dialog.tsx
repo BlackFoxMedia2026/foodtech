@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Trigger =
   | "BOOKING_CREATED"
@@ -92,6 +93,7 @@ const ACTION_LABEL: Record<ActionKind, string> = {
 
 export function WorkflowDialog({ initial }: { initial?: Initial }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const editing = Boolean(initial?.id);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -176,7 +178,13 @@ export function WorkflowDialog({ initial }: { initial?: Initial }) {
 
   async function onDelete() {
     if (!editing) return;
-    if (!confirm(`Eliminare l'automazione "${initial!.name}"?`)) return;
+    const ok = await confirmFn({
+      title: `Eliminare l'automazione "${initial!.name}"?`,
+      description: "Tutte le esecuzioni programmate verranno rimosse.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(`/api/automations/${initial!.id}`, { method: "DELETE" });
     setBusy(false);

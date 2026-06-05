@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 const SCOPES = [
   { value: "bookings:read", label: "Prenotazioni · lettura" },
@@ -36,6 +37,7 @@ type Token = {
 };
 
 export function ApiTokensCard() {
+  const confirmFn = useConfirm();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -90,7 +92,13 @@ export function ApiTokensCard() {
   }
 
   async function revoke(id: string) {
-    if (!confirm("Revocare il token? Le integrazioni che lo usano smetteranno di funzionare.")) return;
+    const ok = await confirmFn({
+      title: "Revocare il token?",
+      description: "Le integrazioni che lo usano smetteranno di funzionare.",
+      variant: "destructive",
+      confirmLabel: "Revoca",
+    });
+    if (!ok) return;
     await fetch(`/api/api-tokens/${id}`, { method: "DELETE" });
     await load();
   }

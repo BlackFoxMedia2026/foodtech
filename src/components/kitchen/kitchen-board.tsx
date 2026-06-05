@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Ticket = {
   id: string;
@@ -54,6 +55,7 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral" |
 
 export function KitchenBoard({ initialTickets }: { initialTickets: Ticket[] }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
   const [filter, setFilter] = useState<Filter>("ALL");
   const [auto, setAuto] = useState(true);
@@ -132,7 +134,14 @@ export function KitchenBoard({ initialTickets }: { initialTickets: Ticket[] }) {
   }
 
   async function cancel(t: Ticket) {
-    if (!confirm(`Annullare ${t.reference}?`)) return;
+    const ok = await confirmFn({
+      title: `Annullare ${t.reference}?`,
+      description: "Il ticket verrà cancellato.",
+      variant: "destructive",
+      confirmLabel: "Annulla ticket",
+      cancelLabel: "Indietro",
+    });
+    if (!ok) return;
     setBusy(t.id);
     if (t.source === "ORDER" && t.orderId) {
       await fetch(`/api/orders/${t.orderId}`, {

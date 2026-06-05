@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppProviders } from "@/components/providers/app-providers";
 
 export const metadata: Metadata = {
   title: "Prenota · Tavolo",
@@ -7,8 +8,10 @@ export const metadata: Metadata = {
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-sand-50 to-sand-100 text-foreground">
-      {children}
-    </main>
+    <AppProviders>
+      <main className="min-h-screen bg-gradient-to-b from-sand-50 to-sand-100 text-foreground">
+        {children}
+      </main>
+    </AppProviders>
   );
 }

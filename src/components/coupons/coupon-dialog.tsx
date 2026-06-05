@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Kind = "PERCENT" | "FIXED" | "FREE_ITEM" | "MENU_OFFER";
 type Category =
@@ -72,6 +73,7 @@ export function CouponDialog({
   currency: string;
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const editing = Boolean(initial?.id);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -124,7 +126,13 @@ export function CouponDialog({
 
   async function onDelete() {
     if (!editing) return;
-    if (!confirm(`Eliminare il coupon "${initial!.name}"?`)) return;
+    const ok = await confirmFn({
+      title: `Eliminare il coupon "${initial!.name}"?`,
+      description: "L'operazione è irreversibile.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(`/api/coupons/${initial!.id}`, { method: "DELETE" });
     setBusy(false);

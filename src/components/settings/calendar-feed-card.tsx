@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 export function CalendarFeedCard({
   baseUrl,
@@ -19,6 +20,7 @@ export function CalendarFeedCard({
   baseUrl: string;
   venueSlug: string;
 }) {
+  const confirmFn = useConfirm();
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,8 +39,13 @@ export function CalendarFeedCard({
   }, []);
 
   async function rotate() {
-    if (!confirm("Generare un nuovo token? Le sottoscrizioni esistenti smetteranno di funzionare."))
-      return;
+    const ok = await confirmFn({
+      title: "Generare un nuovo token?",
+      description: "Le sottoscrizioni esistenti smetteranno di funzionare.",
+      variant: "destructive",
+      confirmLabel: "Rigenera",
+    });
+    if (!ok) return;
     setBusy(true);
     const res = await fetch("/api/cal/token", { method: "POST" });
     setBusy(false);

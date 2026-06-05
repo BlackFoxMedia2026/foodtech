@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Shift = {
   id: string;
@@ -50,6 +51,7 @@ function hhmmToMin(s: string) {
 
 export function ShiftsEditor({ initial }: { initial: Shift[] }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const [shifts, setShifts] = useState<Shift[]>(initial);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [weekday, setWeekday] = useState<number>(1);
@@ -91,8 +93,13 @@ export function ShiftsEditor({ initial }: { initial: Shift[] }) {
     }
   }
 
-  function onCopyToWeekend(source: Shift) {
-    if (!confirm(`Copiare "${source.name}" del ${WEEKDAYS.find((w) => w.v === source.weekday)?.label} su Sab e Dom?`)) return;
+  async function onCopyToWeekend(source: Shift) {
+    const ok = await confirmFn({
+      title: `Copiare "${source.name}" su Sab e Dom?`,
+      description: `Sorgente: ${WEEKDAYS.find((w) => w.v === source.weekday)?.label}.`,
+      confirmLabel: "Copia",
+    });
+    if (!ok) return;
     void Promise.all(
       [6, 0]
         .filter((wd) => wd !== source.weekday)
@@ -196,8 +203,14 @@ export function ShiftsEditor({ initial }: { initial: Shift[] }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    if (confirm(`Eliminare il turno "${s.name}"?`)) void persist("DELETE", s.id);
+                  onClick={async () => {
+                    const ok = await confirmFn({
+                      title: `Eliminare il turno "${s.name}"?`,
+                      description: "L'operazione è irreversibile.",
+                      variant: "destructive",
+                      confirmLabel: "Elimina",
+                    });
+                    if (ok) void persist("DELETE", s.id);
                   }}
                   disabled={busy}
                 >

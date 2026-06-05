@@ -4,9 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, PhoneCall } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 export function VoiceActions({ kind, id }: { kind: "draft" | "missed"; id: string }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
 
   async function approve() {
@@ -15,7 +17,7 @@ export function VoiceActions({ kind, id }: { kind: "draft" | "missed"; id: strin
     setBusy(null);
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
-      alert(`Impossibile creare la prenotazione: ${b.error ?? "errore"}`);
+      toast.error(`Impossibile creare la prenotazione: ${b.error ?? "errore"}`);
       return;
     }
     router.refresh();

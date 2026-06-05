@@ -36,6 +36,7 @@ import {
 import { EmptyStateRich } from "@/components/ui/empty-state-rich";
 import { formatTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 
 type WaitlistStatus =
   | "WAITING"
@@ -106,6 +107,7 @@ export function WaitlistBoard({
   tables: TableOpt[];
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [now, setNow] = useState(() => Date.now());
@@ -139,7 +141,7 @@ export function WaitlistBoard({
     const data = await res.json().catch(() => ({}));
     setBusyId(null);
     if (!data.ok) {
-      alert(
+      toast.error(
         data.reason === "no_candidate"
           ? "Nessun ospite in attesa per questa dimensione tavolo."
           : data.reason === "no_contact"

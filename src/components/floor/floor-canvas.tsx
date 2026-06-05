@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Table, TableShape, FloorDecor, DecorKind } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/alert-dialog";
 import {
   Plus,
   Save,
@@ -123,6 +124,7 @@ export function FloorCanvas({
   height?: number;
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const ref = useRef<HTMLDivElement>(null);
   const [tables, setTables] = useState<LocalTable[]>(initialTables);
   const [decor, setDecor] = useState<LocalDecor[]>(initialDecor);
@@ -236,7 +238,14 @@ export function FloorCanvas({
 
   const deleteSelected = useCallback(async () => {
     if (selected.size === 0) return;
-    if (!confirm(`Eliminare ${selected.size} elemento${selected.size > 1 ? "i" : ""}? Le prenotazioni associate ai tavoli restano ma perdono l'assegnazione.`)) return;
+    const plural = selected.size > 1;
+    const ok = await confirmFn({
+      title: `Eliminare ${selected.size} element${plural ? "i" : "o"}?`,
+      description: "Le prenotazioni associate ai tavoli restano ma perdono l'assegnazione.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     const tableIds: string[] = [];
     const decorIds: string[] = [];
     selected.forEach((k) => {
@@ -251,7 +260,7 @@ export function FloorCanvas({
     setDecor((prev) => prev.filter((d) => !decorIds.includes(d.id)));
     setSelected(new Set());
     router.refresh();
-  }, [selected, router]);
+  }, [selected, router, confirmFn]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

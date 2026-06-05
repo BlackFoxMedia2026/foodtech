@@ -29,6 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ALLERGEN_LABEL, ALLERGENS, DIETARY, DIETARY_LABEL } from "@/server/menu";
 import { cn, formatCurrency } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type Item = {
   id: string;
@@ -69,6 +70,7 @@ export function MenuBuilder({
   venueSlug: string;
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
 
@@ -90,7 +92,13 @@ export function MenuBuilder({
   }
 
   async function deleteCategory(id: string) {
-    if (!confirm("Eliminare la categoria? Verranno cancellati tutti i piatti contenuti.")) return;
+    const ok = await confirmFn({
+      title: "Eliminare la categoria?",
+      description: "Verranno cancellati tutti i piatti contenuti.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(`/api/menu/categories/${id}`, { method: "DELETE" });
     setBusy(false);
@@ -98,7 +106,13 @@ export function MenuBuilder({
   }
 
   async function deleteItem(id: string) {
-    if (!confirm("Eliminare il piatto?")) return;
+    const ok = await confirmFn({
+      title: "Eliminare il piatto?",
+      description: "L'operazione è irreversibile.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(`/api/menu/items/${id}`, { method: "DELETE" });
     setBusy(false);

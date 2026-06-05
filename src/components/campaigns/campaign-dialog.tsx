@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useConfirm } from "@/components/ui/alert-dialog";
 
 type LoyaltyTier = "NEW" | "REGULAR" | "VIP" | "AMBASSADOR";
 type Channel = "EMAIL" | "SMS" | "WHATSAPP";
@@ -52,6 +53,7 @@ export function CampaignDialog({
   templates?: TemplateOption[];
 }) {
   const router = useRouter();
+  const confirmFn = useConfirm();
   const editing = Boolean(initial?.id);
   const sent = initial?.status === "SENT";
   const [open, setOpen] = useState(false);
@@ -147,7 +149,13 @@ export function CampaignDialog({
 
   async function onDelete() {
     if (!editing) return;
-    if (!confirm(`Eliminare la campagna "${initial!.name}"?`)) return;
+    const ok = await confirmFn({
+      title: `Eliminare la campagna "${initial!.name}"?`,
+      description: "L'operazione è irreversibile.",
+      variant: "destructive",
+      confirmLabel: "Elimina",
+    });
+    if (!ok) return;
     setSubmitting(true);
     await fetch(`/api/campaigns/${initial!.id}`, { method: "DELETE" });
     setSubmitting(false);
