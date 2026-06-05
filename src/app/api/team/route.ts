@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       data: {
         email: body.email,
         name: body.name ?? null,
-        passwordHash: body.initialPassword ? await bcrypt.hash(body.initialPassword, 10) : null,
+        passwordHash: body.initialPassword ? await bcrypt.hash(body.initialPassword, 12) : null,
       },
     });
   }

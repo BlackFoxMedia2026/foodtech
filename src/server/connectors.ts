@@ -119,8 +119,26 @@ export async function ingestExternalBooking(opts: {
   });
   if (!connector) throw new Error("connector_not_found");
   if (connector.status === "PAUSED") throw new Error("connector_paused");
-  if (connector.webhookSecret) {
-    const ok = verifyHmac(opts.rawBody, opts.signature ?? "", connector.webhookSecret);
+  // Signature verification is MANDATORY. A missing webhookSecret on the
+  // connector or a missing/empty signature header is rejected with 401.
+  if (!connector.webhookSecret || !opts.signature) {
+    await db.connectorEvent.create({
+      data: {
+        connectorId: connector.id,
+        venueId: opts.venueId,
+        direction: "INBOUND",
+        kind: "signature.required",
+        status: "REJECTED",
+        payload: {
+          hasSecret: !!connector.webhookSecret,
+          hasSignature: !!opts.signature,
+        } as Prisma.InputJsonValue,
+      },
+    });
+    throw new Error("signature_required");
+  }
+  {
+    const ok = verifyHmac(opts.rawBody, opts.signature, connector.webhookSecret);
     if (!ok) {
       await db.connectorEvent.create({
         data: {
@@ -129,7 +147,7 @@ export async function ingestExternalBooking(opts: {
           direction: "INBOUND",
           kind: "signature.invalid",
           status: "REJECTED",
-          payload: { signature: opts.signature?.slice(0, 16) ?? null } as Prisma.InputJsonValue,
+          payload: { signature: opts.signature.slice(0, 16) } as Prisma.InputJsonValue,
         },
       });
       throw new Error("invalid_signature");

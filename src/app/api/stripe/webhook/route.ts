@@ -41,6 +41,13 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ received: true });
   } catch (err) {
+    const code = err instanceof Error ? err.message : "handler_error";
+    if (
+      code === "booking_not_found_or_cross_tenant" ||
+      code === "ticket_not_found_or_cross_tenant"
+    ) {
+      return NextResponse.json({ error: code }, { status: 400 });
+    }
     console.error("[stripe:webhook] handler error", err);
     return NextResponse.json({ error: "handler_error" }, { status: 500 });
   }
@@ -55,6 +62,29 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const bookingId = session.metadata?.bookingId;
   if (!bookingId) return;
+
+  // Derive the expected venueId from the Payment row that matches this
+  // Stripe session id, and verify the booking belongs to that same venue.
+  const payment = await db.payment.findFirst({
+    where: { stripePaymentId: session.id },
+    select: { venueId: true },
+  });
+  if (!payment) {
+    console.warn("[stripe:webhook] payment_not_found for session", session.id);
+    throw new Error("booking_not_found_or_cross_tenant");
+  }
+
+  const safeBooking = await db.booking.findFirst({
+    where: { id: bookingId, venueId: payment.venueId },
+    select: { id: true },
+  });
+  if (!safeBooking) {
+    console.warn(
+      "[stripe:webhook] cross-tenant booking attempt",
+      { bookingId, expectedVenueId: payment.venueId, sessionId: session.id },
+    );
+    throw new Error("booking_not_found_or_cross_tenant");
+  }
 
   await db.payment.updateMany({
     where: { stripePaymentId: session.id },
@@ -148,6 +178,30 @@ async function onCheckoutFailed(session: Stripe.Checkout.Session) {
 async function onTicketPaid(session: Stripe.Checkout.Session) {
   const ticketId = session.metadata?.ticketId;
   if (!ticketId) return;
+
+  // Derive the venueId from the matching Payment row (it carries the venue
+  // that originally created the Stripe Checkout Session) and make sure the
+  // ticket belongs to an experience in that same venue.
+  const payment = await db.payment.findFirst({
+    where: { stripePaymentId: session.id },
+    select: { venueId: true },
+  });
+  if (!payment) {
+    console.warn("[stripe:webhook] payment_not_found for ticket session", session.id);
+    throw new Error("ticket_not_found_or_cross_tenant");
+  }
+
+  const safeTicket = await db.ticket.findFirst({
+    where: { id: ticketId, experience: { venueId: payment.venueId } },
+    select: { id: true },
+  });
+  if (!safeTicket) {
+    console.warn(
+      "[stripe:webhook] cross-tenant ticket attempt",
+      { ticketId, expectedVenueId: payment.venueId, sessionId: session.id },
+    );
+    throw new Error("ticket_not_found_or_cross_tenant");
+  }
 
   await db.payment.updateMany({
     where: { stripePaymentId: session.id },

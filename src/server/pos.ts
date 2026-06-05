@@ -106,10 +106,27 @@ export async function ingestInboundSale(opts: {
   });
   if (!connector) throw new Error("connector_not_found");
   if (connector.status === "PAUSED") throw new Error("connector_paused");
-  if (connector.webhookSecret) {
+  // Signature verification is MANDATORY. A missing webhookSecret on the
+  // POS connector or a missing/empty signature header is rejected with 401.
+  if (!connector.webhookSecret || !opts.signature) {
+    await db.pOSEvent.create({
+      data: {
+        posConnectorId: connector.id,
+        venueId: opts.venueId,
+        action: "signature.required",
+        status: "REJECTED",
+        payload: {
+          hasSecret: !!connector.webhookSecret,
+          hasSignature: !!opts.signature,
+        } as Prisma.InputJsonValue,
+      },
+    });
+    throw new Error("signature_required");
+  }
+  {
     const ok = verifyPosHmac(
       opts.rawBody,
-      opts.signature ?? "",
+      opts.signature,
       connector.webhookSecret,
     );
     if (!ok) {
@@ -119,7 +136,7 @@ export async function ingestInboundSale(opts: {
           venueId: opts.venueId,
           action: "signature.invalid",
           status: "REJECTED",
-          payload: { signature: opts.signature?.slice(0, 16) ?? null } as Prisma.InputJsonValue,
+          payload: { signature: opts.signature.slice(0, 16) } as Prisma.InputJsonValue,
         },
       });
       throw new Error("invalid_signature");

@@ -93,5 +93,5 @@ export function sanitizeBooking<T extends Record<string, unknown>>(
 }
 
 export function setActiveVenueCookie(venueId: string) {
-  cookies().set(VENUE_COOKIE, venueId, { path: "/", httpOnly: false, sameSite: "lax" });
+  cookies().set(VENUE_COOKIE, venueId, { path: "/", httpOnly: true, sameSite: "strict" });
 }

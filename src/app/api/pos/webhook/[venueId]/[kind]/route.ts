@@ -50,7 +50,7 @@ export async function POST(
         ? 404
         : code === "connector_paused"
           ? 423
-          : code === "invalid_signature"
+          : code === "invalid_signature" || code === "signature_required"
             ? 401
             : code === "invalid_payload"
               ? 400
