@@ -40,7 +40,7 @@ export const AREAS: Area[] = [
     icon: Users,
     primary: "/guests",
     items: [
-      { href: "/guests", label: "CRM" },
+      { href: "/guests", label: "Anagrafica" },
       { href: "/guests/insights", label: "Segmenti" },
       { href: "/reviews", label: "Recensioni" },
       { href: "/insights/feedback", label: "Sondaggi" },
@@ -57,12 +57,12 @@ export const AREAS: Area[] = [
       { href: "/payments", label: "Pagamenti" },
       { href: "/gift-cards", label: "Gift card" },
       { href: "/coupons", label: "Coupon" },
-      { href: "/pos", label: "POS" },
+      { href: "/pos", label: "Cassa" },
     ],
   },
   {
-    key: "growth",
-    label: "Growth",
+    key: "marketing",
+    label: "Marketing",
     icon: Rocket,
     primary: "/campaigns",
     items: [
@@ -75,27 +75,27 @@ export const AREAS: Area[] = [
   },
   {
     key: "analytics",
-    label: "Analytics",
+    label: "Analisi",
     icon: BarChart3,
     primary: "/insights",
     items: [
       { href: "/insights", label: "Performance" },
-      { href: "/cockpit", label: "Cockpit" },
-      { href: "/portfolio", label: "Multi-location" },
+      { href: "/cockpit", label: "Cruscotto" },
+      { href: "/portfolio", label: "Multi-sede" },
       { href: "/finance", label: "Economico" },
-      { href: "/staff/performance", label: "Staff" },
+      { href: "/staff/performance", label: "Personale" },
     ],
   },
   {
     key: "setup",
-    label: "Setup",
+    label: "Configurazione",
     icon: Settings,
     primary: "/settings",
     items: [
       { href: "/settings", label: "Impostazioni" },
       { href: "/floor", label: "Sala & tavoli" },
       { href: "/menu", label: "Menu digitale" },
-      { href: "/connectors", label: "Channel manager" },
+      { href: "/connectors", label: "Canali esterni" },
     ],
   },
 ];

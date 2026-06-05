@@ -1,6 +1,5 @@
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
-import { AreaNav } from "@/components/shell/area-nav";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { AppProviders } from "@/components/providers/app-providers";
 import { RealtimeSyncProvider } from "@/components/providers/realtime-sync";
@@ -28,7 +27,6 @@ export default async function AppShell({ children }: { children: React.ReactNode
               venues={venueList}
               activeVenueId={ctx.venueId}
             />
-            <AreaNav />
             <main className="flex-1 px-5 py-6 lg:px-8 xl:px-10">{children}</main>
           </div>
           <CommandPalette />
