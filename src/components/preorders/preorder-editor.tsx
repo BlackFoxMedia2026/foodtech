@@ -1,14 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Sparkles, Trash2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
+
+type UpsellHint = {
+  reason:
+    | "wine_pairing"
+    | "white_wine_pairing"
+    | "coffee_after"
+    | "antipasto"
+    | "dessert"
+    | "dietary_complement";
+  message: string;
+  suggestedItems: { id: string; name: string; priceCents: number }[];
+};
 
 type MenuItem = {
   id: string;
@@ -71,6 +83,88 @@ export function PreorderEditor({
     () => items.reduce((s, it) => s + it.priceCents * it.quantity, 0),
     [items],
   );
+
+  // Smart upsell suggestions. Admin-only (the public guest endpoint runs
+  // without a cookie-based venue context, so the API would 403). The fetch
+  // is debounced 500ms on every cart mutation; if no hints come back we
+  // hide the panel entirely.
+  const [upsellHints, setUpsellHints] = useState<UpsellHint[]>([]);
+  const upsellTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const upsellAbort = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (scope !== "admin" || !bookingId) return;
+    if (upsellTimer.current) clearTimeout(upsellTimer.current);
+    if (items.length === 0) {
+      setUpsellHints([]);
+      return;
+    }
+    upsellTimer.current = setTimeout(async () => {
+      upsellAbort.current?.abort();
+      const ac = new AbortController();
+      upsellAbort.current = ac;
+      try {
+        const res = await fetch(
+          `/api/preorders/${bookingId}/upsell-suggestions`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              currentItems: items
+                .filter((it) => it.menuItemId)
+                .map((it) => ({
+                  menuItemId: it.menuItemId,
+                  quantity: it.quantity,
+                })),
+            }),
+            signal: ac.signal,
+          },
+        );
+        if (!res.ok) {
+          setUpsellHints([]);
+          return;
+        }
+        const data = (await res.json()) as { hints?: UpsellHint[] };
+        setUpsellHints(data.hints ?? []);
+      } catch {
+        // network/abort — leave previous hints alone if abort, clear on error
+      }
+    }, 500);
+    return () => {
+      if (upsellTimer.current) clearTimeout(upsellTimer.current);
+    };
+  }, [items, bookingId, scope]);
+
+  function addSuggested(
+    item: { id: string; name: string; priceCents: number },
+    reason: UpsellHint["reason"],
+  ) {
+    setItems((prev) => {
+      const existing = prev.find((p) => p.menuItemId === item.id);
+      if (existing) {
+        return prev.map((p) =>
+          p === existing ? { ...p, quantity: p.quantity + 1 } : p,
+        );
+      }
+      return [
+        ...prev,
+        {
+          menuItemId: item.id,
+          name: item.name,
+          priceCents: item.priceCents,
+          quantity: 1,
+          notes: null,
+        },
+      ];
+    });
+    if (scope === "admin" && bookingId) {
+      void fetch(`/api/preorders/${bookingId}/upsell-click`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason, menuItemId: item.id }),
+      }).catch(() => {});
+    }
+  }
 
   function addFromMenu(item: MenuItem) {
     setItems((prev) => {
@@ -255,6 +349,42 @@ export function PreorderEditor({
           <Button type="button" variant="ghost" size="sm" onClick={addCustom}>
             <Plus className="h-3.5 w-3.5" /> Voce libera
           </Button>
+        </div>
+      )}
+
+      {!locked && upsellHints.length > 0 && (
+        <div className="rounded-xl border border-gilt/30 bg-gilt/[0.04] p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-gilt-dark" />
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gilt-dark">
+              Suggerimenti del concierge
+            </p>
+          </div>
+          <div className="space-y-3">
+            {upsellHints.map((hint) => (
+              <div key={hint.reason} className="space-y-1.5">
+                <p className="text-xs italic text-foreground/80">{hint.message}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {hint.suggestedItems.map((sugg) => (
+                    <button
+                      key={sugg.id}
+                      type="button"
+                      onClick={() => addSuggested(sugg, hint.reason)}
+                      className="group flex items-center gap-1.5 rounded-lg border border-gilt/40 bg-background px-2 py-1 text-[11px] transition hover:bg-gilt/10"
+                    >
+                      <span className="font-medium">{sugg.name}</span>
+                      <span className="text-muted-foreground">
+                        {formatCurrency(sugg.priceCents, currency)}
+                      </span>
+                      <span className="grid h-4 w-4 place-items-center rounded-full bg-gilt/15 text-gilt-dark group-hover:bg-gilt/30">
+                        <Plus className="h-2.5 w-2.5" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
