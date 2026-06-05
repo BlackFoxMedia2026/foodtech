@@ -4,14 +4,20 @@ export async function getAnalytics(venueId: string) {
   const since = new Date();
   since.setDate(since.getDate() - 90);
 
-  const [bookings, guests] = await Promise.all([
+  const [bookings, guests, newGuestsCount] = await Promise.all([
     db.booking.findMany({
       where: { venueId, startsAt: { gte: since } },
       select: { partySize: true, startsAt: true, status: true, source: true, guestId: true },
     }),
     db.guest.findMany({
       where: { venueId },
-      select: { totalVisits: true, totalSpend: true, createdAt: true, lastVisitAt: true },
+      select: { totalVisits: true, totalSpend: true, lastVisitAt: true },
+    }),
+    // "New guests in window" was previously computed by filtering the
+    // entire guests list in memory. We push that filter into the DB so
+    // the venue-wide scan can't degrade as the CRM grows.
+    db.guest.count({
+      where: { venueId, createdAt: { gte: since } },
     }),
   ]);
 
@@ -43,7 +49,7 @@ export async function getAnalytics(venueId: string) {
   const sourcesData = Object.entries(sources).map(([source, count]) => ({ source, count }));
 
   // Nuovi vs ricorrenti
-  const newGuests = guests.filter((g) => g.createdAt >= since).length;
+  const newGuests = newGuestsCount;
   const repeat = guests.filter((g) => g.totalVisits > 1).length;
 
   // ARPC (avg revenue per cover)

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRealtimeNow } from "@/components/providers/realtime-sync";
 import {
   Crown,
   Sparkles,
@@ -58,12 +58,7 @@ export function ServiceTimeline({
   predictiveSlots?: PredictiveSlot[];
   variant?: "light" | "dark";
 }) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useRealtimeNow();
 
   const dark = variant === "dark";
 

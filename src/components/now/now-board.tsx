@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useRealtimeNow } from "@/components/providers/realtime-sync";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -75,22 +76,16 @@ export function NowBoard({
 }) {
   const router = useRouter();
   const [bookings, setBookings] = useState(initialBookings);
-  const [now, setNow] = useState(() => new Date());
+  // `now` is driven by the centralised RealtimeSyncProvider — see
+  // `src/components/providers/realtime-sync.tsx`. That provider also
+  // calls `router.refresh()` on the shared 30s tick, so we don't
+  // schedule a second 60s refresh from this component.
+  const now = useRealtimeNow();
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     setBookings(initialBookings);
   }, [initialBookings]);
-
-  useEffect(() => {
-    const tick = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(tick);
-  }, []);
-
-  useEffect(() => {
-    const refresh = setInterval(() => router.refresh(), 60_000);
-    return () => clearInterval(refresh);
-  }, [router]);
 
   const buckets = useMemo(() => {
     const upcoming: Booking[] = [];

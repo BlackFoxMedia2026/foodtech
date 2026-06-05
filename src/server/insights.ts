@@ -30,25 +30,44 @@ export async function getOverview(venueId: string, day: Date = new Date()) {
   const estimatedRevenueCents =
     Math.round(((Number(avgSpend._avg.totalSpend ?? 45) * totalCovers) || 45 * totalCovers) * 100);
 
-  // Trend ultimi 7 giorni
+  // Trend ultimi 7 giorni — aggregato direttamente in SQL invece di
+  // filtrare l'intero set in memoria (sul venue con migliaia di
+  // prenotazioni questo loop scaricava facilmente 5-10k righe per
+  // tirare fuori 7 numeri).
   const weekAgo = new Date(dayStart);
   weekAgo.setDate(dayStart.getDate() - 6);
 
-  const weekBookings = await db.booking.findMany({
-    where: { venueId, startsAt: { gte: weekAgo, lte: dayEnd } },
-    select: { startsAt: true, partySize: true, status: true },
-  });
+  const rawTrend = await db.$queryRaw<
+    { day: Date; covers: number; bookings: number }[]
+  >`
+    SELECT DATE_TRUNC('day', "startsAt")::date AS day,
+           COALESCE(SUM("partySize"), 0)::int AS covers,
+           COUNT(*)::int AS bookings
+    FROM "Booking"
+    WHERE "venueId" = ${venueId}
+      AND "startsAt" >= ${weekAgo}
+      AND "startsAt" <= ${dayEnd}
+      AND "status" != 'CANCELLED'
+    GROUP BY 1
+    ORDER BY 1
+  `;
+
+  const trendByKey = new Map<string, { covers: number; bookings: number }>();
+  for (const row of rawTrend) {
+    const key = new Date(row.day).toISOString().slice(0, 10);
+    trendByKey.set(key, { covers: row.covers, bookings: row.bookings });
+  }
 
   const trend: { day: string; covers: number; bookings: number }[] = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekAgo);
     d.setDate(weekAgo.getDate() + i);
     const key = d.toISOString().slice(0, 10);
-    const filtered = weekBookings.filter((b) => b.startsAt.toISOString().slice(0, 10) === key && b.status !== "CANCELLED");
+    const slot = trendByKey.get(key);
     trend.push({
       day: d.toLocaleDateString("it-IT", { weekday: "short" }),
-      covers: filtered.reduce((s, b) => s + b.partySize, 0),
-      bookings: filtered.length,
+      covers: slot?.covers ?? 0,
+      bookings: slot?.bookings ?? 0,
     });
   }
 

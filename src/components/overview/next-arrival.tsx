@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Clock } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
+import { useRealtimeNow } from "@/components/providers/realtime-sync";
 
 export type ArrivalRow = {
   id: string;
@@ -29,12 +29,8 @@ function diffLabel(min: number) {
 }
 
 export function NextArrival({ next }: { next: ArrivalRow | null }) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // Driven by the centralised RealtimeSyncProvider — no local interval.
+  const now = useRealtimeNow();
 
   if (!next) {
     return (

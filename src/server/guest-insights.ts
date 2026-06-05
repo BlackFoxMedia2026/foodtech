@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 // by venueId + birthday IS NOT NULL, so even on a large CRM it stays
 // trivially small.
 
+import type { Prisma } from "@prisma/client";
+
 export type GuestSummary = {
   id: string;
   firstName: string;
@@ -21,6 +23,8 @@ export type GuestSummary = {
   marketingOptIn: boolean;
   birthday: Date | null;
   allergies: string | null;
+  totalSpend: Prisma.Decimal;
+  tags: string[];
 };
 
 export type SegmentInsights = {
@@ -77,7 +81,7 @@ export async function getSegmentInsights(venueId: string): Promise<SegmentInsigh
     db.guest.findMany({
       where: { venueId, birthday: { not: null } },
       select: guestSummarySelect(),
-      take: 5000,
+      take: 1000,
     }),
     db.guest.findMany({
       where: {
@@ -167,17 +171,22 @@ export async function getSegmentInsights(venueId: string): Promise<SegmentInsigh
 }
 
 function guestSummarySelect() {
+  // Explicit projection so we never lazily pull heavy JSON columns
+  // (`preferences`) or PII-sensitive ones (`privateNotes`) from a list
+  // endpoint. Keep this list in sync with `GuestSummary`.
   return {
     id: true,
     firstName: true,
     lastName: true,
     email: true,
     phone: true,
+    birthday: true,
+    lastVisitAt: true,
     loyaltyTier: true,
     totalVisits: true,
-    lastVisitAt: true,
+    totalSpend: true,
     marketingOptIn: true,
-    birthday: true,
     allergies: true,
+    tags: true,
   } as const;
 }

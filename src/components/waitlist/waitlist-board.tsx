@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useRealtimeNow } from "@/components/providers/realtime-sync";
 import {
   BellRing,
   CheckCircle2,
@@ -110,12 +111,8 @@ export function WaitlistBoard({
   const { toast } = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // Driven by the centralised RealtimeSyncProvider — no local interval.
+  const now = useRealtimeNow().getTime();
 
   async function patch(id: string, body: Record<string, unknown>) {
     setBusyId(id);

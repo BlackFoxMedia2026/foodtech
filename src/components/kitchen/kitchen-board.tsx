@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/alert-dialog";
+import { useRealtimeTick } from "@/components/providers/realtime-sync";
 
 type Ticket = {
   id: string;
@@ -62,14 +63,18 @@ export function KitchenBoard({ initialTickets }: { initialTickets: Ticket[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
 
-  // Polling refresh every 30s when auto is on. Re-fetch the whole page rather
-  // than building a dedicated SSE channel — operationally fine for a single
-  // venue with ~tens of tickets.
+  // The page refresh is driven by the centralised RealtimeSyncProvider
+  // (see `src/components/providers/realtime-sync.tsx`). When auto-refresh
+  // is enabled we just piggy-back on the shared tick. We still call
+  // `router.refresh()` here on every tick so the user-facing checkbox
+  // keeps acting as a per-board on/off switch without having to bring
+  // back a dedicated interval.
+  const tick = useRealtimeTick();
   useEffect(() => {
     if (!auto) return;
-    const id = setInterval(() => router.refresh(), 30_000);
-    return () => clearInterval(id);
-  }, [auto, router]);
+    if (tick === 0) return; // skip the first paint
+    router.refresh();
+  }, [auto, tick, router]);
 
   // Sync state when server re-renders (router.refresh()).
   useEffect(() => {
