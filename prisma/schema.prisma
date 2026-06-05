@@ -19,6 +19,8 @@ model User {
   name             String?
   passwordHash     String?
   image            String?
+  totpSecret       String? // base32-encoded TOTP secret, null = 2FA disabled
+  totpEnabled      Boolean           @default(false) // confirmed setup (verified at least once)
   createdAt        DateTime          @default(now())
   orgMemberships   OrgMembership[]
   venueMemberships VenueMembership[]
@@ -36,14 +38,30 @@ model Session {
 // ─── Multi-tenant ────────────────────────────────────────────────────────────
 
 model Organization {
-  id        String          @id @default(cuid())
-  name      String
-  slug      String          @unique
-  plan      Plan            @default(STARTER)
-  createdAt DateTime        @default(now())
-  venues    Venue[]
-  members   OrgMembership[]
-  auditLogs AuditLog[]
+  id           String          @id @default(cuid())
+  name         String
+  slug         String          @unique
+  plan         Plan            @default(STARTER)
+  baseCurrency String          @default("EUR") // valuta di reporting per aggregazioni multi-venue
+  createdAt    DateTime        @default(now())
+  venues       Venue[]
+  members      OrgMembership[]
+  auditLogs    AuditLog[]
+}
+
+// FX rate cache for multi-currency portfolio aggregations. We persist every
+// fetch (ECB-daily via Frankfurter) so we can fall back to the most recent
+// rate if the provider is unreachable. Aggregation logic always tries to use
+// a rate fetched in the last 24h before hitting the network.
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  from      String   @db.VarChar(3) // es. "USD"
+  to        String   @db.VarChar(3) // es. "EUR"
+  rate      Decimal  @db.Decimal(12, 6) // es. 0.923000
+  fetchedAt DateTime @default(now())
+
+  @@unique([from, to, fetchedAt])
+  @@index([from, to])
 }
 
 model AuditLog {

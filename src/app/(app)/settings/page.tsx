@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { VenuesCard, type VenueRow } from "@/components/settings/venues-card";
+import { SecurityCard } from "@/components/settings/security-card";
 import { WidgetLinkCard } from "@/components/settings/widget-link-card";
 import { CalendarFeedCard } from "@/components/settings/calendar-feed-card";
 import { NotificationsStatusCard } from "@/components/settings/notifications-status-card";
@@ -14,6 +15,7 @@ import { TableQrCard } from "@/components/settings/table-qr-card";
 import { BrandingCard } from "@/components/settings/branding-card";
 import { ApiTokensCard } from "@/components/settings/api-tokens-card";
 import { SubscriptionCard } from "@/components/settings/subscription-card";
+import { ReportingCurrencyCard } from "@/components/settings/reporting-currency-card";
 import { getPlanLimits, type PlanName } from "@/lib/plan-limits";
 import { getVenueBrandById } from "@/server/branding";
 import { listShifts } from "@/server/shifts";
@@ -37,6 +39,8 @@ export default async function SettingsPage() {
     brand,
     activeAutomations,
     campaignsLast30d,
+    me,
+    org,
   ] = await Promise.all([
     db.venue.findMany({ where: { orgId: ctx.orgId }, orderBy: { name: "asc" } }),
     db.venueMembership.findMany({
@@ -53,6 +57,14 @@ export default async function SettingsPage() {
     getVenueBrandById(ctx.venueId),
     db.automationWorkflow.count({ where: { venueId: ctx.venueId, active: true } }),
     db.campaign.count({ where: { venueId: ctx.venueId, createdAt: { gte: since30d } } }),
+    db.user.findUnique({
+      where: { id: ctx.userId },
+      select: { totpEnabled: true },
+    }),
+    db.organization.findUnique({
+      where: { id: ctx.orgId },
+      select: { baseCurrency: true },
+    }),
   ]);
   const canEditMarketing = can(ctx.role, "edit_marketing");
 
@@ -83,6 +95,13 @@ export default async function SettingsPage() {
       </header>
 
       <SubscriptionCard plan={plan} usage={usage} />
+
+      <ReportingCurrencyCard
+        initial={org?.baseCurrency ?? "EUR"}
+        canEdit={can(ctx.role, "manage_venue")}
+      />
+
+      <SecurityCard initialEnabled={me?.totpEnabled ?? false} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <VenuesCard
