@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
 import { notDeleted } from "@/server/soft-delete";
+import { pushNotification } from "@/server/notifications";
 
 export async function getOverview(venueId: string, day: Date = new Date()) {
   const dayStart = startOfDay(day);
@@ -187,6 +188,7 @@ export async function getProactiveContext(venueId: string, now: Date = new Date(
         survey: { venueId },
       },
       select: {
+        id: true,
         npsScore: true,
         sentiment: true,
         createdAt: true,
@@ -249,6 +251,49 @@ export async function getProactiveContext(venueId: string, now: Date = new Date(
 
   const lunchOccupancy = occupancyForSlot(lunchSlot);
   const dinnerOccupancy = occupancyForSlot(dinnerSlot);
+
+  // ─── Proactive push notifications (fire-and-forget, idempotent) ──────────
+  // Every time the AI concierge builds a brief we look at the same data we
+  // already loaded above and synthesise in-app notifications. Because
+  // pushNotification() dedupes by (venueId, kind, meta.sourceId) we can
+  // safely call this on every brief invocation — repeated calls won't
+  // create dupes for the same detractor / VIP booking.
+  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  for (const d of detractors) {
+    if (d.sentiment !== "DETRACTOR") continue;
+    if (d.createdAt < twentyFourHoursAgo) continue;
+    void pushNotification({
+      venueId,
+      kind: "NPS_DETRACTOR",
+      title: "Nuovo detrattore NPS",
+      body: `Risposta con punteggio ${d.npsScore}/10 nelle ultime 24h. Apri il feedback per richiamare l'ospite.`,
+      link: "/insights/feedback",
+      role: "MANAGER",
+      sourceId: d.id,
+      metadata: { npsScore: d.npsScore, surveyResponseId: d.id },
+    });
+  }
+
+  // VIP arriving in ≤30min senza tavolo → push reception (1 per booking/giorno)
+  const in30 = new Date(now.getTime() + 30 * 60 * 1000);
+  const today = now.toISOString().slice(0, 10);
+  for (const b of imminentBookings) {
+    if (b.tableId) continue;
+    if (b.startsAt > in30) continue;
+    const tier = b.guest?.loyaltyTier;
+    if (tier !== "VIP" && tier !== "AMBASSADOR") continue;
+    const name = `${b.guest?.firstName ?? ""} ${b.guest?.lastName ?? ""}`.trim() || "VIP";
+    void pushNotification({
+      venueId,
+      kind: "VIP_UNASSIGNED",
+      title: `VIP in arrivo senza tavolo: ${name}`,
+      body: `Ospite ${tier} atteso alle ${b.startsAt.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })} (${b.partySize} pax) e non ha ancora un tavolo assegnato.`,
+      link: "/reception",
+      role: "RECEPTION",
+      sourceId: `${b.id}:${today}`,
+      metadata: { bookingId: b.id, tier },
+    });
+  }
 
   return {
     now,

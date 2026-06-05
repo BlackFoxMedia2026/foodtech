@@ -1640,6 +1640,12 @@ enum NotificationKind {
   CHAT_HANDOFF
   MISSED_CALL
   REVIEW_RECEIVED
+  PLAN_LIMIT
+  GDPR_ANONYMIZE
+  PAYMENT_REFUND
+  AUTH_RECOVERY_LOW
+  CONNECTOR_ERROR
+  VIP_UNASSIGNED
 }
 
 // ─── Recensioni aggregate (Google + altre piattaforme) ──────────────────────

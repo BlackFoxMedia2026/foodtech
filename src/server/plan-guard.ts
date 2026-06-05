@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getPlanLimits, nextTier, formatLimit, type PlanName } from "@/lib/plan-limits";
 import { captureWarning } from "@/lib/observability";
+import { pushNotification } from "@/server/notifications";
 
 // Thrown by the guards below. Catch the message at the API boundary and forward
 // it to the client; the frontend renders a toast with the upgrade hint.
@@ -27,6 +28,41 @@ function logHit(module: string, venueId: string | null, message: string) {
     venueId: venueId ?? undefined,
     extra: { code: PLAN_LIMIT_ERROR },
   });
+}
+
+// Broadcast a "you hit the plan limit" notification to every venue under the
+// org (so OWNER/ADMIN sees it from any venue context). Dedupe by
+// (orgId, resource, YYYY-MM-DD) so we never spam more than once per day.
+async function notifyPlanLimit(opts: {
+  orgId: string;
+  venueId: string | null;
+  resource: string;
+  message: string;
+}) {
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const sourceId = `${opts.orgId}:${opts.resource}:${day}`;
+    // Pick venues for the broadcast. If we know the venue that triggered the
+    // limit we hit only that one (closest UX); otherwise fan out to all org
+    // venues so an OWNER who has the wrong venue active still sees it.
+    const venues = opts.venueId
+      ? [{ id: opts.venueId }]
+      : await db.venue.findMany({ where: { orgId: opts.orgId }, select: { id: true } });
+    for (const v of venues) {
+      void pushNotification({
+        venueId: v.id,
+        kind: "PLAN_LIMIT",
+        title: "Limite piano raggiunto",
+        body: opts.message,
+        link: "/settings/billing",
+        role: "ORG_OWNER",
+        sourceId,
+        metadata: { orgId: opts.orgId, resource: opts.resource },
+      });
+    }
+  } catch {
+    // never let a notification failure block the plan-guard error path
+  }
 }
 
 async function loadOrgFromVenue(venueId: string): Promise<{ orgId: string; plan: PlanName }> {
@@ -57,12 +93,13 @@ export async function assertCanCreateVenue(orgId: string): Promise<void> {
       limits.maxVenues === 1 ? "" : "s"
     }.${upgradeHint(plan, "maxVenues", limits.maxVenues)}`;
     logHit("venue", null, msg);
+    await notifyPlanLimit({ orgId, venueId: null, resource: "venue", message: msg });
     throw new PlanLimitError(msg);
   }
 }
 
 export async function assertCanInviteStaff(venueId: string): Promise<void> {
-  const { plan } = await loadOrgFromVenue(venueId);
+  const { orgId, plan } = await loadOrgFromVenue(venueId);
   const limits = getPlanLimits(plan);
   if (limits.maxStaffPerVenue === Infinity) return;
   const count = await db.venueMembership.count({ where: { venueId } });
@@ -71,12 +108,13 @@ export async function assertCanInviteStaff(venueId: string): Promise<void> {
       limits.maxStaffPerVenue,
     )} staff per venue.${upgradeHint(plan, "maxStaffPerVenue", limits.maxStaffPerVenue)}`;
     logHit("staff", venueId, msg);
+    await notifyPlanLimit({ orgId, venueId, resource: "staff", message: msg });
     throw new PlanLimitError(msg);
   }
 }
 
 export async function assertCanCreateAutomation(venueId: string): Promise<void> {
-  const { plan } = await loadOrgFromVenue(venueId);
+  const { orgId, plan } = await loadOrgFromVenue(venueId);
   const limits = getPlanLimits(plan);
   if (limits.maxActiveAutomations === Infinity) return;
   // We count active workflows: drafts (active=false) don't burn the quota.
@@ -92,12 +130,13 @@ export async function assertCanCreateAutomation(venueId: string): Promise<void> 
       limits.maxActiveAutomations,
     )}`;
     logHit("automation", venueId, msg);
+    await notifyPlanLimit({ orgId, venueId, resource: "automation", message: msg });
     throw new PlanLimitError(msg);
   }
 }
 
 export async function assertCanSendCampaign(venueId: string): Promise<void> {
-  const { plan } = await loadOrgFromVenue(venueId);
+  const { orgId, plan } = await loadOrgFromVenue(venueId);
   const limits = getPlanLimits(plan);
   if (limits.maxCampaignsPerMonth === Infinity) return;
   const since = new Date(Date.now() - 30 * 86400_000);
@@ -113,12 +152,13 @@ export async function assertCanSendCampaign(venueId: string): Promise<void> {
       limits.maxCampaignsPerMonth,
     )}`;
     logHit("campaign", venueId, msg);
+    await notifyPlanLimit({ orgId, venueId, resource: "campaign", message: msg });
     throw new PlanLimitError(msg);
   }
 }
 
 export async function assertCanCreateApiToken(venueId: string): Promise<void> {
-  const { plan } = await loadOrgFromVenue(venueId);
+  const { orgId, plan } = await loadOrgFromVenue(venueId);
   const limits = getPlanLimits(plan);
   if (limits.maxApiTokens === Infinity) return;
   if (limits.maxApiTokens === 0) {
@@ -128,6 +168,7 @@ export async function assertCanCreateApiToken(venueId: string): Promise<void> {
       limits.maxApiTokens,
     )}`;
     logHit("api-token", venueId, msg);
+    await notifyPlanLimit({ orgId, venueId, resource: "api-token", message: msg });
     throw new PlanLimitError(msg);
   }
   // Active tokens only (revoked tokens don't count against the cap).
@@ -139,12 +180,13 @@ export async function assertCanCreateApiToken(venueId: string): Promise<void> {
       limits.maxApiTokens,
     )} active API tokens.${upgradeHint(plan, "maxApiTokens", limits.maxApiTokens)}`;
     logHit("api-token", venueId, msg);
+    await notifyPlanLimit({ orgId, venueId, resource: "api-token", message: msg });
     throw new PlanLimitError(msg);
   }
 }
 
 export async function assertCanCreateConnector(venueId: string): Promise<void> {
-  const { plan } = await loadOrgFromVenue(venueId);
+  const { orgId, plan } = await loadOrgFromVenue(venueId);
   const limits = getPlanLimits(plan);
   if (limits.maxConnectorsPerVenue === Infinity) return;
   const count = await db.connector.count({ where: { venueId } });
@@ -157,6 +199,7 @@ export async function assertCanCreateConnector(venueId: string): Promise<void> {
       limits.maxConnectorsPerVenue,
     )}`;
     logHit("connector", venueId, msg);
+    await notifyPlanLimit({ orgId, venueId, resource: "connector", message: msg });
     throw new PlanLimitError(msg);
   }
 }

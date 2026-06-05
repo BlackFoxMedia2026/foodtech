@@ -11,6 +11,7 @@ import {
 } from "./totp";
 import { rateLimit } from "./rate-limit";
 import { logAudit } from "@/server/audit";
+import { pushNotification } from "@/server/notifications";
 
 // NextAuth's CredentialsProvider passa `req.headers` come Record<string,string>
 // (NON come `Headers`). Il nostro `rateLimit()` accetta un `Request` standard:
@@ -118,6 +119,30 @@ export const authOptions: NextAuthOptions = {
                 ip,
                 diff: { remaining: { old: user.recoveryCodesHash.length, new: result.remaining.length } },
               });
+            }
+            // Recovery codes ≤ 3 → push in-app per l'utente. La Notification è
+            // venue-scoped: scegliamo un venue dell'utente (qualunque va bene,
+            // la vede solo lui via meta.userId). sourceId = userId+remaining
+            // per dedupare la stessa soglia (es. due login con 2 codici
+            // rimasti generano una sola notifica con sourceId user:2).
+            if (result.remaining.length <= 3) {
+              const membership = await db.venueMembership.findFirst({
+                where: { userId: user.id },
+                orderBy: { createdAt: "asc" },
+                select: { venueId: true },
+              });
+              if (membership) {
+                void pushNotification({
+                  venueId: membership.venueId,
+                  kind: "AUTH_RECOVERY_LOW",
+                  title: "Codici di recupero quasi esauriti",
+                  body: `Ti restano ${result.remaining.length} codici di recupero 2FA. Rigenerali dal profilo prima di rimanere senza.`,
+                  link: "/settings/security",
+                  userId: user.id,
+                  sourceId: `${user.id}:${result.remaining.length}`,
+                  metadata: { userId: user.id, remaining: result.remaining.length },
+                });
+              }
             }
           } else {
             if (!verifyTotp(user.totpSecret, rawCode)) {

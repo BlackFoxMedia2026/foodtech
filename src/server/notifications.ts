@@ -1,4 +1,4 @@
-import type { Prisma, NotificationKind } from "@prisma/client";
+import type { Prisma, NotificationKind, StaffRole, OrgRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import { captureError } from "@/lib/observability";
 
@@ -31,6 +31,110 @@ export async function notify(input: NotifyInput) {
     captureError(err, { module: "notifications", venueId: input.venueId });
     return null;
   }
+}
+
+// ─── Proactive push API (idempotent broadcast) ─────────────────────────────
+//
+// The Notification table is venue-scoped (no userId/role column), so the
+// "audience" for a broadcast is implicit: every member of the venue sees
+// every venue-level notification. `pushNotification()` accepts optional
+// `userId`/`role` filters that we encode into `meta` so the UI/server can
+// later filter ("show me notifications targeted at OWNER" etc.) without a
+// schema migration.
+//
+// Idempotency: pass `sourceId` to dedupe — we'll skip the create if a
+// notification with the same (venueId, kind, meta.sourceId) already exists.
+
+export type PushNotificationInput = {
+  venueId: string;
+  kind: NotificationKind;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  // Restrict audience to a specific user OR to a role bucket. Stored in
+  // meta — the bell still shows venue-wide notifications by default, but
+  // the /notifications page can filter by these hints.
+  userId?: string | null;
+  role?: StaffRole | OrgRole | "ORG_OWNER" | null;
+  // Idempotency token: same sourceId for the same (venueId, kind) = no dupe.
+  sourceId?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export async function findNotificationBySource(
+  venueId: string,
+  kind: NotificationKind,
+  sourceId: string,
+) {
+  return db.notification.findFirst({
+    where: {
+      venueId,
+      kind,
+      meta: { path: ["sourceId"], equals: sourceId },
+    },
+    select: { id: true, createdAt: true },
+  });
+}
+
+export async function pushNotification(input: PushNotificationInput) {
+  try {
+    // Build the meta payload first — sourceId/audience get folded in.
+    const meta: Record<string, unknown> = { ...(input.metadata ?? {}) };
+    if (input.userId) meta.userId = input.userId;
+    if (input.role) meta.role = input.role;
+    if (input.sourceId) meta.sourceId = input.sourceId;
+
+    if (input.sourceId) {
+      const existing = await findNotificationBySource(
+        input.venueId,
+        input.kind,
+        input.sourceId,
+      );
+      if (existing) return existing;
+    }
+
+    return await db.notification.create({
+      data: {
+        venueId: input.venueId,
+        kind: input.kind,
+        title: input.title.slice(0, 160),
+        body: input.body?.slice(0, 500) ?? null,
+        link: input.link?.slice(0, 300) ?? null,
+        meta: meta as Prisma.InputJsonValue,
+      },
+    });
+  } catch (err) {
+    captureError(err, { module: "notifications:push", venueId: input.venueId });
+    return null;
+  }
+}
+
+// Convenience wrappers used by callers that read like the spec:
+//   listNotificationsForUser(venueId, userId, { unreadOnly: true })
+//   markNotificationsRead(venueId, userId, ids?)
+export async function listNotificationsForUser(
+  venueId: string,
+  _userId: string,
+  opts: { limit?: number; unreadOnly?: boolean } = {},
+) {
+  // The model is venue-wide today; the userId parameter is kept for forward
+  // compatibility (when we wire per-user read receipts in a future schema).
+  return listNotifications(venueId, opts);
+}
+
+export async function markNotificationsRead(
+  venueId: string,
+  _userId: string,
+  ids?: string[],
+) {
+  if (!ids || ids.length === 0) {
+    return markAllRead(venueId);
+  }
+  const res = await db.notification.updateMany({
+    where: { id: { in: ids }, venueId, readAt: null },
+    data: { readAt: new Date() },
+  });
+  return { updated: res.count };
 }
 
 export async function listNotifications(

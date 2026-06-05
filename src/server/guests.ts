@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { logAudit } from "@/server/audit";
 import { notDeleted } from "@/server/soft-delete";
+import { pushNotification } from "@/server/notifications";
 
 export const GuestInput = z.object({
   firstName: z.string().min(1),
@@ -186,6 +187,20 @@ export async function anonymizeGuest(
     },
     ip: opts.ip ?? null,
     userAgent: opts.userAgent ?? null,
+  });
+
+  // Venue-level audit notification: ogni anonimizzazione GDPR è un evento
+  // tracciabile che gli operatori e il manager vogliono vedere nel feed.
+  // sourceId = guestId — l'operazione è irreversibile quindi è già univoca.
+  void pushNotification({
+    venueId,
+    kind: "GDPR_ANONYMIZE",
+    title: "GDPR · Anonimizzazione eseguita",
+    body: `Dati anonimizzati per "${previousName || "ospite"}". Operazione irreversibile.`,
+    link: `/guests/${id}`,
+    sourceId: id,
+    role: "MANAGER",
+    metadata: { guestId: id, actorId, previousName },
   });
 
   return updated;

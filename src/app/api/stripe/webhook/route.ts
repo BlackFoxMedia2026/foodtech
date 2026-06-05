@@ -6,6 +6,7 @@ import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templ
 import type Stripe from "stripe";
 import { logAudit } from "@/server/audit";
 import { refreshPaymentFxOnCapture } from "@/server/payments";
+import { pushNotification } from "@/server/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -242,6 +243,28 @@ async function onChargeRefunded(charge: Stripe.Charge) {
       amountRefundedCents: { old: 0, new: refunded },
       stripeChargeId: { old: null, new: charge.id },
       reason: { old: null, new: charge.refunds?.data?.[0]?.reason ?? null },
+    },
+  });
+
+  // In-app push per il venue: dedupe via charge.id (Stripe re-fires webhook
+  // su retry — non vogliamo duplicati). I rimborsi totali e parziali
+  // generano entrambi una notifica, ma il body indica l'importo.
+  const partial = refunded < (payment.amountCents ?? 0);
+  void pushNotification({
+    venueId: payment.venue.id,
+    kind: "PAYMENT_REFUND",
+    title: partial ? "Rimborso parziale registrato" : "Rimborso registrato",
+    body: `Rimborsati ${(refunded / 100).toFixed(2)} ${payment.currency ?? "EUR"} su Stripe.${
+      charge.refunds?.data?.[0]?.reason ? ` Motivo: ${charge.refunds.data[0].reason}.` : ""
+    }`,
+    link: "/payments",
+    role: "MANAGER",
+    sourceId: charge.id,
+    metadata: {
+      paymentId: payment.id,
+      chargeId: charge.id,
+      amountRefundedCents: refunded,
+      partial,
     },
   });
 }

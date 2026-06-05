@@ -5,7 +5,7 @@ import { renderReminder } from "@/emails/templates";
 import { scanScheduledTriggers } from "@/server/automations";
 import { buildManageLink } from "@/server/booking-self-service";
 import { expireOldOffers } from "@/server/waitlist-promotion";
-import { pruneOldNotifications } from "@/server/notifications";
+import { pruneOldNotifications, pushNotification } from "@/server/notifications";
 import { getRate } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +42,14 @@ export async function GET(req: Request) {
     console.error("[cron:reminders] pruneOldNotifications failed", e);
     return { deleted: 0 };
   });
+  const automationsHealth = await scanAutomationFailures(now).catch((e) => {
+    console.error("[cron:reminders] scanAutomationFailures failed", e);
+    return { workflowsAlerted: 0 };
+  });
+  const connectorsHealth = await scanConnectorErrors(now).catch((e) => {
+    console.error("[cron:reminders] scanConnectorErrors failed", e);
+    return { connectorsAlerted: 0 };
+  });
   const fx = await refreshFxRates().catch((e) => {
     console.error("[cron:reminders] refreshFxRates failed", e);
     return { pairs: 0, refreshed: 0 };
@@ -52,11 +60,72 @@ export async function GET(req: Request) {
     h2: previsit,
     birthdays,
     automations: "scanned",
+    automationFailuresAlerted: automationsHealth.workflowsAlerted,
+    connectorsStuckAlerted: connectorsHealth.connectorsAlerted,
     offersExpired: offers.expired,
     notificationsPruned: pruned.deleted,
     fxPairs: fx.pairs,
     fxRefreshed: fx.refreshed,
   });
+}
+
+// Workflow con ≥3 AutomationRun FAILED nelle ultime 24h → push.
+// Idempotente per (workflowId, day): un solo alert per workflow al giorno.
+async function scanAutomationFailures(now: Date) {
+  const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const day = now.toISOString().slice(0, 10);
+  const grouped = await db.automationRun.groupBy({
+    by: ["workflowId", "venueId"],
+    where: { status: "FAILED", createdAt: { gte: since } },
+    _count: { _all: true },
+    having: { workflowId: { _count: { gte: 3 } } },
+  });
+  let alerted = 0;
+  for (const row of grouped) {
+    const workflow = await db.automationWorkflow.findUnique({
+      where: { id: row.workflowId },
+      select: { name: true },
+    });
+    const res = await pushNotification({
+      venueId: row.venueId,
+      kind: "AUTOMATION_FAILED",
+      title: `Automation "${workflow?.name ?? "workflow"}" sta fallendo`,
+      body: `${row._count._all} esecuzioni FAILED nelle ultime 24h. Apri il workflow per vedere gli errori.`,
+      link: `/automations`,
+      role: "MARKETING",
+      sourceId: `${row.workflowId}:${day}`,
+      metadata: { workflowId: row.workflowId, failures: row._count._all },
+    });
+    if (res) alerted++;
+  }
+  return { workflowsAlerted: alerted };
+}
+
+// Connector status=ERROR da >6h → push manager. Idempotente per
+// (connectorId, day). updatedAt ci dice da quando è entrato in ERROR
+// (gli endpoint che cambiano status toccano updatedAt).
+async function scanConnectorErrors(now: Date) {
+  const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+  const day = now.toISOString().slice(0, 10);
+  const stuck = await db.connector.findMany({
+    where: { status: "ERROR", updatedAt: { lte: sixHoursAgo } },
+    select: { id: true, venueId: true, kind: true, label: true, lastError: true },
+  });
+  let alerted = 0;
+  for (const c of stuck) {
+    const res = await pushNotification({
+      venueId: c.venueId,
+      kind: "CONNECTOR_ERROR",
+      title: `Channel manager bloccato: ${c.label ?? c.kind}`,
+      body: `Il connettore è in errore da oltre 6h. ${c.lastError ? `Ultimo errore: ${c.lastError.slice(0, 200)}` : "Verifica le credenziali."}`,
+      link: `/connectors`,
+      role: "MANAGER",
+      sourceId: `${c.id}:${day}`,
+      metadata: { connectorId: c.id, kind: c.kind },
+    });
+    if (res) alerted++;
+  }
+  return { connectorsAlerted: alerted };
 }
 
 // Warm the ExchangeRate cache once a day: for each (venue currency → org

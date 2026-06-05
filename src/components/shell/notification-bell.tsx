@@ -2,9 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, Check, CheckCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  Calendar,
+  Check,
+  CheckCheck,
+  CreditCard,
+  KeyRound,
+  MessageSquare,
+  PhoneMissed,
+  ShieldAlert,
+  Sparkles,
+  Star,
+  Wifi,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useRealtimeTick } from "@/components/providers/realtime-sync";
 
 type Notif = {
   id: string;
@@ -29,7 +45,45 @@ const TONE: Record<string, string> = {
   CHAT_HANDOFF: "bg-violet-100 text-violet-700",
   MISSED_CALL: "bg-amber-100 text-amber-700",
   REVIEW_RECEIVED: "bg-amber-100 text-amber-700",
+  PLAN_LIMIT: "bg-amber-100 text-amber-700",
+  GDPR_ANONYMIZE: "bg-slate-200 text-slate-700",
+  PAYMENT_REFUND: "bg-rose-100 text-rose-700",
+  AUTH_RECOVERY_LOW: "bg-amber-100 text-amber-700",
+  CONNECTOR_ERROR: "bg-rose-100 text-rose-700",
+  VIP_UNASSIGNED: "bg-violet-100 text-violet-700",
 };
+
+const ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  BOOKING_CREATED: Calendar,
+  BOOKING_CANCELLED: Calendar,
+  NPS_DETRACTOR: AlertTriangle,
+  WAITLIST_ACCEPTED: Sparkles,
+  CONNECTOR_INBOUND: Zap,
+  POS_INBOUND: CreditCard,
+  AUTOMATION_FAILED: AlertTriangle,
+  GIFT_CARD_REDEEMED: Sparkles,
+  WIFI_LEAD: Wifi,
+  CHAT_HANDOFF: MessageSquare,
+  MISSED_CALL: PhoneMissed,
+  REVIEW_RECEIVED: Star,
+  PLAN_LIMIT: AlertTriangle,
+  GDPR_ANONYMIZE: ShieldAlert,
+  PAYMENT_REFUND: CreditCard,
+  AUTH_RECOVERY_LOW: KeyRound,
+  CONNECTOR_ERROR: AlertTriangle,
+  VIP_UNASSIGNED: Sparkles,
+};
+
+// Kinds that we want the user to notice immediately (red dot / sort priority)
+const CRITICAL = new Set([
+  "NPS_DETRACTOR",
+  "AUTOMATION_FAILED",
+  "CONNECTOR_ERROR",
+  "PLAN_LIMIT",
+  "PAYMENT_REFUND",
+  "VIP_UNASSIGNED",
+  "AUTH_RECOVERY_LOW",
+]);
 
 function timeAgo(iso: string) {
   const then = new Date(iso).getTime();
@@ -51,7 +105,7 @@ export function NotificationBell() {
 
   async function load() {
     try {
-      const res = await fetch("/api/notifications?limit=15");
+      const res = await fetch("/api/notifications?limit=10");
       if (!res.ok) return;
       const j = (await res.json()) as { items: Notif[]; unread: number };
       setItems(j.items);
@@ -61,16 +115,19 @@ export function NotificationBell() {
     }
   }
 
+  // Piggy-back on the centralised RealtimeSyncProvider tick (30s) instead of
+  // running a dedicated 2-minute setInterval. The bell still fires once on
+  // mount (tick = 0) and re-fetches whenever the shared tick advances — one
+  // fewer timer in the app tree.
+  const tick = useRealtimeTick();
   useEffect(() => {
-    // Defer the first fetch so it doesn't compete with the page's own
-    // server fetches during initial paint, then poll every 2 minutes.
-    const first = setTimeout(load, 1500);
-    const interval = setInterval(load, 120_000);
-    return () => {
-      clearTimeout(first);
-      clearInterval(interval);
-    };
+    const id = setTimeout(load, 1500);
+    return () => clearTimeout(id);
   }, []);
+  useEffect(() => {
+    if (tick === 0) return;
+    void load();
+  }, [tick]);
 
   // close on outside click
   useEffect(() => {
@@ -138,8 +195,16 @@ export function NotificationBell() {
             ) : (
               items.map((it) => {
                 const Tag = it.link ? Link : "div";
+                const IconCmp = ICON[it.kind] ?? Bell;
                 return (
-                  <li key={it.id} className={cn("relative", !it.readAt && "bg-secondary/30")}>
+                  <li
+                    key={it.id}
+                    className={cn(
+                      "relative",
+                      !it.readAt && "bg-secondary/30",
+                      CRITICAL.has(it.kind) && !it.readAt && "border-l-2 border-rose-400",
+                    )}
+                  >
                     <Tag
                       href={it.link ?? "#"}
                       className="flex items-start gap-2 px-3 py-2 text-sm"
@@ -150,11 +215,11 @@ export function NotificationBell() {
                     >
                       <span
                         className={cn(
-                          "grid h-7 w-7 flex-none place-items-center rounded-full text-xs font-medium",
+                          "grid h-7 w-7 flex-none place-items-center rounded-full",
                           TONE[it.kind] ?? "bg-secondary text-foreground",
                         )}
                       >
-                        {it.kind.charAt(0)}
+                        <IconCmp className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="font-medium">{it.title}</p>
