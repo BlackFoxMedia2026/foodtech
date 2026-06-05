@@ -5,6 +5,7 @@
 
 import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
+import { getProactiveContext, type ProactiveContext } from "@/server/insights";
 
 export type Suggestion = {
   id: string;
@@ -34,7 +35,7 @@ export async function generateDailyBrief(venueId: string): Promise<{
   const dayStart = startOfDay(today);
   const dayEnd = endOfDay(today);
 
-  const [todayBookings, prevWeekBookings, vipsToday, allergiesToday, unassigned, depositsHeld, recentNoShow] =
+  const [todayBookings, prevWeekBookings, vipsToday, allergiesToday, unassigned, depositsHeld, recentNoShow, proactive] =
     await Promise.all([
       db.booking.findMany({
         where: {
@@ -87,6 +88,7 @@ export async function generateDailyBrief(venueId: string): Promise<{
           noShowCount: { gte: 3 },
         },
       }),
+      getProactiveContext(venueId, today).catch(() => null),
     ]);
 
   const todayCovers = todayBookings.reduce((s, b) => s + b.partySize, 0);
@@ -95,6 +97,11 @@ export async function generateDailyBrief(venueId: string): Promise<{
   const widget = todayBookings.filter((b) => b.source === "WIDGET").length;
 
   const suggestions: Suggestion[] = [];
+
+  // ─── Heuristic proattive ─────────────────────────────────────────────────
+  if (proactive) {
+    suggestions.push(...buildProactiveSuggestions(proactive));
+  }
 
   if (unassigned > 0) {
     suggestions.push({
@@ -172,6 +179,9 @@ export async function generateDailyBrief(venueId: string): Promise<{
     generatedBy = "heuristic";
   }
 
+  // Dedup per id e per (kind+title), poi ordina ALERT > OPPORTUNITY > INFO, max 4
+  const ranked = dedupeAndRank([...suggestions, ...(extra ? [extra] : [])], 4);
+
   return {
     summary,
     suggestions: [
@@ -181,11 +191,173 @@ export async function generateDailyBrief(venueId: string): Promise<{
         title: "Brief operativo",
         body: summary,
       },
-      ...suggestions,
-      ...(extra ? [extra] : []),
+      ...ranked,
     ],
     generatedBy,
   };
+}
+
+// ─── Proactive heuristic builder ─────────────────────────────────────────────
+function buildProactiveSuggestions(ctx: ProactiveContext): Suggestion[] {
+  const out: Suggestion[] = [];
+  const now = ctx.now;
+
+  // a) No-show risk imminente: booking nei prossimi 60min con noShowCount >= 2
+  for (const b of ctx.imminentBookings) {
+    if (!b.guest || (b.guest.noShowCount ?? 0) < 2) continue;
+    const name = guestDisplay(b.guest);
+    const arrival = formatTime(b.startsAt);
+    out.push({
+      id: `noshow-risk-${b.id}`,
+      kind: "ALERT",
+      title: `Manda conferma a ${name}`,
+      body: `${b.guest.noShowCount} no-show storici · arrivo previsto ${arrival}`,
+      actionHref: `/bookings/${b.id}`,
+      actionLabel: "Conferma via SMS",
+    });
+  }
+
+  // b) VIP arriving entro 30min senza tavolo
+  for (const b of ctx.imminentBookings) {
+    if (!b.guest) continue;
+    if (b.guest.loyaltyTier !== "VIP" && b.guest.loyaltyTier !== "AMBASSADOR") continue;
+    if (b.tableId) continue;
+    const minutesToArrival = Math.round((new Date(b.startsAt).getTime() - now.getTime()) / 60000);
+    if (minutesToArrival < 0 || minutesToArrival > 30) continue;
+    const name = guestDisplay(b.guest);
+    out.push({
+      id: `vip-arriving-${b.id}`,
+      kind: "ALERT",
+      title: `${name} (VIP) arriva tra ${minutesToArrival}min — assegnare tavolo?`,
+      body: `Tavolo non ancora assegnato. Apri la prenotazione e scegli il posto migliore.`,
+      actionHref: `/bookings/${b.id}`,
+      actionLabel: "Apri prenotazione",
+    });
+  }
+
+  // c) Birthday today con booking attiva
+  for (const b of ctx.birthdayBookings) {
+    if (!b.guest?.birthday) continue;
+    const bday = new Date(b.guest.birthday);
+    if (bday.getMonth() !== now.getMonth() || bday.getDate() !== now.getDate()) continue;
+    const name = guestDisplay(b.guest);
+    out.push({
+      id: `birthday-${b.id}`,
+      kind: "OPPORTUNITY",
+      title: `🎂 ${name} compie gli anni oggi`,
+      body: `Prevedi un calice offerto, briefa la sala.`,
+      actionHref: `/guests/${b.guest.id}`,
+      actionLabel: "Apri scheda",
+    });
+  }
+
+  // d) Sala vuota off-peak (occupancy < 30% in fascia 12-14 o 19-22)
+  if (ctx.lunchOccupancy !== null && ctx.lunchOccupancy < 0.3) {
+    out.push({
+      id: "empty-lunch",
+      kind: "OPPORTUNITY",
+      title: `Sala vuota fascia ${ctx.lunchSlot.from}-${ctx.lunchSlot.to} — opportunity`,
+      body: `Occupancy ${Math.round(ctx.lunchOccupancy * 100)}%. Considera coupon flash o promo last-minute.`,
+      actionHref: "/coupons",
+      actionLabel: "Crea coupon",
+    });
+  }
+  if (ctx.dinnerOccupancy !== null && ctx.dinnerOccupancy < 0.3) {
+    out.push({
+      id: "empty-dinner",
+      kind: "OPPORTUNITY",
+      title: `Sala vuota fascia ${ctx.dinnerSlot.from}-${ctx.dinnerSlot.to} — opportunity`,
+      body: `Occupancy ${Math.round(ctx.dinnerOccupancy * 100)}%. Considera coupon flash o promo last-minute.`,
+      actionHref: "/coupons",
+      actionLabel: "Crea coupon",
+    });
+  }
+
+  // e) Detrattore NPS recente (ultima settimana, score <= 6)
+  if (ctx.detractors.length > 0) {
+    const worst = ctx.detractors[0];
+    out.push({
+      id: `detractor-${worst.createdAt.getTime()}`,
+      kind: "ALERT",
+      title: `Detrattore NPS ${worst.npsScore} — risposta entro 24h?`,
+      body: `Feedback negativo recente. Recupera l'ospite con una chiamata o messaggio personale.`,
+      actionHref: "/insights/feedback",
+      actionLabel: "Vedi feedback",
+    });
+  }
+
+  // f) Coupon in scadenza con redemption <30%
+  for (const c of ctx.expiringCoupons) {
+    const cap = c.maxRedemptions ?? 0;
+    if (cap > 0) {
+      const rate = c.redemptionCount / cap;
+      if (rate >= 0.3) continue;
+    }
+    // Se non c'è cap, considera "non riscatto" se redemptionCount == 0
+    if (cap === 0 && c.redemptionCount > 0) continue;
+    const daysLeft = Math.max(
+      1,
+      Math.ceil((new Date(c.validUntil!).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)),
+    );
+    out.push({
+      id: `coupon-expiring-${c.id}`,
+      kind: "OPPORTUNITY",
+      title: `Coupon "${c.name}" scade tra ${daysLeft}gg — promuovi`,
+      body: cap > 0
+        ? `Solo ${c.redemptionCount}/${cap} riscatti finora. Lancia una campagna mirata.`
+        : `Ancora nessun riscatto. Lancia una campagna mirata.`,
+      actionHref: "/campaigns",
+      actionLabel: "Lancia campagna",
+    });
+  }
+
+  // g) Waitlist con avg wait > 25min
+  if (ctx.waitlistEntries.length > 0) {
+    const avgWait =
+      ctx.waitlistEntries.reduce((s, w) => s + (w.expectedWaitMin ?? 0), 0) /
+      ctx.waitlistEntries.length;
+    if (avgWait > 25) {
+      out.push({
+        id: "waitlist-long",
+        kind: "ALERT",
+        title: `Coda con attese >${Math.round(avgWait)}min — staff dedicato?`,
+        body: `${ctx.waitlistEntries.length} ospiti in coda. Valuta uno staff member dedicato per accoglierli.`,
+        actionHref: "/waitlist",
+        actionLabel: "Apri coda",
+      });
+    }
+  }
+
+  return out;
+}
+
+function guestDisplay(g: { firstName: string; lastName?: string | null }) {
+  return [g.firstName, g.lastName].filter(Boolean).join(" ").trim() || "Ospite";
+}
+
+function formatTime(d: Date | string) {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
+function dedupeAndRank(items: Suggestion[], max: number): Suggestion[] {
+  const priority: Record<Suggestion["kind"], number> = {
+    ALERT: 0,
+    OPPORTUNITY: 1,
+    INFO: 2,
+    SUMMARY: 3,
+  };
+  const seen = new Set<string>();
+  const unique: Suggestion[] = [];
+  for (const s of items) {
+    const key = `${s.kind}:${s.title}`;
+    if (seen.has(s.id) || seen.has(key)) continue;
+    seen.add(s.id);
+    seen.add(key);
+    unique.push(s);
+  }
+  unique.sort((a, b) => priority[a.kind] - priority[b.kind]);
+  return unique.slice(0, max);
 }
 
 async function polishWithLLM(
