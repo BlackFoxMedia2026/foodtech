@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { renderGuestConfirmation, renderVenueNotification } from "@/emails/templates";
 import type Stripe from "stripe";
 import { logAudit } from "@/server/audit";
+import { refreshPaymentFxOnCapture } from "@/server/payments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,10 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session) {
     where: { stripePaymentId: session.id },
     data: { status: "SUCCEEDED" },
   });
+  // Refresh FX snapshot at the true incasso moment — if the ECB daily rate
+  // rolled over between Checkout creation and capture, this row should
+  // reflect the rate effective on the capture date.
+  await refreshPaymentFxOnCapture(session.id);
 
   const booking = await db.booking.update({
     where: { id: bookingId },
@@ -273,6 +278,7 @@ async function onTicketPaid(session: Stripe.Checkout.Session) {
     where: { stripePaymentId: session.id },
     data: { status: "SUCCEEDED" },
   });
+  await refreshPaymentFxOnCapture(session.id);
 
   const ticket = await db.ticket.update({
     where: { id: ticketId },

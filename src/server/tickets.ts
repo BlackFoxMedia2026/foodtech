@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { sendEmail } from "@/lib/email";
 import { renderGuestConfirmation } from "@/emails/templates";
+import { enrichPaymentWithFx } from "@/server/payments";
 
 export const TicketInput = z.object({
   buyerName: z.string().min(2).max(80),
@@ -104,6 +105,11 @@ export async function createTicket(opts: {
       cancel_url: `${baseUrl}/e/${venue.slug}/${experience.slug}?canceled=1`,
     });
 
+    const fxSnap = await enrichPaymentWithFx({
+      venueId: venue.id,
+      amountCents: totalCents,
+      currency: venue.currency,
+    });
     await db.payment.create({
       data: {
         venueId: venue.id,
@@ -112,6 +118,9 @@ export async function createTicket(opts: {
         kind: "TICKET",
         status: "PENDING",
         stripePaymentId: session.id,
+        fxRateToBase: fxSnap.fxRateToBase,
+        fxBaseCurrency: fxSnap.fxBaseCurrency,
+        fxAmountBaseCents: fxSnap.fxAmountBaseCents,
       },
     });
 

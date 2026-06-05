@@ -8,6 +8,10 @@ import { ExportButton } from "@/components/ui/export-button";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
+function formatDateShort(d: Date) {
+  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export const dynamic = "force-dynamic";
 
 const KIND_LABEL = {
@@ -147,6 +151,18 @@ export default async function PaymentsPage() {
                           <span className="text-display text-numeric text-base font-medium tabular-nums">
                             {formatCurrency(p.amountCents, p.currency)}
                           </span>
+                          {p.fxAmountBaseCents !== null &&
+                          p.fxBaseCurrency &&
+                          p.fxRateToBase &&
+                          p.currency.toUpperCase() !== p.fxBaseCurrency.toUpperCase() ? (
+                            <div className="mt-0.5 text-[11px] text-tertiary tabular-nums">
+                              ≈ {formatCurrency(p.fxAmountBaseCents, p.fxBaseCurrency)}{" "}
+                              <span className="text-quaternary">
+                                (rate {Number(p.fxRateToBase).toFixed(4)} al{" "}
+                                {formatDateShort(p.createdAt)})
+                              </span>
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3">
                           <span

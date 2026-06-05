@@ -7,6 +7,7 @@ import { planDeposit, stripe } from "@/lib/stripe";
 import { fireTrigger } from "@/server/automations";
 import { buildManageLink } from "@/server/booking-self-service";
 import { notify } from "@/server/notifications";
+import { enrichPaymentWithFx } from "@/server/payments";
 
 export const PublicBookingInput = z.object({
   partySize: z.coerce.number().int().min(1).max(50),
@@ -345,6 +346,11 @@ async function createDepositCheckout(opts: {
       cancel_url: `${baseUrl}/b/${opts.venue.slug}/done?ref=${opts.booking.reference}&paid=0`,
     });
 
+    const fxSnap = await enrichPaymentWithFx({
+      venueId: opts.venue.id,
+      amountCents: opts.amountCents,
+      currency: opts.venue.currency,
+    });
     await db.payment.create({
       data: {
         venueId: opts.venue.id,
@@ -354,6 +360,9 @@ async function createDepositCheckout(opts: {
         kind: "DEPOSIT",
         status: "PENDING",
         stripePaymentId: session.id,
+        fxRateToBase: fxSnap.fxRateToBase,
+        fxBaseCurrency: fxSnap.fxBaseCurrency,
+        fxAmountBaseCents: fxSnap.fxAmountBaseCents,
       },
     });
 
