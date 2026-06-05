@@ -38,6 +38,8 @@ type Props = {
   canSeePrivate: boolean;
   canManageBookings: boolean;
   canEditMarketing: boolean;
+  canManageVenue?: boolean;
+  isAnonymized?: boolean;
 };
 
 export function GuestQuickActions({
@@ -49,6 +51,8 @@ export function GuestQuickActions({
   canSeePrivate,
   canManageBookings,
   canEditMarketing,
+  canManageVenue = false,
+  isAnonymized = false,
 }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -58,6 +62,7 @@ export function GuestQuickActions({
   const [tagOpen, setTagOpen] = useState(false);
   const [couponOpen, setCouponOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [gdprOpen, setGdprOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const isVip = loyaltyTier === "VIP" || loyaltyTier === "AMBASSADOR";
@@ -171,6 +176,18 @@ export function GuestQuickActions({
             <Calendar className="h-3.5 w-3.5" /> Storia
           </a>
         </Button>
+
+        {/* GDPR anonymize (Manager only, only if not yet anonymized) */}
+        {canManageVenue && !isAnonymized && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setGdprOpen(true)}
+            className="text-status-no-show hover:bg-status-no-show-soft"
+          >
+            <ShieldAlert className="h-3.5 w-3.5" /> GDPR
+          </Button>
+        )}
       </div>
 
       {feedback && (
@@ -223,7 +240,114 @@ export function GuestQuickActions({
           guestName={guestName}
         />
       )}
+
+      {canManageVenue && (
+        <GdprDialog
+          open={gdprOpen}
+          onOpenChange={setGdprOpen}
+          guestId={guestId}
+          guestName={guestName}
+        />
+      )}
     </div>
+  );
+}
+
+function GdprDialog({
+  open,
+  onOpenChange,
+  guestId,
+  guestName,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  guestId: string;
+  guestName: string;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+
+  async function anonymize() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/guests/${guestId}/anonymize`, {
+      method: "POST",
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(
+        body?.error === "already_anonymized"
+          ? "Ospite già anonimizzato."
+          : body?.error === "forbidden"
+            ? "Operazione riservata al Manager."
+            : "Anonimizzazione fallita.",
+      );
+      return;
+    }
+    onOpenChange(false);
+    router.refresh();
+  }
+
+  const confirmKey = "ANONIMIZZA";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-status-no-show">
+            Diritto all&apos;oblio (GDPR)
+          </DialogTitle>
+          <DialogDescription className="space-y-2 pt-2">
+            Stai per anonimizzare il profilo di{" "}
+            <span className="font-semibold text-foreground">{guestName}</span>.
+            <br />
+            Verranno rimosse: nome/cognome, email, telefono, compleanno,
+            allergie, note, preferenze, tag, consensi.
+            <br />
+            <span className="font-medium text-foreground">
+              Lo storico (prenotazioni, pagamenti, ordini) viene preservato
+            </span>{" "}
+            per obblighi contabili ma sarà collegato al profilo anonimo.
+            <br />
+            <span className="text-status-no-show font-medium">
+              L&apos;operazione è irreversibile.
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="gdpr-confirm">
+              Per confermare digita{" "}
+              <span className="font-mono font-semibold">{confirmKey}</span>
+            </Label>
+            <Input
+              id="gdpr-confirm"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={confirmKey}
+              autoComplete="off"
+            />
+          </div>
+          {error && <p className="text-sm text-status-no-show">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Annulla
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={busy || confirmText.trim() !== confirmKey}
+            onClick={anonymize}
+          >
+            {busy ? "Anonimizzando…" : "Anonimizza definitivamente"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

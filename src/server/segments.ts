@@ -10,10 +10,41 @@ export type SegmentKey =
   | "new_30d"
   | "regulars_5"
   | "vip"
-  | "marketing_optin";
+  | "marketing_optin"
+  // Smart segments (computed, not pure SQL predicates)
+  | "winback"
+  | "champions"
+  | "at_risk_loyal"
+  | "high_value_silent";
 
-export const SEGMENT_DEFS: { key: SegmentKey; label: string; description: string }[] = [
+export const SEGMENT_DEFS: { key: SegmentKey; label: string; description: string; smart?: boolean }[] = [
   { key: "all", label: "Tutti", description: "Nessun filtro applicato" },
+  // Smart segments (gold star)
+  {
+    key: "champions",
+    label: "★ Champions",
+    description: "Frequenti, recenti, alto valore. I tuoi ospiti più preziosi.",
+    smart: true,
+  },
+  {
+    key: "winback",
+    label: "★ Win-back",
+    description: "Ospiti con buon storico ma silenzio da 60-180gg. Manda un coupon.",
+    smart: true,
+  },
+  {
+    key: "at_risk_loyal",
+    label: "★ Loyal a rischio",
+    description: "Visite >5 ma no-show recenti o cancellazioni multiple.",
+    smart: true,
+  },
+  {
+    key: "high_value_silent",
+    label: "★ High-value silent",
+    description: "Spesa media alta ma nessun contatto da 90gg. Riengagement priority.",
+    smart: true,
+  },
+  // Standard
   { key: "vip", label: "VIP & Ambassador", description: "Ospiti del livello fedeltà più alto" },
   { key: "regulars_5", label: "Abituali", description: "Almeno 5 visite registrate" },
   { key: "new_30d", label: "Nuovi (30gg)", description: "Iscritti negli ultimi 30 giorni" },
@@ -24,9 +55,57 @@ export const SEGMENT_DEFS: { key: SegmentKey; label: string; description: string
   { key: "marketing_optin", label: "Opt-in marketing", description: "Hanno acconsentito a comunicazioni" },
 ];
 
+/**
+ * Predicato Prisma "approssimato" per segmenti smart: filtra i candidati al
+ * meglio possibile in SQL, poi `listGuestsForSegment` raffina in memoria con
+ * regole più complesse (es. recency no-show, intervalli relativi).
+ */
 export function buildSegmentFilter(key: SegmentKey, opts: { now?: Date } = {}): Prisma.GuestWhereInput {
   const now = opts.now ?? new Date();
   switch (key) {
+    // ── Smart segments ──────────────────────────────────────────────
+    case "champions": {
+      // visite >=8, ultima <30gg, spesa >300, no anonimizzati
+      const cutoff = new Date(now);
+      cutoff.setDate(cutoff.getDate() - 30);
+      return {
+        totalVisits: { gte: 8 },
+        lastVisitAt: { gte: cutoff },
+        totalSpend: { gte: 300 },
+        anonymizedAt: null,
+      };
+    }
+    case "winback": {
+      // visite >=3, ultima fra 60 e 180gg fa, marketing opt-in true
+      const recent = new Date(now);
+      recent.setDate(recent.getDate() - 60);
+      const old = new Date(now);
+      old.setDate(old.getDate() - 180);
+      return {
+        totalVisits: { gte: 3 },
+        lastVisitAt: { lt: recent, gte: old },
+        marketingOptIn: true,
+        anonymizedAt: null,
+      };
+    }
+    case "at_risk_loyal":
+      // visite >=5 ma no-show >=2 (refinement recency in memoria)
+      return {
+        totalVisits: { gte: 5 },
+        noShowCount: { gte: 2 },
+        anonymizedAt: null,
+      };
+    case "high_value_silent": {
+      // spesa >500, ultima >=90gg fa
+      const cutoff = new Date(now);
+      cutoff.setDate(cutoff.getDate() - 90);
+      return {
+        totalSpend: { gte: 500 },
+        OR: [{ lastVisitAt: { lt: cutoff } }, { lastVisitAt: null }],
+        anonymizedAt: null,
+      };
+    }
+    // ── Standard segments ───────────────────────────────────────────
     case "vip":
       return { loyaltyTier: { in: ["VIP", "AMBASSADOR"] } };
     case "regulars_5":

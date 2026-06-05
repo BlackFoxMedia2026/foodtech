@@ -28,6 +28,7 @@ import { GuestQuickActions } from "@/components/guests/guest-quick-actions";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { getGuest } from "@/server/guests";
 import { loyaltyHistory } from "@/server/loyalty";
+import { computeNoShowRisk } from "@/server/risk";
 import { db } from "@/lib/db";
 import { formatCurrency, formatDate, formatDateTime, initials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -115,15 +116,19 @@ export default async function GuestDetail({
   const name = `${g.firstName} ${g.lastName ?? ""}`.trim();
   const totalSpendCents = Math.round(Number(g.totalSpend) * 100);
   const avgSpendCents = g.totalVisits > 0 ? Math.round(totalSpendCents / g.totalVisits) : 0;
-  const noShowRate = g.totalVisits > 0 ? Math.round((g.noShowCount / g.totalVisits) * 100) : 0;
-  const riskLabel =
-    noShowRate >= 30 ? "Alto" : noShowRate >= 10 ? "Medio" : g.totalVisits === 0 ? "—" : "Basso";
+  const risk = computeNoShowRisk({
+    guest: g,
+    recentBookings: g.bookings.slice(0, 20),
+  });
+  const riskLabel = risk.label === "Sconosciuto" ? "—" : risk.label;
   const riskTone =
-    noShowRate >= 30
+    risk.tone === "danger"
       ? "text-status-no-show"
-      : noShowRate >= 10
+      : risk.tone === "warning"
         ? "text-status-pending"
-        : "text-status-confirmed";
+        : risk.tone === "success"
+          ? "text-status-confirmed"
+          : "text-tertiary";
 
   const now = Date.now();
   const nextBooking = g.bookings
@@ -211,6 +216,8 @@ export default async function GuestDetail({
             canSeePrivate={canSeePrivate}
             canManageBookings={canManageBookings}
             canEditMarketing={canEditMarketing}
+            canManageVenue={can(ctx.role, "manage_venue")}
+            isAnonymized={Boolean(g.anonymizedAt)}
           />
         </div>
       </header>
@@ -228,7 +235,11 @@ export default async function GuestDetail({
           label="Rischio no-show"
           value={riskLabel}
           valueClassName={riskTone}
-          hint={g.totalVisits > 0 ? `${noShowRate}% storico` : "Nessun dato"}
+          hint={
+            risk.label === "Sconosciuto"
+              ? "Nuovo ospite"
+              : `score ${risk.score}/100${risk.reasons[0] ? ` · ${risk.reasons[0]}` : ""}`
+          }
         />
       </section>
 

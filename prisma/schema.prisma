@@ -315,6 +315,8 @@ model Guest {
   blocked        Boolean     @default(false)
   blockedReason  String?     @db.VarChar(400)
   blockedAt      DateTime?
+  anonymizedAt   DateTime? // GDPR right-to-be-forgotten: PII rimosse, storico booking/payment preservato
+  anonymizedBy   String? // userId che ha eseguito l'anonimizzazione (audit trail)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
