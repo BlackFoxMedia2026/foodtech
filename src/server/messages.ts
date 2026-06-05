@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { sendMessage } from "@/lib/messaging";
 import { captureError } from "@/lib/observability";
+import { notDeleted } from "@/server/soft-delete";
 
 type Channel = "EMAIL" | "SMS" | "WHATSAPP";
 
@@ -108,7 +109,7 @@ function escapeHtml(s: string) {
 
 export async function recentMessageLogs(venueId: string, limit = 100) {
   return db.messageLog.findMany({
-    where: { venueId },
+    where: { venueId, ...notDeleted },
     orderBy: { createdAt: "desc" },
     take: limit,
     include: {
@@ -123,7 +124,7 @@ export async function messageLogStats(venueId: string) {
   since.setDate(since.getDate() - 30);
   const groups = await db.messageLog.groupBy({
     by: ["channel", "status"],
-    where: { venueId, createdAt: { gte: since } },
+    where: { venueId, createdAt: { gte: since }, ...notDeleted },
     _count: { _all: true },
   });
   return groups.map((g) => ({

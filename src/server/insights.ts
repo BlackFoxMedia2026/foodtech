@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
+import { notDeleted } from "@/server/soft-delete";
 
 export async function getOverview(venueId: string, day: Date = new Date()) {
   const dayStart = startOfDay(day);
@@ -10,6 +11,7 @@ export async function getOverview(venueId: string, day: Date = new Date()) {
       venueId,
       startsAt: { gte: dayStart, lte: dayEnd },
       status: { not: "CANCELLED" },
+      ...notDeleted,
     },
     include: { guest: true, table: true },
     orderBy: { startsAt: "asc" },
@@ -93,5 +95,171 @@ export async function getOverview(venueId: string, day: Date = new Date()) {
     estimatedRevenueCents,
     trend,
     alerts,
+  };
+}
+
+// ─── Contesto proattivo per AI concierge ───────────────────────────────────────
+// Fetcha in parallelo gli aggregati che servono alle heuristic "actionable":
+// no-show risk imminente, VIP non assegnati, compleanni con booking attivo,
+// occupancy off-peak, detrattori NPS, coupon in scadenza, attese in waitlist.
+
+export type ProactiveContext = Awaited<ReturnType<typeof getProactiveContext>>;
+
+export async function getProactiveContext(venueId: string, now: Date = new Date()) {
+  const dayStart = startOfDay(now);
+  const dayEnd = endOfDay(now);
+  const in60 = new Date(now.getTime() + 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    imminentBookings,
+    todayBookingsForOccupancy,
+    activeTablesCount,
+    birthdayBookings,
+    detractors,
+    expiringCoupons,
+    waitlistEntries,
+  ] = await Promise.all([
+    // Booking confermati nei prossimi 60min con guest details
+    db.booking.findMany({
+      where: {
+        venueId,
+        startsAt: { gte: now, lte: in60 },
+        status: { in: ["CONFIRMED", "PENDING"] },
+        ...notDeleted,
+      },
+      select: {
+        id: true,
+        startsAt: true,
+        partySize: true,
+        tableId: true,
+        guest: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            noShowCount: true,
+            loyaltyTier: true,
+            birthday: true,
+          },
+        },
+      },
+      orderBy: { startsAt: "asc" },
+    }),
+    // Booking di oggi con startsAt + durationMin per calcolare occupancy oraria
+    db.booking.findMany({
+      where: {
+        venueId,
+        startsAt: { gte: dayStart, lte: dayEnd },
+        status: { in: ["CONFIRMED", "PENDING", "SEATED"] },
+        ...notDeleted,
+      },
+      select: { startsAt: true, durationMin: true, partySize: true },
+    }),
+    // Capacity proxy: somma seats dei tavoli attivi
+    db.table.aggregate({
+      where: { venueId, active: true },
+      _sum: { seats: true },
+    }).catch(() => ({ _sum: { seats: 0 } })),
+    // Compleanni oggi con booking attivo
+    db.booking.findMany({
+      where: {
+        venueId,
+        startsAt: { gte: dayStart, lte: dayEnd },
+        status: { in: ["CONFIRMED", "PENDING", "SEATED", "ARRIVED"] },
+        guest: { birthday: { not: null } },
+        ...notDeleted,
+      },
+      select: {
+        id: true,
+        startsAt: true,
+        guest: {
+          select: { id: true, firstName: true, lastName: true, birthday: true },
+        },
+      },
+    }),
+    // Detrattori NPS ultimi 7gg (npsScore <= 6)
+    db.surveyResponse.findMany({
+      where: {
+        createdAt: { gte: sevenDaysAgo },
+        npsScore: { lte: 6 },
+        survey: { venueId },
+      },
+      select: {
+        npsScore: true,
+        sentiment: true,
+        createdAt: true,
+        survey: { select: { guestId: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+    // Coupon attivi in scadenza entro 7gg
+    db.coupon.findMany({
+      where: {
+        venueId,
+        status: "ACTIVE",
+        validUntil: { gte: now, lte: in7Days },
+      },
+      select: {
+        id: true,
+        name: true,
+        validUntil: true,
+        maxRedemptions: true,
+        redemptionCount: true,
+      },
+    }),
+    // Waitlist attiva con wait time
+    db.waitlistEntry.findMany({
+      where: {
+        venueId,
+        status: { in: ["WAITING", "OFFERED", "NOTIFIED"] },
+      },
+      select: {
+        id: true,
+        expectedWaitMin: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  // Calcola occupancy nelle fasce 12-14 e 19-22 di oggi
+  const lunchSlot = { from: 12, to: 14 };
+  const dinnerSlot = { from: 19, to: 22 };
+  const totalSeats = (activeTablesCount as { _sum: { seats: number | null } })._sum.seats ?? 0;
+
+  function occupancyForSlot(slot: { from: number; to: number }) {
+    if (totalSeats <= 0) return null;
+    const slotStart = new Date(dayStart);
+    slotStart.setHours(slot.from, 0, 0, 0);
+    const slotEnd = new Date(dayStart);
+    slotEnd.setHours(slot.to, 0, 0, 0);
+    // Solo se il momento "now" è già nella fascia (no senso suggerire dopo)
+    if (now < slotStart || now > slotEnd) return null;
+    let covers = 0;
+    for (const b of todayBookingsForOccupancy) {
+      const bStart = new Date(b.startsAt);
+      const bEnd = new Date(bStart.getTime() + (b.durationMin ?? 105) * 60 * 1000);
+      // Overlap con la fascia
+      if (bEnd > slotStart && bStart < slotEnd) covers += b.partySize;
+    }
+    return covers / totalSeats;
+  }
+
+  const lunchOccupancy = occupancyForSlot(lunchSlot);
+  const dinnerOccupancy = occupancyForSlot(dinnerSlot);
+
+  return {
+    now,
+    imminentBookings,
+    birthdayBookings,
+    detractors,
+    expiringCoupons,
+    waitlistEntries,
+    lunchOccupancy,
+    dinnerOccupancy,
+    lunchSlot,
+    dinnerSlot,
   };
 }

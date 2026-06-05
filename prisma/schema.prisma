@@ -374,6 +374,7 @@ model Booking {
   venueId       String
   guestId       String?
   tableId       String?
+  combinedTableIds  String[]  @default([])  // Tavoli aggiuntivi oltre a tableId primario, per gruppi grandi
   partySize     Int
   startsAt      DateTime
   durationMin   Int           @default(105)
@@ -392,6 +393,8 @@ model Booking {
   arrivedAt     DateTime?
   seatedAt      DateTime?
   closedAt      DateTime?
+  deletedAt     DateTime?
+  deletedBy     String?
 
   venue      Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
   guest      Guest?             @relation(fields: [guestId], references: [id], onDelete: SetNull)
@@ -403,6 +406,7 @@ model Booking {
 
   @@index([venueId, startsAt])
   @@index([venueId, status])
+  @@index([venueId, deletedAt])
 }
 
 model BookingEvent {
@@ -768,12 +772,15 @@ model Payment {
   stripePaymentId String?
   createdAt       DateTime      @default(now())
   refundedAt      DateTime?
+  deletedAt       DateTime?
+  deletedBy       String?
 
   venue   Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   guest   Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
 
   @@index([venueId, createdAt])
+  @@index([venueId, deletedAt])
 }
 
 enum PaymentKind {
@@ -929,6 +936,8 @@ model CouponRedemption {
   notes       String?
   redeemedAt  DateTime @default(now())
   redeemedBy  String? // user id of staff member, when manual
+  deletedAt   DateTime?
+  deletedBy   String?
 
   coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
   venue  Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
@@ -937,6 +946,7 @@ model CouponRedemption {
   @@index([venueId, redeemedAt])
   @@index([couponId])
   @@index([guestId, redeemedAt])
+  @@index([venueId, deletedAt])
 }
 
 // ─── Review funnel ────────────────────────────────────────────────────────────
@@ -1004,6 +1014,8 @@ model MessageLog {
   deliveredAt   DateTime?
   failedAt      DateTime?
   createdAt     DateTime       @default(now())
+  deletedAt     DateTime?
+  deletedBy     String?
 
   venue       Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
   campaign    Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
@@ -1013,6 +1025,7 @@ model MessageLog {
   @@index([venueId, createdAt])
   @@index([campaignId])
   @@index([guestId, channel])
+  @@index([venueId, deletedAt])
 }
 
 enum MessageChannel {

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { notDeleted } from "@/server/soft-delete";
 
 export async function getAnalytics(venueId: string) {
   const since = new Date();
@@ -6,7 +7,7 @@ export async function getAnalytics(venueId: string) {
 
   const [bookings, guests, newGuestsCount] = await Promise.all([
     db.booking.findMany({
-      where: { venueId, startsAt: { gte: since } },
+      where: { venueId, startsAt: { gte: since }, ...notDeleted },
       select: { partySize: true, startsAt: true, status: true, source: true, guestId: true },
     }),
     db.guest.findMany({

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { startOfDay, endOfDay } from "@/lib/utils";
+import { notDeleted } from "@/server/soft-delete";
 
 export type VenueKpis = {
   venueId: string;
@@ -34,7 +35,7 @@ export async function getPortfolio(orgId: string) {
 
   const [allBookings, allTables, allGuests] = await Promise.all([
     db.booking.findMany({
-      where: { venueId: { in: venueIds }, startsAt: { gte: weekStart, lte: dayEnd } },
+      where: { venueId: { in: venueIds }, startsAt: { gte: weekStart, lte: dayEnd }, ...notDeleted },
       select: {
         venueId: true,
         partySize: true,

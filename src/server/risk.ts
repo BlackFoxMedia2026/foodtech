@@ -27,11 +27,19 @@ type RiskInput = {
     | "lastVisitAt"
     | "createdAt"
   >;
-  /** Storico recente per recency dei no-show (opzionale, max 20 bookings). */
-  recentBookings?: Pick<Booking, "status" | "startsAt">[];
+  /**
+   * Storico recente per recency dei no-show (opzionale, max 20 bookings).
+   * Per GDPR i record soft-deleted (`deletedAt != null`) NON devono
+   * influenzare il risk: vengono filtrati qui in difesa, oltre che dalle
+   * query upstream che già applicano `notDeleted`.
+   */
+  recentBookings?: (Pick<Booking, "status" | "startsAt"> & {
+    deletedAt?: Date | null;
+  })[];
 };
 
 export function computeNoShowRisk({ guest, recentBookings = [] }: RiskInput): NoShowRisk {
+  recentBookings = recentBookings.filter((b) => !b.deletedAt);
   const reasons: string[] = [];
   let score = 0;
 

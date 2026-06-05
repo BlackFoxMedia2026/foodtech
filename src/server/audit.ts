@@ -20,7 +20,13 @@ export type AuditAction =
   | "api_token.create"
   | "api_token.revoke"
   | "campaign.send"
-  | "automation.run";
+  | "automation.run"
+  | "booking.softDelete"
+  | "booking.restore"
+  | "payment.softDelete"
+  | "payment.restore"
+  | "messageLog.softDelete"
+  | "couponRedemption.softDelete";
 
 export type AuditLogInput = {
   orgId: string;

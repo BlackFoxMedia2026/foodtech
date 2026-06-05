@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { logAudit } from "@/server/audit";
+import { notDeleted } from "@/server/soft-delete";
 
 export const GuestInput = z.object({
   firstName: z.string().min(1),
@@ -39,6 +40,7 @@ export async function getGuest(venueId: string, id: string) {
     where: { id, venueId },
     include: {
       bookings: {
+        where: notDeleted,
         orderBy: { startsAt: "desc" },
         take: 30,
         include: { table: true },
