@@ -20,6 +20,7 @@ import {
   Settings,
   Star,
   Tv,
+  User as UserIcon,
   Users,
   Workflow,
 } from "lucide-react";
@@ -30,13 +31,14 @@ type Action = {
   id: string;
   label: string;
   hint?: string;
-  group: "Vai a" | "Azioni rapide";
+  sublabel?: string;
+  group: "Vai a" | "Azioni rapide" | "Ospiti";
   icon: LucideIcon;
   run: (router: ReturnType<typeof useRouter>) => void;
   keywords?: string[];
 };
 
-const ACTIONS: Action[] = [
+const STATIC_ACTIONS: Action[] = [
   // Quick actions
   {
     id: "new-booking",
@@ -56,121 +58,42 @@ const ACTIONS: Action[] = [
     keywords: ["walkin", "senza prenotazione"],
   },
   // Navigation
-  {
-    id: "nav-overview",
-    label: "Panoramica",
-    group: "Vai a",
-    icon: LayoutDashboard,
-    run: (r) => r.push("/overview"),
-  },
-  {
-    id: "nav-now",
-    label: "Sala live",
-    group: "Vai a",
-    icon: Tv,
-    run: (r) => r.push("/now"),
-  },
-  {
-    id: "nav-bookings",
-    label: "Prenotazioni",
-    group: "Vai a",
-    icon: CalendarRange,
-    run: (r) => r.push("/bookings"),
-  },
-  {
-    id: "nav-waitlist",
-    label: "Lista d'attesa",
-    group: "Vai a",
-    icon: Hourglass,
-    run: (r) => r.push("/waitlist"),
-  },
-  {
-    id: "nav-kitchen",
-    label: "Cucina",
-    group: "Vai a",
-    icon: ChefHat,
-    run: (r) => r.push("/kitchen"),
-  },
-  {
-    id: "nav-guests",
-    label: "CRM ospiti",
-    group: "Vai a",
-    icon: Users,
-    run: (r) => r.push("/guests"),
-    keywords: ["clienti", "crm"],
-  },
-  {
-    id: "nav-reviews",
-    label: "Recensioni",
-    group: "Vai a",
-    icon: Star,
-    run: (r) => r.push("/reviews"),
-  },
-  {
-    id: "nav-floor",
-    label: "Sala (editor)",
-    group: "Vai a",
-    icon: LayoutPanelLeft,
-    run: (r) => r.push("/floor"),
-  },
-  {
-    id: "nav-campaigns",
-    label: "Campagne",
-    group: "Vai a",
-    icon: Megaphone,
-    run: (r) => r.push("/campaigns"),
-  },
-  {
-    id: "nav-automations",
-    label: "Automazioni",
-    group: "Vai a",
-    icon: Workflow,
-    run: (r) => r.push("/automations"),
-  },
-  {
-    id: "nav-chat",
-    label: "Chatbot",
-    group: "Vai a",
-    icon: PhoneCall,
-    run: (r) => r.push("/chat"),
-  },
-  {
-    id: "nav-cockpit",
-    label: "Cockpit",
-    group: "Vai a",
-    icon: Gauge,
-    run: (r) => r.push("/cockpit"),
-  },
-  {
-    id: "nav-insights",
-    label: "Performance",
-    group: "Vai a",
-    icon: LineChart,
-    run: (r) => r.push("/insights"),
-    keywords: ["analytics"],
-  },
-  {
-    id: "nav-finance",
-    label: "Controllo economico",
-    group: "Vai a",
-    icon: PiggyBank,
-    run: (r) => r.push("/finance"),
-  },
-  {
-    id: "nav-settings",
-    label: "Impostazioni",
-    group: "Vai a",
-    icon: Settings,
-    run: (r) => r.push("/settings"),
-  },
+  { id: "nav-overview", label: "Panoramica", group: "Vai a", icon: LayoutDashboard, run: (r) => r.push("/overview") },
+  { id: "nav-now", label: "Sala live", group: "Vai a", icon: Tv, run: (r) => r.push("/now") },
+  { id: "nav-bookings", label: "Prenotazioni", group: "Vai a", icon: CalendarRange, run: (r) => r.push("/bookings") },
+  { id: "nav-waitlist", label: "Lista d'attesa", group: "Vai a", icon: Hourglass, run: (r) => r.push("/waitlist") },
+  { id: "nav-kitchen", label: "Cucina", group: "Vai a", icon: ChefHat, run: (r) => r.push("/kitchen") },
+  { id: "nav-guests", label: "CRM ospiti", group: "Vai a", icon: Users, run: (r) => r.push("/guests"), keywords: ["clienti", "crm"] },
+  { id: "nav-reviews", label: "Recensioni", group: "Vai a", icon: Star, run: (r) => r.push("/reviews") },
+  { id: "nav-floor", label: "Sala (editor)", group: "Vai a", icon: LayoutPanelLeft, run: (r) => r.push("/floor") },
+  { id: "nav-campaigns", label: "Campagne", group: "Vai a", icon: Megaphone, run: (r) => r.push("/campaigns") },
+  { id: "nav-automations", label: "Automazioni", group: "Vai a", icon: Workflow, run: (r) => r.push("/automations") },
+  { id: "nav-chat", label: "Chatbot", group: "Vai a", icon: PhoneCall, run: (r) => r.push("/chat") },
+  { id: "nav-cockpit", label: "Cockpit", group: "Vai a", icon: Gauge, run: (r) => r.push("/cockpit") },
+  { id: "nav-insights", label: "Performance", group: "Vai a", icon: LineChart, run: (r) => r.push("/insights"), keywords: ["analytics"] },
+  { id: "nav-finance", label: "Controllo economico", group: "Vai a", icon: PiggyBank, run: (r) => r.push("/finance") },
+  { id: "nav-settings", label: "Impostazioni", group: "Vai a", icon: Settings, run: (r) => r.push("/settings") },
 ];
+
+type GuestSearchResult = {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  loyaltyTier: string;
+  totalVisits: number;
+};
 
 export function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [guests, setGuests] = useState<GuestSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -187,21 +110,88 @@ export function CommandPalette() {
     if (open) {
       setQuery("");
       setActiveIndex(0);
+      setGuests([]);
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [open]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return ACTIONS;
-    return ACTIONS.filter((a) => {
-      const haystack = [a.label, ...(a.keywords ?? [])].join(" ").toLowerCase();
-      return haystack.includes(q);
-    });
+  // Async guest search (debounced)
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setGuests([]);
+      setSearching(false);
+      abortRef.current?.abort();
+      return;
+    }
+
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+
+    const id = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/guests?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setGuests([]);
+          return;
+        }
+        const data = (await res.json()) as GuestSearchResult[];
+        setGuests(data.slice(0, 6));
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setGuests([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 220);
+
+    return () => {
+      clearTimeout(id);
+      controller.abort();
+    };
   }, [query]);
 
+  const guestActions = useMemo<Action[]>(
+    () =>
+      guests.map((g) => {
+        const name = `${g.firstName} ${g.lastName ?? ""}`.trim();
+        const sub =
+          g.email ?? g.phone ?? `${g.totalVisits} visite · ${g.loyaltyTier.toLowerCase()}`;
+        return {
+          id: `guest-${g.id}`,
+          label: name,
+          sublabel: sub,
+          group: "Ospiti" as const,
+          icon: UserIcon,
+          run: (r) => r.push(`/guests/${g.id}`),
+          keywords: [g.email ?? "", g.phone ?? "", g.lastName ?? ""].filter(Boolean),
+        };
+      }),
+    [guests],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const staticFiltered = !q
+      ? STATIC_ACTIONS
+      : STATIC_ACTIONS.filter((a) => {
+          const haystack = [a.label, ...(a.keywords ?? [])].join(" ").toLowerCase();
+          return haystack.includes(q);
+        });
+    return [...guestActions, ...staticFiltered];
+  }, [query, guestActions]);
+
   const grouped = useMemo(() => {
-    const out: Record<string, Action[]> = { "Azioni rapide": [], "Vai a": [] };
+    const out: Record<string, Action[]> = {
+      Ospiti: [],
+      "Azioni rapide": [],
+      "Vai a": [],
+    };
     for (const a of filtered) out[a.group].push(a);
     return out;
   }, [filtered]);
@@ -240,9 +230,14 @@ export function CommandPalette() {
               setActiveIndex(0);
             }}
             onKeyDown={onKey}
-            placeholder="Cerca o esegui un'azione…"
+            placeholder="Cerca ospite, vai a sezione, esegui azione…"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-tertiary"
           />
+          {searching && (
+            <span className="text-[10.5px] font-medium uppercase tracking-[0.14em] text-tertiary">
+              cerco…
+            </span>
+          )}
           <span className="kbd">Esc</span>
         </div>
         <div className="max-h-[420px] overflow-y-auto p-2">
@@ -277,8 +272,22 @@ export function CommandPalette() {
                                 : "text-foreground/90 hover:bg-secondary/60",
                             )}
                           >
-                            <Icon className="h-4 w-4 text-tertiary" />
-                            <span className="flex-1 text-left">{action.label}</span>
+                            <Icon
+                              className={cn(
+                                "h-4 w-4",
+                                action.group === "Ospiti"
+                                  ? "text-gilt-light"
+                                  : "text-tertiary",
+                              )}
+                            />
+                            <div className="min-w-0 flex-1 text-left">
+                              <p className="truncate">{action.label}</p>
+                              {action.sublabel && (
+                                <p className="truncate text-[11px] text-tertiary">
+                                  {action.sublabel}
+                                </p>
+                              )}
+                            </div>
                             {action.hint && <span className="kbd">{action.hint}</span>}
                             <ArrowRight
                               className={cn(

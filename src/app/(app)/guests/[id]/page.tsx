@@ -13,6 +13,7 @@ import {
   Phone,
   Plus,
   ShieldAlert,
+  ShoppingBag,
   Sparkles,
   Ticket,
   XCircle,
@@ -23,6 +24,7 @@ import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoyaltyPill, StatusPill, type BookingStatusKey, type LoyaltyKey } from "@/components/ui/status-pill";
 import { LoyaltyBlockActions } from "@/components/guests/loyalty-block-actions";
+import { GuestQuickActions } from "@/components/guests/guest-quick-actions";
 import { can, getActiveVenue } from "@/lib/tenant";
 import { getGuest } from "@/server/guests";
 import { loyaltyHistory } from "@/server/loyalty";
@@ -30,7 +32,7 @@ import { db } from "@/lib/db";
 import { formatCurrency, formatDate, formatDateTime, initials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-type Tab = "panoramica" | "marketing" | "loyalty";
+type Tab = "panoramica" | "vendite" | "marketing" | "loyalty";
 
 export default async function GuestDetail({
   params,
@@ -51,7 +53,9 @@ export default async function GuestDetail({
       ? "marketing"
       : searchParams.tab === "loyalty"
         ? "loyalty"
-        : "panoramica";
+        : searchParams.tab === "vendite"
+          ? "vendite"
+          : "panoramica";
 
   const txns = await loyaltyHistory(g.id, tab === "loyalty" ? 50 : 8);
 
@@ -72,6 +76,41 @@ export default async function GuestDetail({
           }),
         ])
       : [[], []];
+
+  const [orders, tickets, surveys] =
+    tab === "vendite"
+      ? await Promise.all([
+          db.order.findMany({
+            where: { guestId: g.id, venueId: ctx.venueId },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            include: { items: true },
+          }),
+          g.email
+            ? db.ticket.findMany({
+                where: {
+                  buyerEmail: g.email,
+                  experience: { venueId: ctx.venueId },
+                },
+                orderBy: { createdAt: "desc" },
+                take: 20,
+                include: {
+                  experience: { select: { title: true, startsAt: true } },
+                },
+              })
+            : Promise.resolve([]),
+          db.survey.findMany({
+            where: {
+              venueId: ctx.venueId,
+              guestId: g.id,
+              response: { isNot: null },
+            },
+            orderBy: { sentAt: "desc" },
+            take: 10,
+            include: { response: true },
+          }),
+        ])
+      : [[], [], []];
 
   const name = `${g.firstName} ${g.lastName ?? ""}`.trim();
   const totalSpendCents = Math.round(Number(g.totalSpend) * 100);
@@ -162,31 +201,17 @@ export default async function GuestDetail({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
-          {g.phone && (
-            <Button asChild variant="outline" size="sm">
-              <a href={`tel:${g.phone}`}>
-                <Phone className="h-3.5 w-3.5" /> Chiama
-              </a>
-            </Button>
-          )}
-          {g.email && (
-            <Button asChild variant="outline" size="sm">
-              <a href={`mailto:${g.email}`}>
-                <Mail className="h-3.5 w-3.5" /> Email
-              </a>
-            </Button>
-          )}
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/guests/${g.id}/journey`}>
-              <Clock className="h-3.5 w-3.5" /> Storia
-            </Link>
-          </Button>
-          <Button asChild variant="gold" size="sm">
-            <Link href={`/bookings/new?guestId=${g.id}`}>
-              <Plus className="h-3.5 w-3.5" /> Prenota
-            </Link>
-          </Button>
+        <div className="lg:max-w-[520px]">
+          <GuestQuickActions
+            guestId={g.id}
+            guestName={name}
+            phone={g.phone}
+            email={g.email}
+            loyaltyTier={g.loyaltyTier as "NEW" | "REGULAR" | "VIP" | "AMBASSADOR"}
+            canSeePrivate={canSeePrivate}
+            canManageBookings={canManageBookings}
+            canEditMarketing={canEditMarketing}
+          />
         </div>
       </header>
 
@@ -208,9 +233,12 @@ export default async function GuestDetail({
       </section>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-border">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border">
         <TabLink href={`/guests/${g.id}`} active={tab === "panoramica"}>
           Panoramica
+        </TabLink>
+        <TabLink href={`/guests/${g.id}?tab=vendite`} active={tab === "vendite"}>
+          Vendite
         </TabLink>
         <TabLink href={`/guests/${g.id}?tab=marketing`} active={tab === "marketing"}>
           Marketing
@@ -444,6 +472,155 @@ export default async function GuestDetail({
           </PanelBody>
         </Panel>
       </section>
+      )}
+
+      {tab === "vendite" && (
+        <section className="grid gap-6 lg:grid-cols-3">
+          <Panel>
+            <PanelHeader
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4 text-tertiary" /> Ordini
+                </span>
+              }
+              description={`${orders.length} ordini delivery/asporto`}
+            />
+            <PanelBody className="pt-0">
+              {orders.length === 0 ? (
+                <EmptyState
+                  icon={ShoppingBag}
+                  title="Nessun ordine"
+                  description="Asporto e delivery legati a questo ospite appariranno qui."
+                />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {orders.map((o) => (
+                    <li key={o.id} className="py-2.5 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate font-medium">
+                          {o.kind === "DELIVERY" ? "Delivery" : "Asporto"}
+                          <span className="ml-2 font-mono text-[11px] text-tertiary">
+                            #{o.reference.slice(0, 8)}
+                          </span>
+                        </p>
+                        <span className="text-display text-numeric text-sm font-medium">
+                          {formatCurrency(o.totalCents, ctx.venue.currency)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-tertiary">
+                        {o.items.length} articoli ·{" "}
+                        {formatDateTime(o.createdAt)} · {o.status}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </PanelBody>
+          </Panel>
+
+          <Panel>
+            <PanelHeader
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-tertiary" /> Eventi & Ticket
+                </span>
+              }
+              description={`${tickets.length} ticket acquistati`}
+            />
+            <PanelBody className="pt-0">
+              {tickets.length === 0 ? (
+                <EmptyState
+                  icon={Ticket}
+                  title="Nessun ticket"
+                  description="Eventi e ticket comprati appariranno qui."
+                />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {tickets.map((t) => (
+                    <li key={t.id} className="py-2.5 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate font-medium">
+                          {t.experience?.title ?? "Esperienza"}
+                        </p>
+                        <span className="text-display text-numeric text-sm font-medium">
+                          {formatCurrency(t.totalCents, ctx.venue.currency)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-tertiary">
+                        {t.quantity} ticket ·{" "}
+                        {t.experience?.startsAt
+                          ? formatDateTime(t.experience.startsAt)
+                          : ""}{" "}
+                        · {t.status}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </PanelBody>
+          </Panel>
+
+          <Panel>
+            <PanelHeader
+              title="Feedback & NPS"
+              description={`${surveys.length} sondaggi compilati`}
+            />
+            <PanelBody className="pt-0">
+              {surveys.length === 0 ? (
+                <EmptyState
+                  icon={Heart}
+                  title="Nessun feedback"
+                  description="Le risposte ai sondaggi post-visita appariranno qui."
+                />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {surveys.map((s) => {
+                    if (!s.response) return null;
+                    const sentiment = s.response.sentiment;
+                    const tone =
+                      sentiment === "PROMOTER"
+                        ? "text-status-confirmed bg-status-confirmed-soft"
+                        : sentiment === "PASSIVE"
+                          ? "text-status-pending bg-status-pending-soft"
+                          : "text-status-no-show bg-status-no-show-soft";
+                    const sentimentLabel =
+                      sentiment === "PROMOTER"
+                        ? "Promotore"
+                        : sentiment === "PASSIVE"
+                          ? "Passivo"
+                          : "Detrattore";
+                    return (
+                      <li key={s.id} className="py-2.5 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-display text-numeric text-xl font-medium leading-none">
+                            {s.response.npsScore}
+                            <span className="ml-0.5 text-xs text-tertiary">/10</span>
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+                              tone,
+                            )}
+                          >
+                            {sentimentLabel}
+                          </span>
+                        </div>
+                        {s.response.comment && (
+                          <p className="mt-1 line-clamp-2 text-xs italic text-tertiary">
+                            “{s.response.comment}”
+                          </p>
+                        )}
+                        <p className="mt-0.5 text-[10.5px] text-tertiary">
+                          {formatDateTime(s.response.createdAt)}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </PanelBody>
+          </Panel>
+        </section>
       )}
 
       {tab === "marketing" && (
