@@ -26,7 +26,13 @@ export type AuditAction =
   | "payment.softDelete"
   | "payment.restore"
   | "messageLog.softDelete"
-  | "couponRedemption.softDelete";
+  | "couponRedemption.softDelete"
+  | "user.2fa.enabled"
+  | "user.2fa.disabled"
+  | "user.2fa.recovery_codes.regenerate"
+  | "user.2fa.recovery_code.consumed"
+  | "preorder.upsell.shown"
+  | "preorder.upsell.clicked";
 
 export type AuditLogInput = {
   orgId: string;

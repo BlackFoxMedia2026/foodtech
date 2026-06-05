@@ -59,7 +59,7 @@ export default async function SettingsPage() {
     db.campaign.count({ where: { venueId: ctx.venueId, createdAt: { gte: since30d } } }),
     db.user.findUnique({
       where: { id: ctx.userId },
-      select: { totpEnabled: true },
+      select: { totpEnabled: true, recoveryCodesHash: true },
     }),
     db.organization.findUnique({
       where: { id: ctx.orgId },
@@ -101,7 +101,10 @@ export default async function SettingsPage() {
         canEdit={can(ctx.role, "manage_venue")}
       />
 
-      <SecurityCard initialEnabled={me?.totpEnabled ?? false} />
+      <SecurityCard
+        initialEnabled={me?.totpEnabled ?? false}
+        initialRecoveryCodesRemaining={me?.recoveryCodesHash?.length ?? 0}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <VenuesCard

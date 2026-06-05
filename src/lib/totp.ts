@@ -105,6 +105,92 @@ export function verifyTotp(secret: string, code: string, drift = 1): boolean {
   return false;
 }
 
+// ─── Recovery codes ──────────────────────────────────────────────────────────
+//
+// Standard industry: 10 codici one-shot emessi quando il setup TOTP è
+// confermato. Formato "XXXX-XXXX-XXXX" (12 char base32 raggruppati 4-4-4)
+// — leggibile, copiabile, stampabile. Salviamo solo lo sha256 hex: la lista
+// plaintext è restituita UNA volta e mai più recuperabile.
+//
+// `consumeRecoveryCode` è timing-safe: confronta tutti gli hash anche dopo un
+// match, così la durata non rivela quale indice abbia matchato.
+
+const RECOVERY_GROUP = 4;
+const RECOVERY_GROUPS = 3;
+const RECOVERY_LEN = RECOVERY_GROUP * RECOVERY_GROUPS; // 12 char
+
+export function generateRecoveryCodes(count = 10): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    // 6 bytes base32-encoded danno ~9-10 char senza padding; ne prendiamo 12 da
+    // 8 byte (base32 di 8 byte = 13 char, taglio a 12). I primi 12 char di un
+    // alfabeto a 32 simboli == ~60 bit di entropia per codice.
+    const raw = base32Encode(crypto.randomBytes(8)).slice(0, RECOVERY_LEN);
+    const padded = raw.padEnd(RECOVERY_LEN, "A");
+    const groups: string[] = [];
+    for (let g = 0; g < RECOVERY_GROUPS; g++) {
+      groups.push(padded.slice(g * RECOVERY_GROUP, (g + 1) * RECOVERY_GROUP));
+    }
+    out.push(groups.join("-"));
+  }
+  return out;
+}
+
+/**
+ * Normalizza un codice (upper-case, rimuove dash/spazi) prima di confrontare:
+ * l'utente può digitare con o senza dash, in qualsiasi case.
+ */
+export function normalizeRecoveryCode(code: string): string {
+  return code.replace(/[\s-]+/g, "").toUpperCase();
+}
+
+export function hashRecoveryCode(code: string): string {
+  return crypto.createHash("sha256").update(normalizeRecoveryCode(code)).digest("hex");
+}
+
+export function consumeRecoveryCode(
+  stored: string[],
+  submitted: string,
+): { ok: boolean; remaining: string[] } {
+  const candidate = normalizeRecoveryCode(submitted);
+  // Reject early on length: un recovery code denormalizzato vale 12 char base32.
+  if (candidate.length !== RECOVERY_LEN) {
+    return { ok: false, remaining: stored };
+  }
+  const candidateHash = hashRecoveryCode(candidate);
+  const candidateBuf = Buffer.from(candidateHash, "hex");
+  let matchedIdx = -1;
+  // Confronto in tempo costante su TUTTI gli hash, anche dopo un eventuale
+  // match, per non leak'are quale indice abbia matchato.
+  for (let i = 0; i < stored.length; i++) {
+    const slot = stored[i]!;
+    if (slot.length !== candidateHash.length) continue;
+    const slotBuf = Buffer.from(slot, "hex");
+    if (slotBuf.length !== candidateBuf.length) continue;
+    if (crypto.timingSafeEqual(slotBuf, candidateBuf) && matchedIdx === -1) {
+      matchedIdx = i;
+    }
+  }
+  if (matchedIdx === -1) {
+    return { ok: false, remaining: stored };
+  }
+  const remaining = stored.filter((_, i) => i !== matchedIdx);
+  return { ok: true, remaining };
+}
+
+/**
+ * Riconosce se la stringa input ASSOMIGLIA a un recovery code (12 char base32
+ * dopo normalizzazione) invece di un codice TOTP a 6 cifre. Serve al provider
+ * di sign-in per decidere quale percorso seguire.
+ */
+export function looksLikeRecoveryCode(input: string): boolean {
+  const norm = normalizeRecoveryCode(input);
+  if (norm.length !== RECOVERY_LEN) return false;
+  // Rifiuta se contiene solo cifre (sarebbe un TOTP estremamente lungo, non un
+  // recovery code base32 che è alfabetico-prevalent).
+  return /^[A-Z2-7]+$/.test(norm);
+}
+
 export function buildOtpAuthUrl(
   secret: string,
   accountName: string,

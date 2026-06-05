@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 
+// Accetta 6 cifre (TOTP) o 12 char base32 (recovery code, con o senza dash).
+function isAcceptableTotpInput(value: string): boolean {
+  if (/^\d{6}$/.test(value)) return true;
+  const norm = value.replace(/-/g, "").toUpperCase();
+  return /^[A-Z2-7]{12}$/.test(norm);
+}
+
 function GoogleIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
@@ -68,8 +75,13 @@ function SignInForm() {
       return;
     }
     if (res?.error === "2fa_invalid") {
-      setError("Codice 2FA errato. Riprova.");
+      setError("Codice 2FA o recovery code errato. Riprova.");
       toast.error("Codice 2FA errato");
+      return;
+    }
+    if (res?.error === "too_many_attempts") {
+      setError("Troppi tentativi. Riprova fra qualche minuto.");
+      toast.error("Troppi tentativi");
       return;
     }
     if (res?.error) {
@@ -196,20 +208,36 @@ function SignInForm() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="totp">Codice 2FA</Label>
+              <Label htmlFor="totp">Codice 2FA o recovery code</Label>
               <Input
                 id="totp"
                 name="totp"
-                inputMode="numeric"
                 autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
+                // Accetta sia "123456" (6 cifre TOTP) sia "ABCD-EFGH-IJKL"
+                // (recovery code 12 char base32 + 2 dash = 14). Per supportare
+                // entrambi togliamo il pattern stretto: validiamo via JS.
+                maxLength={14}
                 required
                 autoFocus
                 value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="123456"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  // Se inizia con cifre o è tutto numerico → flusso TOTP (solo 6 cifre).
+                  // Altrimenti permetti A-Z 2-7 e dash (recovery code).
+                  if (/^\d*$/.test(raw)) {
+                    setTotpCode(raw.slice(0, 6));
+                  } else {
+                    setTotpCode(
+                      raw.toUpperCase().replace(/[^A-Z2-7-]/g, "").slice(0, 14),
+                    );
+                  }
+                }}
+                placeholder="123456 oppure XXXX-XXXX-XXXX"
               />
+              <p className="text-xs text-muted-foreground">
+                Hai perso il device? Usa un recovery code (formato{" "}
+                <code className="font-mono">XXXX-XXXX-XXXX</code>).
+              </p>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -227,7 +255,11 @@ function SignInForm() {
               >
                 Indietro
               </Button>
-              <Button type="submit" className="flex-1" disabled={loading || totpCode.length !== 6}>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={loading || !isAcceptableTotpInput(totpCode)}
+              >
                 {loading ? "Verifica…" : "Verifica"}
               </Button>
             </div>

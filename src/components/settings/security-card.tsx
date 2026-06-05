@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { ShieldCheck, ShieldOff, KeyRound } from "lucide-react";
+import { ShieldCheck, ShieldOff, KeyRound, Copy, Download, Printer, RefreshCw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -16,7 +16,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 
-type Stage = "idle" | "setup" | "confirm" | "disable";
+// Stage = "show-codes" appare DOPO una conferma riuscita o un regenerate:
+// l'utente vede la lista in chiaro UNA volta sola e deve confermare di averla
+// salvata. Da quel momento solo gli hash restano in DB.
+type Stage = "idle" | "confirm" | "disable" | "show-codes" | "regenerate";
 
 type SetupResponse = {
   secret: string;
@@ -24,13 +27,23 @@ type SetupResponse = {
   qrCodeUrl: string;
 };
 
-export function SecurityCard({ initialEnabled }: { initialEnabled: boolean }) {
+export function SecurityCard({
+  initialEnabled,
+  initialRecoveryCodesRemaining,
+}: {
+  initialEnabled: boolean;
+  initialRecoveryCodesRemaining: number;
+}) {
   const { toast } = useToast();
   const [enabled, setEnabled] = useState(initialEnabled);
+  const [recoveryRemaining, setRecoveryRemaining] = useState(
+    initialRecoveryCodesRemaining,
+  );
   const [stage, setStage] = useState<Stage>("idle");
   const [setupData, setSetupData] = useState<SetupResponse | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   async function startSetup() {
     setBusy(true);
@@ -65,15 +78,28 @@ export function SecurityCard({ initialEnabled }: { initialEnabled: boolean }) {
         body: JSON.stringify({ code: code.trim() }),
       });
       if (!res.ok) {
-        toast.error("Codice 2FA errato", "Verifica l'orario del device e riprova.");
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(
+          "Codice 2FA errato",
+          body.error === "too_many_attempts"
+            ? "Troppi tentativi, riprova fra qualche minuto."
+            : "Verifica l'orario del device e riprova.",
+        );
         setBusy(false);
         return;
       }
+      const body = (await res.json()) as { ok: true; recoveryCodes?: string[] };
       toast.success("2FA attivato");
       setEnabled(true);
-      setStage("idle");
       setSetupData(null);
       setCode("");
+      if (body.recoveryCodes && body.recoveryCodes.length > 0) {
+        setRecoveryCodes(body.recoveryCodes);
+        setRecoveryRemaining(body.recoveryCodes.length);
+        setStage("show-codes");
+      } else {
+        setStage("idle");
+      }
     } finally {
       setBusy(false);
     }
@@ -88,17 +114,106 @@ export function SecurityCard({ initialEnabled }: { initialEnabled: boolean }) {
         body: JSON.stringify({ code: code.trim() }),
       });
       if (!res.ok) {
-        toast.error("Disattivazione non riuscita", "Codice TOTP errato.");
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(
+          "Disattivazione non riuscita",
+          body.error === "too_many_attempts"
+            ? "Troppi tentativi, riprova fra qualche minuto."
+            : "Codice TOTP errato.",
+        );
         setBusy(false);
         return;
       }
       toast.success("2FA disattivato");
       setEnabled(false);
+      setRecoveryRemaining(0);
       setStage("idle");
       setCode("");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function regenerateRecoveryCodes() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/2fa/recovery-codes/regenerate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ totpCode: code.trim() }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(
+          "Rigenerazione non riuscita",
+          body.error === "too_many_attempts"
+            ? "Troppi tentativi, riprova fra qualche minuto."
+            : "Codice TOTP errato.",
+        );
+        setBusy(false);
+        return;
+      }
+      const body = (await res.json()) as { ok: true; recoveryCodes: string[] };
+      setRecoveryCodes(body.recoveryCodes);
+      setRecoveryRemaining(body.recoveryCodes.length);
+      setCode("");
+      setStage("show-codes");
+      toast.success("Nuovi recovery codes generati");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ─── Recovery codes helpers ────────────────────────────────────────────────
+  const codesPlainText = recoveryCodes.join("\n");
+
+  async function copyAllCodes() {
+    try {
+      await navigator.clipboard.writeText(codesPlainText);
+      toast.success("Codici copiati");
+    } catch {
+      toast.error("Copia non riuscita");
+    }
+  }
+
+  function downloadCodes() {
+    const blob = new Blob(
+      [
+        "Tavolo · Recovery codes 2FA\n",
+        "Conserva questo file in un posto sicuro.\n",
+        "Ogni codice si usa una sola volta.\n\n",
+        codesPlainText,
+        "\n",
+      ],
+      { type: "text/plain;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tavolo-recovery-codes.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function printCodes() {
+    const w = window.open("", "_blank", "noopener");
+    if (!w) return;
+    w.document.write(
+      `<!doctype html><html><head><title>Recovery codes Tavolo</title>
+       <style>body{font:14px/1.5 system-ui;padding:32px;color:#111}
+       h1{font-size:18px;margin:0 0 12px}
+       p{margin:0 0 16px;color:#555}
+       ul{list-style:none;padding:0;margin:0;font-family:ui-monospace,monospace;font-size:16px}
+       li{padding:4px 0;border-bottom:1px dashed #ddd}</style></head>
+       <body><h1>Recovery codes Tavolo</h1>
+       <p>Ogni codice si usa una sola volta. Conservali in un posto sicuro.</p>
+       <ul>${recoveryCodes.map((c) => `<li>${c}</li>`).join("")}</ul>
+       <script>window.onload=()=>window.print()</script>
+       </body></html>`,
+    );
+    w.document.close();
   }
 
   return (
@@ -137,8 +252,6 @@ export function SecurityCard({ initialEnabled }: { initialEnabled: boolean }) {
             </p>
             <div className="flex flex-wrap items-start gap-4">
               <div className="rounded-md border bg-white p-2">
-                {/* unoptimized: il QR arriva da provider esterno, non vogliamo
-                    farlo passare per /_next/image. */}
                 <Image
                   src={setupData.qrCodeUrl}
                   alt="QR code 2FA"
@@ -201,17 +314,130 @@ export function SecurityCard({ initialEnabled }: { initialEnabled: boolean }) {
           </div>
         )}
 
+        {stage === "show-codes" && (
+          <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
+            <div>
+              <p className="text-sm font-medium">
+                Salva questi 10 recovery codes
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Non li rivedrai più. Ogni codice si usa una sola volta. Usali se
+                perdi l&apos;app di autenticazione.
+              </p>
+            </div>
+            <ul className="grid grid-cols-2 gap-1.5 rounded-md border bg-background p-3 font-mono text-sm">
+              {recoveryCodes.map((c) => (
+                <li key={c} className="select-all">
+                  {c}
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={copyAllCodes}>
+                <Copy className="h-3.5 w-3.5" /> Copia tutti
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={downloadCodes}>
+                <Download className="h-3.5 w-3.5" /> Scarica TXT
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={printCodes}>
+                <Printer className="h-3.5 w-3.5" /> Stampa
+              </Button>
+              <div className="grow" />
+              <Button
+                type="button"
+                size="sm"
+                variant="gold"
+                onClick={() => {
+                  setRecoveryCodes([]);
+                  setStage("idle");
+                }}
+              >
+                Ho salvato i codici
+              </Button>
+            </div>
+          </div>
+        )}
+
         {enabled && stage === "idle" && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setStage("disable");
-              setCode("");
-            }}
-          >
-            <ShieldOff className="h-3.5 w-3.5" /> Disattiva 2FA
-          </Button>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3 rounded-md border bg-background p-3 text-sm">
+              <KeyRound className="h-4 w-4 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="font-medium">Recovery codes</p>
+                <p className="text-xs text-muted-foreground">
+                  Rimasti: {recoveryRemaining}/10 ·{" "}
+                  {recoveryRemaining <= 3
+                    ? "Stai per esaurirli, rigenerali."
+                    : "Tienili al sicuro per emergenze."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setStage("regenerate");
+                  setCode("");
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Rigenera
+              </Button>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setStage("disable");
+                setCode("");
+              }}
+            >
+              <ShieldOff className="h-3.5 w-3.5" /> Disattiva 2FA
+            </Button>
+          </div>
+        )}
+
+        {enabled && stage === "regenerate" && (
+          <div className="space-y-3 rounded-md border bg-background p-3">
+            <p className="text-sm">
+              Inserisci il codice TOTP corrente per generare 10 nuovi recovery
+              codes. I codici esistenti verranno invalidati.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="regen-code">Codice 2FA</Label>
+              <Input
+                id="regen-code"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="123456"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStage("idle");
+                  setCode("");
+                }}
+                disabled={busy}
+              >
+                Annulla
+              </Button>
+              <Button
+                type="button"
+                variant="gold"
+                size="sm"
+                onClick={regenerateRecoveryCodes}
+                disabled={busy || code.length !== 6}
+              >
+                {busy ? "Generazione…" : "Rigenera"}
+              </Button>
+            </div>
+          </div>
         )}
 
         {enabled && stage === "disable" && (

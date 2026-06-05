@@ -14,17 +14,21 @@ datasource db {
 // ─── Identità ────────────────────────────────────────────────────────────────
 
 model User {
-  id               String            @id @default(cuid())
-  email            String            @unique
-  name             String?
-  passwordHash     String?
-  image            String?
-  totpSecret       String? // base32-encoded TOTP secret, null = 2FA disabled
-  totpEnabled      Boolean           @default(false) // confirmed setup (verified at least once)
-  createdAt        DateTime          @default(now())
-  orgMemberships   OrgMembership[]
-  venueMemberships VenueMembership[]
-  sessions         Session[]
+  id                String            @id @default(cuid())
+  email             String            @unique
+  name              String?
+  passwordHash      String?
+  image             String?
+  totpSecret        String? // base32-encoded TOTP secret, null = 2FA disabled
+  totpEnabled       Boolean           @default(false) // confirmed setup (verified at least once)
+  // sha256 hex degli unico-uso recovery codes; ne emettiamo 10 alla conferma
+  // 2FA e ne consumiamo uno per accesso in caso di device perso. Mai memorizzati
+  // in chiaro: l'utente riceve plaintext UNA SOLA volta al setup/regenerate.
+  recoveryCodesHash String[]          @default([])
+  createdAt         DateTime          @default(now())
+  orgMemberships    OrgMembership[]
+  venueMemberships  VenueMembership[]
+  sessions          Session[]
 }
 
 model Session {
@@ -387,32 +391,32 @@ enum LoyaltyTier {
 // ─── Prenotazioni ────────────────────────────────────────────────────────────
 
 model Booking {
-  id            String        @id @default(cuid())
-  reference     String        @unique @default(cuid())
-  venueId       String
-  guestId       String?
-  tableId       String?
-  combinedTableIds  String[]  @default([])  // Tavoli aggiuntivi oltre a tableId primario, per gruppi grandi
-  partySize     Int
-  startsAt      DateTime
-  durationMin   Int           @default(105)
-  status        BookingStatus @default(CONFIRMED)
-  source        BookingSource @default(WIDGET)
-  occasion      Occasion?
-  notes         String?
-  internalNotes String?
-  depositCents  Int           @default(0)
-  depositStatus DepositStatus @default(NONE)
-  isGroup       Boolean       @default(false)
-  eventType     String?       @db.VarChar(60)
-  budgetCents   Int?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  arrivedAt     DateTime?
-  seatedAt      DateTime?
-  closedAt      DateTime?
-  deletedAt     DateTime?
-  deletedBy     String?
+  id               String        @id @default(cuid())
+  reference        String        @unique @default(cuid())
+  venueId          String
+  guestId          String?
+  tableId          String?
+  combinedTableIds String[]      @default([]) // Tavoli aggiuntivi oltre a tableId primario, per gruppi grandi
+  partySize        Int
+  startsAt         DateTime
+  durationMin      Int           @default(105)
+  status           BookingStatus @default(CONFIRMED)
+  source           BookingSource @default(WIDGET)
+  occasion         Occasion?
+  notes            String?
+  internalNotes    String?
+  depositCents     Int           @default(0)
+  depositStatus    DepositStatus @default(NONE)
+  isGroup          Boolean       @default(false)
+  eventType        String?       @db.VarChar(60)
+  budgetCents      Int?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  arrivedAt        DateTime?
+  seatedAt         DateTime?
+  closedAt         DateTime?
+  deletedAt        DateTime?
+  deletedBy        String?
 
   venue      Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
   guest      Guest?             @relation(fields: [guestId], references: [id], onDelete: SetNull)
@@ -793,6 +797,18 @@ model Payment {
   deletedAt       DateTime?
   deletedBy       String?
 
+  // FX snapshot at the time of incasso — frozen for fiscal audit / cash
+  // reconciliation. Reporting must aggregate `fxAmountBaseCents` (when set)
+  // instead of converting current-day, so historical reports remain stable
+  // across years.
+  //
+  // Nullable for backward-compatibility: rows created before this snapshot
+  // was introduced have null fields. A backfill script (TODO) can replay
+  // historical ECB rates via Frankfurter `/{date}` to populate them.
+  fxRateToBase      Decimal? @db.Decimal(12, 6)
+  fxBaseCurrency    String?  @db.VarChar(3)
+  fxAmountBaseCents Int?
+
   venue   Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   guest   Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
@@ -943,7 +959,7 @@ enum CouponCategory {
 }
 
 model CouponRedemption {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   couponId    String
   venueId     String
   guestId     String?
@@ -952,7 +968,7 @@ model CouponRedemption {
   ticketId    String?
   amountCents Int? // discount applied at redemption
   notes       String?
-  redeemedAt  DateTime @default(now())
+  redeemedAt  DateTime  @default(now())
   redeemedBy  String? // user id of staff member, when manual
   deletedAt   DateTime?
   deletedBy   String?
