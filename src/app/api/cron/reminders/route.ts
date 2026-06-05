@@ -6,6 +6,7 @@ import { scanScheduledTriggers } from "@/server/automations";
 import { buildManageLink } from "@/server/booking-self-service";
 import { expireOldOffers } from "@/server/waitlist-promotion";
 import { pruneOldNotifications } from "@/server/notifications";
+import { getRate } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -41,6 +42,10 @@ export async function GET(req: Request) {
     console.error("[cron:reminders] pruneOldNotifications failed", e);
     return { deleted: 0 };
   });
+  const fx = await refreshFxRates().catch((e) => {
+    console.error("[cron:reminders] refreshFxRates failed", e);
+    return { pairs: 0, refreshed: 0 };
+  });
 
   return NextResponse.json({
     h24: tomorrow,
@@ -49,7 +54,39 @@ export async function GET(req: Request) {
     automations: "scanned",
     offersExpired: offers.expired,
     notificationsPruned: pruned.deleted,
+    fxPairs: fx.pairs,
+    fxRefreshed: fx.refreshed,
   });
+}
+
+// Warm the ExchangeRate cache once a day: for each (venue currency → org
+// baseCurrency) pair, ensure we have a fresh rate. Calling getRate() handles
+// the day-bucket cache check + Frankfurter fetch + stale fallback for us.
+async function refreshFxRates() {
+  const orgs = await db.organization.findMany({
+    select: {
+      baseCurrency: true,
+      venues: { select: { currency: true }, where: { active: true } },
+    },
+  });
+  const pairs = new Set<string>();
+  for (const o of orgs) {
+    for (const v of o.venues) {
+      if (v.currency === o.baseCurrency) continue;
+      pairs.add(`${v.currency}|${o.baseCurrency}`);
+    }
+  }
+  let refreshed = 0;
+  for (const key of pairs) {
+    const [from, to] = key.split("|");
+    try {
+      await getRate(from, to);
+      refreshed++;
+    } catch (e) {
+      console.warn(`[cron:fx] ${from}->${to} failed`, e);
+    }
+  }
+  return { pairs: pairs.size, refreshed };
 }
 
 async function dispatchH24(now: Date) {

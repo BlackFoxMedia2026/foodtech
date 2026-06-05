@@ -13,7 +13,7 @@ import { getPortfolio } from "@/server/portfolio";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { Stat } from "@/components/ui/stat";
 import { PortfolioTrend } from "@/components/portfolio/portfolio-trend";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,12 @@ export default async function PortfolioPage() {
   const ctx = await getActiveVenue();
   const data = await getPortfolio(ctx.orgId);
 
+  const baseCurrency = data.baseCurrency ?? "EUR";
+  const totalRevenueLabel = formatCurrency(
+    data.aggregate.totalRevenueCents ?? 0,
+    baseCurrency,
+  );
+  const convertedFrom = data.aggregate.convertedFromCurrencies ?? 0;
   return (
     <div className="space-y-6 animate-fade-in">
       <header>
@@ -28,7 +34,10 @@ export default async function PortfolioPage() {
           Analytics · Multi-locale
         </p>
         <h1 className="text-display mt-1 text-[34px] font-medium leading-tight tracking-tight">
-          Portfolio · {ctx.org.name}
+          Portfolio · {ctx.org.name}{" "}
+          <span className="text-base font-normal text-secondary">
+            (valori in {baseCurrency})
+          </span>
         </h1>
         <p className="mt-1 text-sm text-secondary">
           Vista aggregata su{" "}
@@ -38,9 +47,18 @@ export default async function PortfolioPage() {
       </header>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <Stat label="Coperti oggi" value={data.aggregate.todayCovers} hint="totali nei locali" emphasized />
+        <Stat
+          label="Ricavi totali 7gg"
+          value={totalRevenueLabel}
+          hint={
+            convertedFrom > 1
+              ? `Convertito da ${convertedFrom} valute`
+              : `in ${baseCurrency}`
+          }
+          emphasized
+        />
+        <Stat label="Coperti oggi" value={data.aggregate.todayCovers} hint="totali nei locali" />
         <Stat label="Prenotazioni oggi" value={data.aggregate.todayBookings} hint="cross-locale" />
-        <Stat label="Capienza totale" value={`${data.aggregate.totalCapacity}`} hint="posti disponibili" />
         <Stat label="Ospiti CRM" value={data.aggregate.totalGuests} hint="profili tracciati" />
       </section>
 
@@ -109,6 +127,18 @@ export default async function PortfolioPage() {
                 />
                 <Metric icon={<Crown className="h-3.5 w-3.5" />} label="VIP oggi" value={`${v.vipShareToday}%`} />
                 <Metric icon={<Calendar className="h-3.5 w-3.5" />} label="Caparre attive" value={String(v.upcomingDeposits)} />
+                <Metric
+                  icon={<ArrowUpRight className="h-3.5 w-3.5" />}
+                  label={`Ricavi 7gg (${v.currency})`}
+                  value={formatCurrency(v.weekRevenueCents, v.currency)}
+                />
+                {v.currency !== baseCurrency && (
+                  <Metric
+                    icon={<ArrowUpRight className="h-3.5 w-3.5" />}
+                    label={`≈ ${baseCurrency}`}
+                    value={formatCurrency(v.weekRevenueCentsBase, baseCurrency)}
+                  />
+                )}
               </div>
               <div className="space-y-1.5">
                 <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
