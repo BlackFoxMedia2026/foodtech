@@ -243,7 +243,7 @@ export default async function CampaignsPage() {
           )}
           {logs.length === 0 ? (
             <p className="text-sm text-tertiary">
-              Nessun messaggio in coda. Crea una campagna o attiva un'automazione per popolare il log.
+              Nessun messaggio in coda. Crea una campagna o attiva un&apos;automazione per popolare il log.
             </p>
           ) : (
             <ul className="divide-y divide-border">

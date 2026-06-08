@@ -725,7 +725,7 @@ function CouponDialog({
         <DialogHeader>
           <DialogTitle>Applica coupon</DialogTitle>
           <DialogDescription>
-            Inserisci il codice del coupon e (opzionale) l'importo dello sconto applicato in cassa.
+            Inserisci il codice del coupon e (opzionale) l&apos;importo dello sconto applicato in cassa.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -809,7 +809,7 @@ function WhatsAppDialog({
         <DialogHeader>
           <DialogTitle>Invia WhatsApp a {firstName}</DialogTitle>
           <DialogDescription>
-            Apre WhatsApp Web/desktop con il testo precompilato. L'invio resta manuale.
+            Apre WhatsApp Web/desktop con il testo precompilato. L&apos;invio resta manuale.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
