@@ -8,6 +8,7 @@ import {
 } from "@/lib/totp";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/server/audit";
+import { sendUserSecurityEmail } from "@/server/security-email";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,18 @@ export async function POST(req: Request) {
       userAgent: req.headers.get("user-agent") ?? null,
     });
   }
+
+  // Email out-of-band: notifica all'utente che i vecchi recovery codes sono
+  // invalidi. Se non è stato lui a rigenerarli è una red flag forte. Fire-
+  // and-forget, catch interno.
+  void sendUserSecurityEmail({
+    userId,
+    kind: "2fa.recovery_codes.regenerate",
+    metadata: {
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: req.headers.get("user-agent") ?? null,
+    },
+  });
 
   return NextResponse.json({ ok: true, recoveryCodes: plaintextRecoveryCodes });
 }

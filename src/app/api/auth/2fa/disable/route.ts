@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { verifyTotp } from "@/lib/totp";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/server/audit";
+import { sendUserSecurityEmail } from "@/server/security-email";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,18 @@ export async function POST(req: Request) {
       userAgent: req.headers.get("user-agent") ?? null,
     });
   }
+
+  // Email out-of-band: la disattivazione del 2FA è un evento critico (un
+  // attaccante che ha hijackato la sessione la userebbe per togliere il
+  // secondo fattore). Fire-and-forget, catch interno.
+  void sendUserSecurityEmail({
+    userId,
+    kind: "2fa.disabled",
+    metadata: {
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: req.headers.get("user-agent") ?? null,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

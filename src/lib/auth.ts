@@ -12,6 +12,7 @@ import {
 import { rateLimit } from "./rate-limit";
 import { logAudit } from "@/server/audit";
 import { pushNotification } from "@/server/notifications";
+import { sendUserSecurityEmail } from "@/server/security-email";
 
 // NextAuth's CredentialsProvider passa `req.headers` come Record<string,string>
 // (NON come `Headers`). Il nostro `rateLimit()` accetta un `Request` standard:
@@ -98,6 +99,22 @@ export const authOptions: NextAuthOptions = {
             await db.user.update({
               where: { id: user.id },
               data: { recoveryCodesHash: result.remaining },
+            });
+            // Email security alert out-of-band: l'utente sta usando un codice
+            // di emergenza, deve sapere SUBITO se non è stato lui (account
+            // compromesso). Fire-and-forget, catch interno: un fallimento
+            // dell'invio NON deve bloccare il login.
+            void sendUserSecurityEmail({
+              userId: user.id,
+              kind: "2fa.recovery_code.used",
+              metadata: {
+                ip,
+                userAgent:
+                  (req?.headers as Record<string, string> | undefined)?.[
+                    "user-agent"
+                  ] ?? null,
+                remaining: result.remaining.length,
+              },
             });
             // Audit log dell'uso: dato che è la procedura di emergenza
             // vogliamo traccia chiara, incluso quanti codici restano.

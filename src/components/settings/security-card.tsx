@@ -480,6 +480,9 @@ export function SecurityCard({
                 {busy ? "Disattivazione…" : "Disattiva"}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Riceverai una mail di conferma all&apos;indirizzo dell&apos;account.
+            </p>
           </div>
         )}
       </CardContent>

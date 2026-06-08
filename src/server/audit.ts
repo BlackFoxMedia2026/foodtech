@@ -32,6 +32,7 @@ export type AuditAction =
   | "user.2fa.disabled"
   | "user.2fa.recovery_codes.regenerate"
   | "user.2fa.recovery_code.consumed"
+  | "email.security.sent"
   | "preorder.upsell.shown"
   | "preorder.upsell.clicked";
 
