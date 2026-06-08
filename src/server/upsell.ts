@@ -20,6 +20,14 @@
 //   futura andrebbe estratta in una mappa per `Venue.country`.
 
 import { db } from "@/lib/db";
+import { loadUpsellStats, type UpsellStats } from "@/server/upsell-ranking";
+
+// Threshold for switching from price-asc to CTR-weighted ranking. We require
+// at least 50 shown events in `RANKING_LOOKBACK_DAYS` so the smoothed CTR
+// has real signal across multiple `(reason, menuItemId)` pairs — below that
+// the additive prior dominates and we'd just be reshuffling noise.
+const RANKING_MIN_SHOWS = 50;
+const RANKING_LOOKBACK_DAYS = 60;
 
 export type UpsellReason =
   | "wine_pairing"
@@ -170,11 +178,44 @@ function pickCheapest(
     .map((c) => ({ id: c.id, name: c.name, priceCents: c.priceCents }));
 }
 
+// CTR-weighted variant: sort by smoothedCtr desc for the given `reason`,
+// falling back to price-asc when an item has no recorded shows.
+function pickByCtr(
+  candidates: TaggedItem[],
+  excludeIds: Set<string>,
+  reason: UpsellReason,
+  statsByKey: Map<string, UpsellStats>,
+  limit = MAX_ITEMS_PER_HINT,
+) {
+  const scored = candidates
+    .filter((c) => !excludeIds.has(c.id))
+    .map((c) => {
+      const s = statsByKey.get(`${reason}::${c.id}`);
+      return {
+        item: c,
+        smoothedCtr: s?.smoothedCtr ?? 1 / 5, // prior 20% for unseen items
+        priceCents: c.priceCents,
+      };
+    })
+    .sort((a, b) => {
+      if (b.smoothedCtr !== a.smoothedCtr) return b.smoothedCtr - a.smoothedCtr;
+      return a.priceCents - b.priceCents;
+    })
+    .slice(0, limit);
+  return scored.map(({ item }) => ({
+    id: item.id,
+    name: item.name,
+    priceCents: item.priceCents,
+  }));
+}
+
 export async function suggestUpsells(opts: {
   venueId: string;
   currentItems: { menuItemId: string | null; quantity: number }[];
+  useCtrRanking?: boolean;
 }): Promise<UpsellHint[]> {
   const venueId = opts.venueId;
+  const useCtrRanking = opts.useCtrRanking ?? true;
   const cartIds = new Set(
     opts.currentItems.map((c) => c.menuItemId).filter((x): x is string => !!x),
   );
@@ -212,13 +253,45 @@ export async function suggestUpsells(opts: {
     return sum + (match ? match.priceCents * it.quantity : 0);
   }, 0);
 
+  // Try CTR-weighted ranking when enabled. We bail out (and silently fall
+  // back to price-asc) on any query error or when the venue is still cold
+  // — see RANKING_MIN_SHOWS for the threshold rationale.
+  let statsByKey: Map<string, UpsellStats> | null = null;
+  if (useCtrRanking) {
+    try {
+      const stats = await loadUpsellStats(venueId, RANKING_LOOKBACK_DAYS);
+      const totalShows = stats.reduce((sum, s) => sum + s.showCount, 0);
+      if (totalShows >= RANKING_MIN_SHOWS) {
+        statsByKey = new Map<string, UpsellStats>();
+        for (const s of stats) {
+          statsByKey.set(`${s.reason}::${s.menuItemId}`, s);
+        }
+      }
+    } catch (e) {
+      // Fail-open: ranking is a nice-to-have, never block the core flow.
+      console.error("[upsell] loadUpsellStats failed, falling back", e);
+      statsByKey = null;
+    }
+  }
+
+  const pick = (
+    candidates: TaggedItem[],
+    excludeIds: Set<string>,
+    reason: UpsellReason,
+    limit = MAX_ITEMS_PER_HINT,
+  ) =>
+    statsByKey
+      ? pickByCtr(candidates, excludeIds, reason, statsByKey, limit)
+      : pickCheapest(candidates, excludeIds, limit);
+
   const hints: UpsellHint[] = [];
 
   // (a) Red wine pairing — meat / pasta-with-meat / generic main, NO wine yet.
   if ((cartHas("meat") || cartHas("pasta") || cartHas("main")) && !cartHas("any_wine")) {
-    const reds = pickCheapest(
+    const reds = pick(
       activeItems.filter((i) => i.roles.has("red_wine")),
       cartIds,
+      "wine_pairing",
     );
     if (reds.length > 0) {
       hints.push({
@@ -237,9 +310,10 @@ export async function suggestUpsells(opts: {
     !cartHas("any_wine") &&
     !hints.some((h) => h.reason === "wine_pairing")
   ) {
-    const whites = pickCheapest(
+    const whites = pick(
       activeItems.filter((i) => i.roles.has("white_wine")),
       cartIds,
+      "white_wine_pairing",
     );
     if (whites.length > 0) {
       hints.push({
@@ -252,9 +326,10 @@ export async function suggestUpsells(opts: {
 
   // (c) Coffee after — there's a dessert, no hot drink yet.
   if (cartHas("dessert") && !cartHas("hot_drink")) {
-    const drinks = pickCheapest(
+    const drinks = pick(
       activeItems.filter((i) => i.roles.has("hot_drink")),
       cartIds,
+      "coffee_after",
     );
     if (drinks.length > 0) {
       hints.push({
@@ -267,9 +342,10 @@ export async function suggestUpsells(opts: {
 
   // (d) Antipasto missing — at least one main, zero starter.
   if (cartHas("main") && !cartHas("starter")) {
-    const starters = pickCheapest(
+    const starters = pick(
       activeItems.filter((i) => i.roles.has("starter")),
       cartIds,
+      "antipasto",
       2,
     );
     if (starters.length > 0) {
@@ -283,9 +359,10 @@ export async function suggestUpsells(opts: {
 
   // (e) Dessert missing — main + cart > 30€ + no dessert yet.
   if (cartHas("main") && cartTotalCents >= 3000 && !cartHas("dessert")) {
-    const desserts = pickCheapest(
+    const desserts = pick(
       activeItems.filter((i) => i.roles.has("dessert")),
       cartIds,
+      "dessert",
       2,
     );
     if (desserts.length > 0) {
@@ -300,7 +377,7 @@ export async function suggestUpsells(opts: {
   // (f) Dietary complement — if user picked a VEGAN dish, surface other
   // vegan options so the menu feels consistent (e.g. vegan dessert).
   if (cartHasDietary("VEGAN")) {
-    const vegans = pickCheapest(
+    const vegans = pick(
       activeItems.filter(
         (i) =>
           i.dietary.includes("VEGAN") &&
@@ -308,6 +385,7 @@ export async function suggestUpsells(opts: {
           !hints.some((h) => h.suggestedItems.some((s) => s.id === i.id)),
       ),
       cartIds,
+      "dietary_complement",
     );
     if (vegans.length > 0) {
       hints.push({

@@ -57,6 +57,8 @@ export async function POST(
 
   if (hints.length > 0) {
     // Fire-and-forget audit trail (logAudit already swallows errors).
+    // Diff carries the full (reason, suggestedItemIds[]) breakdown so the
+    // CTR-ranking job can attribute each shown event to its specific item.
     void logAudit({
       orgId: ctx.orgId,
       venueId: ctx.venueId,
@@ -64,7 +66,12 @@ export async function POST(
       action: "preorder.upsell.shown",
       entityType: "Preorder",
       entityId: booking.id,
-      diff: { reasons: hints.map((h) => h.reason) },
+      diff: {
+        hints: hints.map((h) => ({
+          reason: h.reason,
+          suggestedItemIds: h.suggestedItems.map((s) => s.id),
+        })),
+      },
     });
   }
 

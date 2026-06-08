@@ -192,6 +192,26 @@ export default async function SettingsPage() {
 
       <TemplatesCard initial={templates} canEdit={canEditMarketing} />
 
+      {can(ctx.role, "manage_venue") && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance upsell concierge</CardTitle>
+            <CardDescription>
+              Tasso di conversione dei suggerimenti automatici del pre-order. Usa
+              i dati reali per capire quali abbinamenti funzionano davvero.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <a
+              href="/settings/upsell-stats"
+              className="inline-flex items-center gap-2 rounded-md border border-border/60 px-3 py-1.5 text-sm font-medium hover:bg-foreground/5"
+            >
+              Apri statistiche upsell
+            </a>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Turni di servizio</CardTitle>
