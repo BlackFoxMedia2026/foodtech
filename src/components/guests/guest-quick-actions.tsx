@@ -6,6 +6,7 @@ import {
   Calendar,
   Check,
   Crown,
+  Download,
   Mail,
   MessageSquare,
   NotebookPen,
@@ -16,6 +17,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +57,7 @@ export function GuestQuickActions({
   isAnonymized = false,
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const [, startTransition] = useTransition();
   const [pending, setPending] = useState<string | null>(null);
 
@@ -63,7 +66,53 @@ export function GuestQuickActions({
   const [couponOpen, setCouponOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [gdprOpen, setGdprOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  async function exportGdpr() {
+    if (!canManageVenue || exporting) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/guests/${guestId}/export`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        toast.error("Export GDPR non riuscito.");
+        return;
+      }
+      // Read counts header before consuming body as blob.
+      const countsHeader = res.headers.get("x-record-counts");
+      const counts = countsHeader
+        ? (JSON.parse(countsHeader) as Record<string, number>)
+        : null;
+      const cd = res.headers.get("content-disposition") ?? "";
+      const fnMatch = cd.match(/filename="([^"]+)"/);
+      const filename = fnMatch?.[1] ?? `tavolo-guest-${guestId}.json`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      if (counts) {
+        toast.success(
+          "Dati esportati",
+          `${counts.bookings} prenotazioni, ${counts.orders} ordini, ${counts.payments} pagamenti, ${counts.messageLogs} messaggi, ${counts.loyaltyTransactions} loyalty, ${counts.consentLogs} consensi.`,
+        );
+      } else {
+        toast.success("Dati esportati");
+      }
+    } catch {
+      toast.error("Export GDPR non riuscito.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const isVip = loyaltyTier === "VIP" || loyaltyTier === "AMBASSADOR";
 
@@ -186,6 +235,20 @@ export function GuestQuickActions({
             className="text-status-no-show hover:bg-status-no-show-soft"
           >
             <ShieldAlert className="h-3.5 w-3.5" /> GDPR
+          </Button>
+        )}
+
+        {/* GDPR Art. 20 data portability export (Manager only) */}
+        {canManageVenue && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={exportGdpr}
+            disabled={exporting}
+            title="Esporta tutti i dati personali in formato JSON (GDPR Art. 20)"
+          >
+            <Download className="h-3.5 w-3.5" />{" "}
+            {exporting ? "Esporto…" : "Esporta dati GDPR"}
           </Button>
         )}
       </div>

@@ -5,6 +5,7 @@ export type AuditAction =
   | "guest.create"
   | "guest.update"
   | "guest.anonymize"
+  | "guest.export"
   | "guest.block"
   | "guest.unblock"
   | "payment.refund"
